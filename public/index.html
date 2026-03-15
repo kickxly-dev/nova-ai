@@ -1793,10 +1793,41 @@ function runCode() {
         output.className = 'code-output-content error';
         output.textContent = '❌ Invalid JSON: ' + err.message;
       }
+    } else if (lang === 'python') {
+      // Run Python via backend API
+      output.innerHTML = '<span style="color:var(--accent)">⏳ Running Python...</span>';
+      
+      fetch('/api/python', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, userToken: userToken })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
+        
+        if (data.error) {
+          output.className = 'code-output-content error';
+          output.textContent = '❌ Error: ' + data.error;
+        } else {
+          output.className = 'code-output-content success';
+          output.textContent = data.output || '✓ Executed successfully (no output)';
+          if (data.stderr) {
+            output.textContent += '\n\n⚠️ Stderr:\n' + data.stderr;
+          }
+        }
+      })
+      .catch(function(err) {
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
+        output.className = 'code-output-content error';
+        output.textContent = '❌ Failed to run Python. Make sure the server has Python installed.\n\nError: ' + err.message;
+      });
     } else {
       timer.textContent = '';
       output.className = 'code-output-content warning';
-      output.textContent = '⚠️ ' + lang.toUpperCase() + ' cannot run in browser.\n\nUse the AI assistant to help write code, then run it locally.\n\nFor Python, try: python -c "your code"';
+      output.textContent = '⚠️ ' + lang.toUpperCase() + ' cannot run in browser.\n\nUse the AI assistant to help write code, then run it locally.';
     }
   }, 10);
 }

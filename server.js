@@ -299,7 +299,70 @@ app.post('/api/search', async (req, res) => {
   }
 });
 
-// ─── Fallback ────────────────────────────────────────────────────────────────
+// ─── API: Python Execution ────────────────────────────────────────────────────
+const { spawn } = require('child_process');
+
+app.post('/api/python', async (req, res) => {
+  const { code, userToken } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ error: 'Code is required' });
+  }
+
+  // Security: limit execution time and code length
+  if (code.length > 10000) {
+    return res.status(400).json({ error: 'Code too long (max 10KB)' });
+  }
+
+  // Run Python with timeout
+  const timeout = 10000; // 10 seconds
+  let output = '';
+  let stderr = '';
+  let timedOut = false;
+
+  const python = spawn('python3', ['-c', code], {
+    timeout: timeout,
+    shell: false,
+  });
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    python.kill('SIGKILL');
+  }, timeout);
+
+  python.stdout.on('data', (data) => {
+    output += data.toString();
+  });
+
+  python.stderr.on('data', (data) => {
+    stderr += data.toString();
+  });
+
+  python.on('close', (code) => {
+    clearTimeout(timer);
+
+    if (timedOut) {
+      return res.json({ error: 'Execution timed out (10s limit)', output, stderr });
+    }
+
+    if (code !== 0 && !output) {
+      return res.json({ error: stderr || 'Python error', output, stderr });
+    }
+
+    res.json({ output: output.trim(), stderr: stderr.trim() });
+  });
+
+  python.on('error', (err) => {
+    clearTimeout(timer);
+    if (err.code === 'ENOENT') {
+      res.json({ error: 'Python3 not installed on server. Contact admin.' });
+    } else {
+      res.json({ error: err.message });
+    }
+  });
+});
+
+// ─── Fallback ────────────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
