@@ -234,7 +234,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (DeepAI - Free tier) ───────────────────────────────
+// ─── API: Image Generation (Fetch and return base64) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
   const { prompt } = req.body;
 
@@ -242,44 +242,47 @@ app.post('/api/image', async (req, res) => {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
-  try {
-    // DeepAI free API (no key required for basic usage)
-    const formData = new URLSearchParams();
-    formData.append('text', prompt);
-    
-    const response = await fetch('https://api.deepai.org/api/text2img', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData
-    });
-
-    const data = await response.json();
-    
-    if (data.output_url) {
-      res.json({
-        data: [{
-          url: data.output_url,
-          revised_prompt: prompt
-        }]
-      });
-    } else {
-      throw new Error('No image URL returned');
+  // Try multiple free APIs
+  const apis = [
+    {
+      name: 'Pollinations',
+      getUrl: (p) => `https://image.pollinations.ai/prompt/${encodeURIComponent(p.substring(0,150))}?width=512&height=512`
+    },
+    {
+      name: 'Picsum',
+      getUrl: (p) => `https://picsum.photos/seed/${Math.random().toString(36).slice(2)}/512/512`
     }
-  } catch (err) {
-    // Fallback to Pollinations
-    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
-    const randomSeed = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}&width=512&height=512`;
-    
-    res.json({
-      data: [{
-        url: imageUrl,
-        revised_prompt: prompt
-      }]
-    });
+  ];
+
+  for (const api of apis) {
+    try {
+      const imageUrl = api.getUrl(prompt);
+      console.log(`Trying ${api.name}: ${imageUrl}`);
+      
+      const response = await fetch(imageUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      
+      if (response.ok) {
+        const buffer = await response.buffer();
+        const base64 = buffer.toString('base64');
+        const mimeType = response.headers.get('content-type') || 'image/png';
+        
+        console.log(`${api.name} succeeded, returning base64`);
+        return res.json({
+          data: [{
+            url: `data:${mimeType};base64,${base64}`,
+            revised_prompt: prompt
+          }]
+        });
+      }
+    } catch (err) {
+      console.log(`${api.name} failed: ${err.message}`);
+    }
   }
+
+  // All failed - return error
+  res.status(500).json({ error: { message: 'All image APIs failed. Please try again.' } });
 });
 
 // ─── API: Web Search (Tavily) ────────────────────────────────────────────────
