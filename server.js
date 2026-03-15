@@ -234,48 +234,12 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Placeholder with prompt text) ───────────────────────────────
+// ─── API: Image Generation (Coming Soon) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
-  const { prompt } = req.body;
-
-  if (!prompt) {
-    return res.status(400).json({ error: { message: 'Prompt is required' } });
-  }
-
-  // Generate a unique placeholder image using DiceBear (very reliable)
-  const seed = encodeURIComponent(prompt.substring(0, 50));
-  const imageUrl = `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${seed}&size=512`;
-  
-  try {
-    // Fetch and return as base64
-    const response = await fetch(imageUrl);
-    if (response.ok) {
-      const buffer = await response.buffer();
-      const base64 = buffer.toString('base64');
-      return res.json({
-        data: [{
-          url: `data:image/svg+xml;base64,${base64}`,
-          revised_prompt: prompt
-        }]
-      });
-    }
-  } catch (err) {
-    console.log('DiceBear failed:', err.message);
-  }
-
-  // Fallback: generate simple SVG with text
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
-    <rect width="512" height="512" fill="#8b5cf6"/>
-    <text x="256" y="240" text-anchor="middle" fill="white" font-size="20" font-family="Arial">${prompt.substring(0, 30)}</text>
-    <text x="256" y="280" text-anchor="middle" fill="white" font-size="14" font-family="Arial">[Image Placeholder]</text>
-  </svg>`;
-  const base64 = Buffer.from(svg).toString('base64');
-  
-  res.json({
-    data: [{
-      url: `data:image/svg+xml;base64,${base64}`,
-      revised_prompt: prompt
-    }]
+  res.status(503).json({ 
+    error: { 
+      message: 'Image generation coming soon! We\'re working on integrating a free AI image API. Check back later.' 
+    } 
   });
 });
 
