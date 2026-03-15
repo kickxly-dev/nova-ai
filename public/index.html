@@ -182,6 +182,57 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .code-find-bar button { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text2); cursor: pointer; }
 .code-find-bar button:hover { background: var(--surface3); color: var(--text); }
 .code-find-count { font-size: 11px; color: var(--muted); min-width: 60px; }
+/* File Tabs */
+.code-file-tabs { display: flex; align-items: center; gap: 2px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.code-file-tab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: transparent; border: none; border-bottom: 2px solid transparent; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.code-file-tab:hover { background: var(--surface2); color: var(--text2); }
+.code-file-tab.active { background: var(--surface2); color: var(--text); border-bottom-color: var(--accent); }
+.code-file-tab .close-btn { width: 14px; height: 14px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; opacity: 0; transition: opacity 0.15s; }
+.code-file-tab:hover .close-btn { opacity: 1; }
+.code-file-tab .close-btn:hover { background: var(--red); color: #fff; }
+.code-new-tab { padding: 4px 8px; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.code-new-tab:hover { color: var(--text); background: var(--surface2); border-radius: 4px; }
+/* Autocomplete */
+.code-autocomplete { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); display: none; min-width: 220px; }
+.code-autocomplete.open { display: block; }
+.code-autocomplete-item { padding: 6px 10px; cursor: pointer; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+.code-autocomplete-item:hover, .code-autocomplete-item.selected { background: var(--accent-glow); color: var(--text); }
+.code-autocomplete-item .ac-icon { width: 18px; height: 18px; background: var(--surface2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--accent); }
+.code-autocomplete-item .ac-type { font-size: 9px; color: var(--muted); margin-left: auto; font-family: var(--mono); }
+/* Error Markers */
+.code-error-line { background: rgba(239,68,68,0.1) !important; }
+.code-error-gutter { color: var(--red) !important; }
+.code-error-widget { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(239,68,68,0.1); border-top: 1px solid rgba(239,68,68,0.3); padding: 4px 12px; font-size: 11px; color: var(--red); display: none; }
+.code-error-widget.show { display: block; }
+/* Preview Panel */
+.code-preview-panel { display: none; flex-direction: column; background: var(--surface); border-left: 1px solid var(--border); }
+.code-preview-panel.active { display: flex; }
+.code-preview-header { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: space-between; }
+.code-preview-frame { flex: 1; background: #fff; border: none; }
+.code-preview-mobile { padding: 4px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--muted); cursor: pointer; }
+.code-preview-mobile:hover { color: var(--text); }
+/* Quick Actions */
+.code-quick-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 10; opacity: 0; transition: opacity 0.15s; }
+.code-editor-container:hover .code-quick-actions { opacity: 1; }
+.code-quick-btn { padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--muted); cursor: pointer; font-family: var(--mono); }
+.code-quick-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Command Palette */
+.code-command-palette { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 400px; max-width: 90vw; box-shadow: var(--shadow-lg); z-index: 200; display: none; }
+.code-command-palette.open { display: block; animation: scaleIn 0.15s ease; }
+.code-command-input { width: 100%; padding: 12px 16px; background: transparent; border: none; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text); outline: none; }
+.code-command-input::placeholder { color: var(--muted); }
+.code-command-list { max-height: 300px; overflow-y: auto; padding: 8px; }
+.code-command-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text2); display: flex; align-items: center; justify-content: space-between; }
+.code-command-item:hover, .code-command-item.selected { background: var(--accent-glow); color: var(--text); }
+.code-command-item kbd { padding: 2px 6px; background: var(--surface2); border-radius: 4px; font-size: 10px; font-family: var(--mono); color: var(--muted); }
+/* Minimap */
+.code-minimap { width: 80px; background: #0a0a0c; overflow: hidden; position: relative; opacity: 0.6; transition: opacity 0.15s; }
+.code-minimap:hover { opacity: 1; }
+.code-minimap-content { transform: scale(0.15); transform-origin: top left; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--muted2); white-space: pre; pointer-events: none; }
+.code-minimap-viewport { position: absolute; background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.3); pointer-events: none; }
+/* AI Loading */
+.code-ai-loading { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--accent-glow); border-radius: 4px; font-size: 10px; color: var(--accent-light); }
+.code-ai-loading .dot { width: 4px; height: 4px; background: var(--accent); border-radius: 50%; animation: bounce 1s infinite; }
 
 /* DESKTOP */
 #desktop-app { display: flex; height: 100dvh; }
@@ -432,12 +483,22 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       <div><h2>NOVA Code</h2><span>AI-Powered Editor</span></div>
     </div>
     <div class="code-actions-bar">
+      <button class="code-btn" onclick="toggleCommandPalette()" title="Command Palette (Ctrl+P)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Commands</button>
+      <button class="code-btn" onclick="togglePreview()" id="preview-btn" title="Live Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Preview</button>
       <button class="code-btn" onclick="toggleFindBar()" id="find-btn" title="Find & Replace (Ctrl+F)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Find</button>
       <button class="code-btn" onclick="formatCode()" title="Format Code"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg> Format</button>
       <button class="code-btn" onclick="downloadCode()" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save</button>
       <button class="code-btn danger" onclick="clearCode()" title="Clear"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
       <button class="code-btn primary" onclick="runCode()" id="run-btn" title="Run (Ctrl+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
     </div>
+  </div>
+  <div class="code-file-tabs" id="code-file-tabs">
+    <div class="code-file-tab active" data-file="main" onclick="switchFile('main')">
+      <span class="file-icon">JS</span>
+      <span class="file-name">main.js</span>
+      <span class="close-btn" onclick="event.stopPropagation();closeFile('main')">×</span>
+    </div>
+    <button class="code-new-tab" onclick="newFile()" title="New File">+</button>
   </div>
   <div class="code-find-bar" id="code-find-bar">
     <input type="text" id="code-find-input" placeholder="Find..." oninput="findInCode()">
@@ -458,7 +519,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
             <option value="css">CSS</option>
             <option value="json">JSON</option>
           </select>
-          <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">📋 Snippets</button>
+          <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">Snippets</button>
         </div>
         <div style="display:flex;gap:4px;">
           <button class="code-btn" onclick="undoCode()" title="Undo (Ctrl+Z)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
@@ -479,7 +540,19 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
         <div class="code-line-numbers" id="code-line-numbers"></div>
         <div class="code-editor-container">
           <div class="code-highlight" id="code-highlight"><code class="language-javascript"></code></div>
-          <textarea class="code-editor" id="code-editor" spellcheck="false" oninput="updateEditor()" onscroll="syncScroll()" onkeydown="handleEditorKey(event)" onclick="updateCurrentLine()"></textarea>
+          <textarea class="code-editor" id="code-editor" spellcheck="false" oninput="updateEditor()" onscroll="syncScroll()" onkeydown="handleEditorKey(event)" onclick="updateCurrentLine();hideAutocomplete()"></textarea>
+          <div class="code-autocomplete" id="code-autocomplete"></div>
+          <div class="code-quick-actions">
+            <button class="code-quick-btn" onclick="aiQuickAction('explain')">Explain</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('refactor')">Refactor</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('debug')">Debug</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('optimize')">Optimize</button>
+          </div>
+          <div class="code-error-widget" id="code-error-widget"></div>
+        </div>
+        <div class="code-minimap" id="code-minimap">
+          <div class="code-minimap-content" id="code-minimap-content"></div>
+          <div class="code-minimap-viewport" id="code-minimap-viewport"></div>
         </div>
       </div>
       <div class="code-status-bar">
@@ -487,6 +560,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <span id="code-lang-display">JavaScript</span>
           <span>|</span>
           <span id="code-cursor-pos">Ln 1, Col 1</span>
+          <span id="code-error-indicator" style="display:none;color:var(--red);">| ⚠ Errors</span>
         </div>
         <div class="code-status-right">
           <span id="code-line-count">0 lines</span>
@@ -501,6 +575,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
         <div class="code-output-tabs">
           <button class="code-output-tab active" onclick="switchOutputTab('output')" id="tab-output">Output</button>
           <button class="code-output-tab" onclick="switchOutputTab('console')" id="tab-console">Console</button>
+          <button class="code-output-tab" onclick="switchOutputTab('problems')" id="tab-problems">Problems</button>
         </div>
         <span class="code-output-timer" id="code-output-timer"></span>
       </div>
@@ -517,7 +592,20 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
         <button onclick="sendCodeChat()">Ask</button>
       </div>
     </div>
+    <div class="code-preview-panel" id="code-preview-panel">
+      <div class="code-preview-header">
+        <span>Live Preview</span>
+        <button class="code-preview-mobile" onclick="toggleMobilePreview()">Mobile</button>
+      </div>
+      <iframe class="code-preview-frame" id="code-preview-frame"></iframe>
+    </div>
   </div>
+</div>
+
+<!-- Command Palette -->
+<div class="code-command-palette" id="code-command-palette">
+  <input type="text" class="code-command-input" id="code-command-input" placeholder="Type a command or search..." oninput="filterCommands()">
+  <div class="code-command-list" id="code-command-list"></div>
 </div>
 
 <!-- MOBILE -->
@@ -1990,6 +2078,455 @@ function initResizers() {
 
 // Initialize resizers when code section becomes active
 setTimeout(initResizers, 100);
+
+// ─── File Tabs ────────────────────────────────────────────────────────────────
+var codeFiles = { main: { name: 'main.js', lang: 'javascript', code: '' } };
+var currentFile = 'main';
+var fileCounter = 1;
+
+function switchFile(fileId) {
+  // Save current file
+  codeFiles[currentFile].code = document.getElementById('code-editor').value;
+  
+  // Switch to new file
+  currentFile = fileId;
+  var file = codeFiles[fileId];
+  document.getElementById('code-editor').value = file.code;
+  document.getElementById('code-lang').value = file.lang;
+  updateEditor();
+  
+  // Update tabs UI
+  document.querySelectorAll('.code-file-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.file === fileId);
+  });
+}
+
+function newFile() {
+  fileCounter++;
+  var fileId = 'file' + fileCounter;
+  var lang = document.getElementById('code-lang').value;
+  var ext = { javascript: 'js', python: 'py', html: 'html', css: 'css', json: 'json' };
+  
+  codeFiles[fileId] = { name: 'untitled-' + fileCounter + '.' + (ext[lang] || 'txt'), lang: lang, code: '' };
+  
+  var tabs = document.getElementById('code-file-tabs');
+  var newTab = document.createElement('div');
+  newTab.className = 'code-file-tab';
+  newTab.dataset.file = fileId;
+  newTab.innerHTML = '<span class="file-icon">' + lang.toUpperCase().slice(0, 2) + '</span><span class="file-name">' + codeFiles[fileId].name + '</span><span class="close-btn" onclick="event.stopPropagation();closeFile(\'' + fileId + '\')">×</span>';
+  newTab.onclick = function() { switchFile(fileId); };
+  
+  tabs.insertBefore(newTab, tabs.querySelector('.code-new-tab'));
+  switchFile(fileId);
+  showToast('New file created');
+}
+
+function closeFile(fileId) {
+  if (Object.keys(codeFiles).length <= 1) {
+    showToast('Cannot close last file');
+    return;
+  }
+  
+  delete codeFiles[fileId];
+  var tab = document.querySelector('.code-file-tab[data-file="' + fileId + '"]');
+  if (tab) tab.remove();
+  
+  if (currentFile === fileId) {
+    switchFile(Object.keys(codeFiles)[0]);
+  }
+  showToast('File closed');
+}
+
+// ─── AI Autocomplete ──────────────────────────────────────────────────────────
+var autocompleteTimeout = null;
+var autocompleteIndex = 0;
+var autocompleteItems = [];
+
+function showAutocomplete(items, x, y) {
+  var ac = document.getElementById('code-autocomplete');
+  autocompleteItems = items;
+  autocompleteIndex = 0;
+  
+  var html = '';
+  items.forEach(function(item, i) {
+    html += '<div class="code-autocomplete-item' + (i === 0 ? ' selected' : '') + '" onclick="acceptAutocomplete(' + i + ')">' +
+      '<div class="ac-icon">' + (item.icon || 'fn') + '</div>' +
+      '<span>' + item.text + '</span>' +
+      '<span class="ac-type">' + (item.type || '') + '</span></div>';
+  });
+  
+  ac.innerHTML = html;
+  ac.style.left = x + 'px';
+  ac.style.top = y + 'px';
+  ac.classList.add('open');
+}
+
+function hideAutocomplete() {
+  document.getElementById('code-autocomplete').classList.remove('open');
+  autocompleteItems = [];
+}
+
+function acceptAutocomplete(index) {
+  var item = autocompleteItems[index || 0];
+  if (!item) return;
+  
+  var editor = document.getElementById('code-editor');
+  var pos = editor.selectionStart;
+  var text = editor.value;
+  
+  // Find word start
+  var wordStart = pos;
+  while (wordStart > 0 && /[\w$]/.test(text[wordStart - 1])) wordStart--;
+  
+  editor.value = text.substring(0, wordStart) + item.text + text.substring(pos);
+  editor.selectionStart = editor.selectionEnd = wordStart + item.text.length;
+  updateEditor();
+  hideAutocomplete();
+}
+
+function navigateAutocomplete(dir) {
+  if (!autocompleteItems.length) return;
+  autocompleteIndex = (autocompleteIndex + dir + autocompleteItems.length) % autocompleteItems.length;
+  document.querySelectorAll('.code-autocomplete-item').forEach(function(item, i) {
+    item.classList.toggle('selected', i === autocompleteIndex);
+  });
+}
+
+// AI-powered autocomplete
+async function fetchAutocomplete(prefix, context) {
+  // Built-in completions
+  var jsCompletions = [
+    { text: 'console.log(', icon: 'fn', type: 'method' },
+    { text: 'document.getElementById(', icon: 'fn', type: 'method' },
+    { text: 'document.querySelector(', icon: 'fn', type: 'method' },
+    { text: 'addEventListener(', icon: 'fn', type: 'method' },
+    { text: 'function ', icon: 'fn', type: 'keyword' },
+    { text: 'return ', icon: 'kw', type: 'keyword' },
+    { text: 'const ', icon: 'kw', type: 'keyword' },
+    { text: 'let ', icon: 'kw', type: 'keyword' },
+    { text: 'var ', icon: 'kw', type: 'keyword' },
+    { text: 'if (', icon: 'kw', type: 'keyword' },
+    { text: 'else {', icon: 'kw', type: 'keyword' },
+    { text: 'for (let i = 0; i < ', icon: 'kw', type: 'keyword' },
+    { text: 'forEach(', icon: 'fn', type: 'method' },
+    { text: 'map(', icon: 'fn', type: 'method' },
+    { text: 'filter(', icon: 'fn', type: 'method' },
+    { text: 'reduce(', icon: 'fn', type: 'method' },
+    { text: 'JSON.stringify(', icon: 'fn', type: 'method' },
+    { text: 'JSON.parse(', icon: 'fn', type: 'method' },
+    { text: 'Promise.resolve(', icon: 'fn', type: 'method' },
+    { text: 'async ', icon: 'kw', type: 'keyword' },
+    { text: 'await ', icon: 'kw', type: 'keyword' },
+    { text: 'try {', icon: 'kw', type: 'keyword' },
+    { text: 'catch (error) {', icon: 'kw', type: 'keyword' },
+    { text: 'fetch(', icon: 'fn', type: 'method' },
+    { text: 'setTimeout(', icon: 'fn', type: 'method' },
+    { text: 'setInterval(', icon: 'fn', type: 'method' },
+  ];
+  
+  var lang = document.getElementById('code-lang').value;
+  var completions = lang === 'javascript' ? jsCompletions : [];
+  
+  // Filter by prefix
+  if (prefix) {
+    completions = completions.filter(function(c) {
+      return c.text.toLowerCase().startsWith(prefix.toLowerCase());
+    });
+  }
+  
+  return completions.slice(0, 8);
+}
+
+// ─── Live Preview ─────────────────────────────────────────────────────────────
+var previewEnabled = false;
+var mobilePreview = false;
+
+function togglePreview() {
+  previewEnabled = !previewEnabled;
+  var panel = document.getElementById('code-preview-panel');
+  var btn = document.getElementById('preview-btn');
+  
+  panel.classList.toggle('active', previewEnabled);
+  btn.classList.toggle('active', previewEnabled);
+  
+  if (previewEnabled) updatePreview();
+}
+
+function toggleMobilePreview() {
+  mobilePreview = !mobilePreview;
+  var frame = document.getElementById('code-preview-frame');
+  frame.style.width = mobilePreview ? '375px' : '100%';
+  frame.style.margin = mobilePreview ? '0 auto' : '0';
+  showToast(mobilePreview ? 'Mobile view' : 'Desktop view');
+}
+
+function updatePreview() {
+  if (!previewEnabled) return;
+  
+  var code = document.getElementById('code-editor').value;
+  var lang = document.getElementById('code-lang').value;
+  var frame = document.getElementById('code-preview-frame');
+  
+  if (lang === 'html') {
+    frame.srcdoc = code;
+  } else if (lang === 'javascript') {
+    var html = '<!DOCTYPE html><html><head><style>body{font-family:system-ui;padding:20px;background:#0a0a0c;color:#fafafa;}</style></head><body><pre id="out"></pre><script>try{var logs=[];console.log=function(){logs.push(Array.from(arguments).join(" "));};' + code + ';document.getElementById("out").textContent=logs.join("\\n")||"✓ Ran successfully";}catch(e){document.getElementById("out").textContent="Error: "+e.message;}</script></body></html>';
+    frame.srcdoc = html;
+  } else if (lang === 'css') {
+    frame.srcdoc = '<!DOCTYPE html><html><head><style>' + code + '</style></head><body><h1>Preview</h1><p>This is a paragraph.</p><button>Button</button><div class="box">Box</div></body></html>';
+  }
+}
+
+// ─── AI Quick Actions ──────────────────────────────────────────────────────────
+async function aiQuickAction(action) {
+  var editor = document.getElementById('code-editor');
+  var code = editor.value;
+  var selection = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  var targetCode = selection || code;
+  
+  if (!targetCode) {
+    showToast('No code to ' + action);
+    return;
+  }
+  
+  var prompts = {
+    explain: 'Explain this code in simple terms. What does it do? How does it work?',
+    refactor: 'Refactor this code to be cleaner, more readable, and follow best practices. Keep the same functionality.',
+    debug: 'Find and fix any bugs or issues in this code. Explain what was wrong and how you fixed it.',
+    optimize: 'Optimize this code for better performance. Explain the optimizations you made.'
+  };
+  
+  var input = document.getElementById('code-chat-input');
+  input.value = prompts[action] + '\n\n```\n' + targetCode + '\n```';
+  sendCodeChat();
+}
+
+// ─── Command Palette ───────────────────────────────────────────────────────────
+var commandPaletteOpen = false;
+var commands = [
+  { name: 'Run Code', action: runCode, shortcut: 'Ctrl+Enter' },
+  { name: 'Save File', action: downloadCode, shortcut: 'Ctrl+S' },
+  { name: 'Find & Replace', action: toggleFindBar, shortcut: 'Ctrl+F' },
+  { name: 'Format Code', action: formatCode, shortcut: '' },
+  { name: 'Toggle Preview', action: togglePreview, shortcut: '' },
+  { name: 'New File', action: newFile, shortcut: '' },
+  { name: 'Clear Code', action: clearCode, shortcut: '' },
+  { name: 'Undo', action: undoCode, shortcut: 'Ctrl+Z' },
+  { name: 'Redo', action: redoCode, shortcut: 'Ctrl+Y' },
+  { name: 'Explain Code', action: function() { aiQuickAction('explain'); }, shortcut: '' },
+  { name: 'Refactor Code', action: function() { aiQuickAction('refactor'); }, shortcut: '' },
+  { name: 'Debug Code', action: function() { aiQuickAction('debug'); }, shortcut: '' },
+  { name: 'Optimize Code', action: function() { aiQuickAction('optimize'); }, shortcut: '' },
+  { name: 'Insert For Loop', action: function() { insertSnippet('forloop'); }, shortcut: '' },
+  { name: 'Insert Function', action: function() { insertSnippet('function'); }, shortcut: '' },
+  { name: 'Insert Async Function', action: function() { insertSnippet('async'); }, shortcut: '' },
+  { name: 'Insert Fetch', action: function() { insertSnippet('fetch'); }, shortcut: '' },
+  { name: 'Insert Try/Catch', action: function() { insertSnippet('trycatch'); }, shortcut: '' },
+];
+
+function toggleCommandPalette() {
+  commandPaletteOpen = !commandPaletteOpen;
+  var palette = document.getElementById('code-command-palette');
+  palette.classList.toggle('open', commandPaletteOpen);
+  
+  if (commandPaletteOpen) {
+    var input = document.getElementById('code-command-input');
+    input.value = '';
+    input.focus();
+    renderCommands(commands);
+  }
+}
+
+function renderCommands(cmds) {
+  var list = document.getElementById('code-command-list');
+  list.innerHTML = cmds.map(function(cmd, i) {
+    return '<div class="code-command-item' + (i === 0 ? ' selected' : '') + '" onclick="executeCommand(' + commands.indexOf(cmd) + ')">' +
+      '<span>' + cmd.name + '</span>' +
+      (cmd.shortcut ? '<kbd>' + cmd.shortcut + '</kbd>' : '') + '</div>';
+  }).join('');
+}
+
+function filterCommands() {
+  var query = document.getElementById('code-command-input').value.toLowerCase();
+  var filtered = commands.filter(function(cmd) {
+    return cmd.name.toLowerCase().includes(query);
+  });
+  renderCommands(filtered);
+}
+
+function executeCommand(index) {
+  commands[index].action();
+  toggleCommandPalette();
+}
+
+// ─── Minimap ──────────────────────────────────────────────────────────────────
+function updateMinimap() {
+  var code = document.getElementById('code-editor').value;
+  var minimap = document.getElementById('code-minimap-content');
+  minimap.textContent = code;
+  
+  // Update viewport indicator
+  var editor = document.getElementById('code-editor');
+  var viewport = document.getElementById('code-minimap-viewport');
+  var ratio = editor.clientHeight / editor.scrollHeight;
+  var top = (editor.scrollTop / editor.scrollHeight) * 100;
+  
+  viewport.style.height = (ratio * 100) + '%';
+  viewport.style.top = top + '%';
+}
+
+// ─── Error Linting ─────────────────────────────────────────────────────────────
+var lintErrors = [];
+
+function lintCode() {
+  var code = document.getElementById('code-editor').value;
+  var lang = document.getElementById('code-lang').value;
+  lintErrors = [];
+  
+  if (lang === 'javascript') {
+    // Basic JS linting
+    var lines = code.split('\n');
+    lines.forEach(function(line, i) {
+      // Check for common issues
+      if (line.includes('==') && !line.includes('===')) {
+        lintErrors.push({ line: i + 1, msg: 'Use === instead of ==', severity: 'warning' });
+      }
+      if (line.includes('var ')) {
+        lintErrors.push({ line: i + 1, msg: 'Consider using let or const instead of var', severity: 'warning' });
+      }
+      if (/^\s*$/.test(line) && i > 0 && /^\s*$/.test(lines[i-1])) {
+        lintErrors.push({ line: i + 1, msg: 'Multiple blank lines', severity: 'info' });
+      }
+    });
+    
+    // Try to parse for syntax errors
+    try {
+      new Function(code);
+    } catch (e) {
+      var match = e.message.match(/line (\d+)/);
+      lintErrors.push({
+        line: match ? parseInt(match[1]) : 1,
+        msg: e.message,
+        severity: 'error'
+      });
+    }
+  } else if (lang === 'json') {
+    try {
+      JSON.parse(code);
+    } catch (e) {
+      lintErrors.push({ line: 1, msg: e.message, severity: 'error' });
+    }
+  }
+  
+  // Update UI
+  var indicator = document.getElementById('code-error-indicator');
+  indicator.style.display = lintErrors.length ? 'inline' : 'none';
+  
+  // Update line numbers
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var spans = lineNumbers.querySelectorAll('span');
+  lintErrors.forEach(function(err) {
+    if (spans[err.line - 1]) {
+      spans[err.line - 1].classList.add('code-error-gutter');
+    }
+  });
+}
+
+// ─── Problems Tab ──────────────────────────────────────────────────────────────
+function showProblems() {
+  var output = document.getElementById('code-output');
+  if (lintErrors.length === 0) {
+    output.textContent = '✓ No problems found';
+    output.className = 'code-output-content success';
+  } else {
+    output.textContent = lintErrors.map(function(err) {
+      return (err.severity === 'error' ? '❌' : '⚠️') + ' Line ' + err.line + ': ' + err.msg;
+    }).join('\n');
+    output.className = 'code-output-content warning';
+  }
+}
+
+// Update switchOutputTab to include problems
+var _origSwitchOutputTab = switchOutputTab;
+switchOutputTab = function(tab) {
+  currentOutputTab = tab;
+  document.getElementById('tab-output').classList.toggle('active', tab === 'output');
+  document.getElementById('tab-console').classList.toggle('active', tab === 'console');
+  document.getElementById('tab-problems').classList.toggle('active', tab === 'problems');
+  
+  if (tab === 'problems') {
+    showProblems();
+  } else if (tab === 'console' && consoleLogs.length > 0) {
+    document.getElementById('code-output').textContent = consoleLogs.map(function(l) {
+      return l.args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
+    }).join('\n');
+  }
+};
+
+// ─── Enhanced Editor Events ────────────────────────────────────────────────────
+var _origHandleEditorKey = handleEditorKey;
+handleEditorKey = function(e) {
+  var editor = e.target;
+  
+  // Autocomplete navigation
+  if (document.getElementById('code-autocomplete').classList.contains('open')) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateAutocomplete(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); navigateAutocomplete(-1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      acceptAutocomplete(autocompleteIndex);
+      return;
+    }
+    if (e.key === 'Escape') { hideAutocomplete(); return; }
+  }
+  
+  // Command palette
+  if (e.key === 'p' && e.ctrlKey) {
+    e.preventDefault();
+    toggleCommandPalette();
+    return;
+  }
+  
+  _origHandleEditorKey(e);
+  
+  // Trigger autocomplete after typing
+  clearTimeout(autocompleteTimeout);
+  autocompleteTimeout = setTimeout(async function() {
+    var pos = editor.selectionStart;
+    var text = editor.value.substring(0, pos);
+    var wordMatch = text.match(/[\w$]+$/);
+    
+    if (wordMatch && wordMatch[0].length >= 2) {
+      var prefix = wordMatch[0];
+      var items = await fetchAutocomplete(prefix, text);
+      if (items.length > 0) {
+        // Calculate position
+        var lineHeight = 22;
+        var lines = text.split('\n');
+        var lineNum = lines.length;
+        var col = lines[lines.length - 1].length;
+        var x = Math.min(col * 8, 300);
+        var y = (lineNum * lineHeight) - editor.scrollTop + 40;
+        showAutocomplete(items, x, y);
+      }
+    } else {
+      hideAutocomplete();
+    }
+  }, 200);
+  
+  // Update preview
+  if (previewEnabled) {
+    clearTimeout(window.previewTimeout);
+    window.previewTimeout = setTimeout(updatePreview, 500);
+  }
+  
+  // Update minimap
+  updateMinimap();
+  
+  // Lint code
+  clearTimeout(window.lintTimeout);
+  window.lintTimeout = setTimeout(lintCode, 500);
+};
 
 // ─── Init Theme ──────────────────────────────────────────────────────────────
 var savedTheme = localStorage.getItem('nova_theme');
