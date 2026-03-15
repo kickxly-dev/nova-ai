@@ -440,6 +440,7 @@ var PROVIDERS = {
   openrouter: { name: 'OpenRouter', color: 'openrouter', models: ['anthropic/claude-3.5-sonnet','google/gemini-pro-1.5','meta-llama/llama-3.1-405b-instruct','mistralai/mistral-large'], badge: 'smart' },
   perplexity: { name: 'Perplexity', color: 'perplexity', models: ['llama-3.1-sonar-large-128k-online','llama-3.1-sonar-small-128k-online','llama-3.1-sonar-huge-128k-online'], badge: 'smart' },
   cohere: { name: 'Cohere', color: 'cohere', models: ['command-r-plus','command-r','command'], badge: 'smart' },
+  tavily: { name: 'Tavily (Search)', color: 'tavily', models: [], badge: 'search' },
 };
 
 var state = {
@@ -503,7 +504,7 @@ function buildKeysUI() {
   var providerNames = {
     openai: 'OpenAI', groq: 'Groq', mistral: 'Mistral',
     together: 'Together AI', openrouter: 'OpenRouter',
-    perplexity: 'Perplexity', cohere: 'Cohere'
+    perplexity: 'Perplexity', cohere: 'Cohere', tavily: 'Tavily (Search)'
   };
   Object.entries(providerNames).forEach(function(entry) {
     var id = entry[0], name = entry[1];

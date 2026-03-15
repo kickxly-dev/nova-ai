@@ -82,6 +82,11 @@ const PROVIDERS = {
     baseURL: 'https://api.perplexity.ai',
     keyEnv: 'PERPLEXITY_API_KEY',
   },
+  tavily: {
+    name: 'Tavily (Search)',
+    baseURL: null,
+    keyEnv: 'TAVILY_API_KEY',
+  },
 };
 
 // ─── Helper: get API key (user DB key takes priority, then env var) ──────────
