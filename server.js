@@ -243,9 +243,11 @@ app.post('/api/image', async (req, res) => {
   }
 
   try {
-    // Pollinations.ai is completely free with no API key needed
-    const encodedPrompt = encodeURIComponent(prompt);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+    // Pollinations.ai - free, no API key needed
+    // Use seed for reproducibility and enhance prompt
+    const enhancedPrompt = `high quality, detailed, artistic: ${prompt}`;
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
     
     res.json({
       data: [{
