@@ -229,6 +229,105 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// ─── API: Image Generation (DALL-E) ───────────────────────────────────────────
+app.post('/api/image', async (req, res) => {
+  const { prompt, size = '1024x1024', userToken } = req.body;
+
+  if (!prompt) {
+    return res.status(400).json({ error: { message: 'Prompt is required' } });
+  }
+
+  const apiKey = await getApiKey('openai', userToken);
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: 'No OpenAI API key found. Add your key in Settings.' }
+    });
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: prompt,
+        n: 1,
+        size: size,
+        quality: 'standard',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
+// ─── API: Web Search (Tavily) ────────────────────────────────────────────────
+app.post('/api/search', async (req, res) => {
+  const { query, userToken } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ error: { message: 'Query is required' } });
+  }
+
+  // Try Tavily API key from user DB or env
+  let tavilyKey = null;
+  if (userToken && pool) {
+    try {
+      const result = await pool.query(
+        'SELECT api_key FROM user_api_keys WHERE user_token = $1 AND provider = $2',
+        [userToken, 'tavily']
+      );
+      if (result.rows.length > 0) tavilyKey = result.rows[0].api_key;
+    } catch (err) {
+      console.error('DB key lookup error:', err.message);
+    }
+  }
+  if (!tavilyKey) tavilyKey = process.env.TAVILY_API_KEY || null;
+
+  if (!tavilyKey) {
+    return res.status(500).json({
+      error: { message: 'No Tavily API key found. Add it in Settings (provider: tavily).' }
+    });
+  }
+
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tavilyKey}`,
+      },
+      body: JSON.stringify({
+        query: query,
+        search_depth: 'basic',
+        max_results: 5,
+        include_answer: true,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: { message: err.message } });
+  }
+});
+
 // ─── Fallback ────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

@@ -852,10 +852,22 @@ async function sendMessage(p) {
   state.isTyping = true;
   ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = true; });
   appendMessage('user', text);
+
+  // Handle image generation mode
+  if (state.imageMode) {
+    await generateImage(text);
+    return;
+  }
+
+  // Handle web search queries
+  if (state.tools.search && /search|look up|what's new|what is happening|current|latest|recent|news/i.test(text)) {
+    await performWebSearch(text);
+    return;
+  }
+
+  // Regular chat
   var sys = state.systemPrompt;
   if (state.tools.memory && state.memory) sys += '\n\nUser memory:\n' + state.memory;
-  if (state.tools.search) sys += "\n\nFor current info questions, mention you'd search and give your best answer.";
-  if (state.imageMode) sys += "\n\nUser wants an image. Describe it vividly then say it's queued for generation.";
   var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
   appendTyping();
   try {
@@ -868,16 +880,11 @@ async function sendMessage(p) {
     var data = await res.json();
     var reply = data.choices[0].message.content;
     removeTyping();
-    var displayReply = reply;
-    if (state.tools.search && /search|look up|current|latest|recent/i.test(text)) displayReply = '[TOOL:Web Search]' + reply;
-    else if (state.imageMode) displayReply = '[TOOL:Image Gen]' + reply;
-    else if (state.tools.tools && /calculat|convert|weather|time|date/i.test(text)) displayReply = '[TOOL:Tool Use]' + reply;
-    appendMessage('ai', displayReply);
+    appendMessage('ai', reply);
     state.history.push({ role: 'user', content: text });
     state.history.push({ role: 'assistant', content: reply });
     if (state.history.length > 40) state.history = state.history.slice(-40);
     saveCurrentChat(text);
-    if (state.imageMode) { state.imageMode = false; ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.remove('active'); }); }
   } catch(err) {
     removeTyping();
     var provName = PROVIDERS[state.provider] ? PROVIDERS[state.provider].name : state.provider;
@@ -886,6 +893,99 @@ async function sendMessage(p) {
   state.isTyping = false;
   ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
   inputEl.focus();
+}
+
+async function generateImage(prompt) {
+  appendTyping();
+  try {
+    var res = await fetch('/api/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    var imageUrl = data.data[0].url;
+    var revisedPrompt = data.data[0].revised_prompt || prompt;
+    removeTyping();
+    appendImageMessage(imageUrl, revisedPrompt);
+    state.history.push({ role: 'user', content: '[Image request] ' + prompt });
+    state.history.push({ role: 'assistant', content: '[Generated image: ' + revisedPrompt + ']' });
+    saveCurrentChat(prompt);
+  } catch(err) {
+    removeTyping();
+    appendMessage('ai', '**Image Generation Error:** ' + err.message + '\n\nMake sure you have an **OpenAI API key** saved in Settings.');
+  }
+  state.imageMode = false;
+  ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.remove('active'); });
+  state.isTyping = false;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
+}
+
+async function performWebSearch(query) {
+  appendTyping();
+  try {
+    var res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    removeTyping();
+    appendSearchMessage(query, data);
+    state.history.push({ role: 'user', content: query });
+    var resultText = data.answer || 'Search completed';
+    state.history.push({ role: 'assistant', content: '[Web Search Results]\n' + resultText });
+    saveCurrentChat(query);
+  } catch(err) {
+    removeTyping();
+    appendMessage('ai', '**Search Error:** ' + err.message + '\n\nAdd your **Tavily API key** in Settings (provider: tavily). Get one free at tavily.com');
+  }
+  state.isTyping = false;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
+}
+
+function appendImageMessage(imageUrl, caption) {
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ai';
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><img src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
+    area.appendChild(msg);
+    area.scrollTop = area.scrollHeight;
+  });
+}
+
+function appendSearchMessage(query, searchData) {
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ai';
+    var html = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Web Search: ' + escHtml(query) + '</div>';
+    if (searchData.answer) {
+      html += '<p style="margin-bottom:10px;">' + escHtml(searchData.answer) + '</p>';
+    }
+    if (searchData.results && searchData.results.length > 0) {
+      html += '<div style="margin-top:8px;">';
+      searchData.results.slice(0, 5).forEach(function(result) {
+        html += '<a href="' + escHtml(result.url) + '" target="_blank" style="display:block;padding:8px;background:var(--surface2);border-radius:6px;margin-bottom:6px;text-decoration:none;color:var(--text);"><strong style="color:var(--accent);">' + escHtml(result.title) + '</strong><p style="font-size:11px;color:var(--muted);margin-top:4px;">' + escHtml(result.content.slice(0, 150)) + '...</p></a>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    msg.innerHTML = html;
+    area.appendChild(msg);
+    area.scrollTop = area.scrollHeight;
+  });
 }
 
 init();
