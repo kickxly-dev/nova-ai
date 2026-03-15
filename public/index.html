@@ -864,7 +864,7 @@ function removeTyping() {
 }
 
 function formatContent(text) {
-  text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(_, l, c) { return '<pre><code>' + escHtml(c.trim()) + '</code></pre>'; });
+  text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(_, l, c) { return '<pre><code class="language-' + (l || '') + '">' + escHtml(c.trim()) + '</code></pre>'; });
   text = text.replace(/`([^`]+)`/g, function(_, c) { return '<code>' + escHtml(c) + '</code>'; });
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/\n/g, '<br>');
