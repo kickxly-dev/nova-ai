@@ -234,44 +234,25 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (DALL-E) ───────────────────────────────────────────
+// ─── API: Image Generation (Pollinations.ai - Free) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
-  const { prompt, size = '1024x1024', userToken } = req.body;
+  const { prompt } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
-  const apiKey = await getApiKey('openai', userToken);
-  if (!apiKey) {
-    return res.status(500).json({
-      error: { message: 'No OpenAI API key found. Add your key in Settings.' }
-    });
-  }
-
   try {
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: size,
-        quality: 'standard',
-      }),
+    // Pollinations.ai is completely free with no API key needed
+    const encodedPrompt = encodeURIComponent(prompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+    
+    res.json({
+      data: [{
+        url: imageUrl,
+        revised_prompt: prompt
+      }]
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json(data);
-    }
-
-    res.json(data);
   } catch (err) {
     res.status(500).json({ error: { message: err.message } });
   }

@@ -915,7 +915,7 @@ async function generateImage(prompt) {
     saveCurrentChat(prompt);
   } catch(err) {
     removeTyping();
-    appendMessage('ai', '**Image Generation Error:** ' + err.message + '\n\nMake sure you have an **OpenAI API key** saved in Settings.');
+    appendMessage('ai', '**Image Generation Error:** ' + err.message);
   }
   state.imageMode = false;
   ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.remove('active'); });
