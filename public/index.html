@@ -956,7 +956,8 @@ function appendImageMessage(imageUrl, caption) {
     if (welcome) welcome.remove();
     var msg = document.createElement('div');
     msg.className = msgCls + ' ai';
-    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><img src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
+    var imgId = 'img-' + Date.now() + '-' + p;
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><div id="' + imgId + '-loader" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;" onload="this.style.display=\'block\';document.getElementById(\'' + imgId + '-loader\').style.display=\'none\';" onerror="this.style.display=\'block\';this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23111%22 width=%22200%22 height=%22200%22/><text x=%22100%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>Image failed to load</text></svg>\';document.getElementById(\'' + imgId + '-loader\').style.display=\'none\';"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
   });
