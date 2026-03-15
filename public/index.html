@@ -942,9 +942,9 @@ async function performWebSearch(query) {
   } catch(err) {
     removeTyping();
     appendMessage('ai', '**Search Error:** ' + err.message + '\n\nAdd your **Tavily API key** in Settings (provider: tavily). Get one free at tavily.com');
+    state.isTyping = false;
+    ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
   }
-  state.isTyping = false;
-  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
 }
 
 function appendImageMessage(imageUrl, caption) {
@@ -957,10 +957,15 @@ function appendImageMessage(imageUrl, caption) {
     var msg = document.createElement('div');
     msg.className = msgCls + ' ai';
     var imgId = 'img-' + Date.now() + '-' + p;
-    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><div id="' + imgId + '-loader" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;" onload="this.style.display=\'block\';document.getElementById(\'' + imgId + '-loader\').style.display=\'none\';" onerror="this.style.display=\'block\';this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23111%22 width=%22200%22 height=%22200%22/><text x=%22100%22 y=%22100%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2214%22>Image failed to load</text></svg>\';document.getElementById(\'' + imgId + '-loader\').style.display=\'none\';"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
+    var loaderId = imgId + '-loader';
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><div id="' + loaderId + '" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;" onload="this.style.display=\'block\';document.getElementById(\'' + loaderId + '\').style.display=\'none\';" onerror="var loader=document.getElementById(\'' + loaderId + '\');loader.innerHTML=\'<p style=color:var(--accent2);>Image failed to load</p><button onclick=\\\'retryImage(\\\"' + escHtml(caption).replace(/'/g, "\\'") + '\\\")\\\' style=\\\"margin-top:8px;padding:8px 16px;background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:600;\\\">Retry</button>\';"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
   });
+}
+
+function retryImage(prompt) {
+  generateImage(prompt);
 }
 
 function appendSearchMessage(query, searchData) {

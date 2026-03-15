@@ -236,18 +236,36 @@ app.post('/api/chat', async (req, res) => {
 
 // ─── API: Image Generation (Pollinations.ai - Free) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, seed } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
   try {
-    // Pollinations.ai - free, no API key needed
-    // Use seed for reproducibility and enhance prompt
-    const enhancedPrompt = `high quality, detailed, artistic: ${prompt}`;
-    const seed = Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&seed=${seed}&nologo=true`;
+    // Pollinations.ai is completely free with no API key needed
+    // Add seed for variety, nologo to remove watermark
+    const encodedPrompt = encodeURIComponent(prompt);
+    const randomSeed = seed || Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
+    
+    // Verify the image is accessible before returning
+    try {
+      const checkResponse = await fetch(imageUrl, { method: 'HEAD' });
+      if (!checkResponse.ok) {
+        // Try with a different seed
+        const newSeed = Math.floor(Math.random() * 1000000);
+        const retryUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${newSeed}`;
+        return res.json({
+          data: [{
+            url: retryUrl,
+            revised_prompt: prompt
+          }]
+        });
+      }
+    } catch (e) {
+      // Continue anyway, let frontend handle loading
+    }
     
     res.json({
       data: [{
