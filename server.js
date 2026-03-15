@@ -234,7 +234,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Hugging Face - Free) ───────────────────────────────
+// ─── API: Image Generation (Fetch and return base64) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
   const { prompt } = req.body;
 
@@ -243,67 +243,53 @@ app.post('/api/image', async (req, res) => {
   }
 
   try {
-    // Use Hugging Face free inference API (Stable Diffusion)
-    const response = await fetch(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            negative_prompt: 'blurry, bad quality, distorted',
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      // If model is loading, return a placeholder
-      if (errorText.includes('loading') || response.status === 503) {
-        // Fallback to Pollinations
-        const encodedPrompt = encodeURIComponent(prompt);
-        const randomSeed = Math.floor(Math.random() * 1000000);
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
-        return res.json({
-          data: [{
-            url: imageUrl,
-            revised_prompt: prompt
-          }]
-        });
-      }
-      throw new Error(`Hugging Face API error: ${response.status}`);
-    }
-
-    // Hugging Face returns the image as a blob
-    const imageBuffer = await response.buffer();
-    const base64Image = imageBuffer.toString('base64');
-    const dataUrl = `data:image/png;base64,${base64Image}`;
-
-    res.json({
-      data: [{
-        url: dataUrl,
-        revised_prompt: prompt
-      }]
-    });
-  } catch (err) {
-    // Fallback to Pollinations on any error
+    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
+    const randomSeed = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}`;
+    
+    // Fetch the image on the backend with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
     try {
-      const encodedPrompt = encodeURIComponent(prompt);
-      const randomSeed = Math.floor(Math.random() * 1000000);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
+      const imageResponse = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      if (!imageResponse.ok) {
+        throw new Error('Failed to generate image');
+      }
+      
+      const imageBuffer = await imageResponse.buffer();
+      const base64Image = imageBuffer.toString('base64');
+      const dataUrl = `data:image/png;base64,${base64Image}`;
+      
       res.json({
         data: [{
-          url: imageUrl,
+          url: dataUrl,
           revised_prompt: prompt
         }]
       });
-    } catch (fallbackErr) {
-      res.status(500).json({ error: { message: err.message } });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      throw fetchErr;
     }
+  } catch (err) {
+    // Fallback: return URL and let frontend try
+    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
+    const randomSeed = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}`;
+    
+    res.json({
+      data: [{
+        url: imageUrl,
+        revised_prompt: prompt
+      }]
+    });
   }
 });
 
