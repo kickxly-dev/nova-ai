@@ -328,8 +328,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
     <div class="d-input-area">
       <div class="d-input-wrap">
         <div class="d-input-tools">
-          <button class="d-itool" onclick="alert('File upload coming soon!')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
-          <button class="d-itool" id="d-img-btn" onclick="toggleImageMode()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+          <button class="d-itool" id="d-attach-btn" onclick="triggerFileUpload('d')" title="Attach file"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+          <button class="d-itool" id="d-voice-btn" onclick="toggleVoiceInput('d')" title="Voice input"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+          <input type="file" id="d-file-input" style="display:none" accept="image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css" onchange="handleFileUpload(event,'d')"/>
         </div>
         <textarea id="d-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'d')" oninput="autoResize(this)"></textarea>
         <button class="d-send-btn" id="d-send-btn" onclick="sendMessage('d')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
@@ -386,14 +387,14 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
     </div>
     <div class="m-input-row">
       <div class="m-input-wrap">
+        <button class="m-img-btn" id="m-attach-btn" onclick="triggerFileUpload('m')" title="Attach file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
         <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this)"></textarea>
-        <button class="m-img-btn" id="m-img-btn" onclick="toggleImageMode()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+        <button class="m-img-btn" id="m-voice-btn" onclick="toggleVoiceInput('m')" title="Voice input"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
       </div>
       <button class="m-send-btn" id="m-send-btn" onclick="sendMessage('m')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
     </div>
   </div>
 </div>
-
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settings-modal" onclick="closeSettingsOutside(event)">
   <div class="modal" onclick="event.stopPropagation()">
@@ -403,10 +404,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
         <button class="tab active" onclick="switchTab('general')">General</button>
         <button class="tab" onclick="switchTab('keys')">API Keys</button>
         <button class="tab" onclick="switchTab('memory-tab')">Memory</button>
+        <button class="tab" onclick="switchTab('theme-tab')">Theme</button>
       </div>
       <div class="tab-content active" id="tab-general">
         <div class="field-group"><div class="field-label">AI Name</div><input class="field-input" id="ai-name-input" type="text" placeholder="NOVA"/></div>
         <div class="field-group"><div class="field-label">System Prompt</div><textarea class="field-input field-textarea" id="system-prompt-input" placeholder="You are NOVA, a brilliant and direct AI assistant..."></textarea></div>
+        <div class="field-group">
+          <div class="field-label">Actions</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="exportChat()" style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text);font-size:13px;">Export Chat</button>
+            <button onclick="shareChat()" style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text);font-size:13px;">Share Chat</button>
+          </div>
+        </div>
       </div>
       <div class="tab-content" id="tab-keys">
         <div style="padding:10px 12px;background:var(--accent-glow);border:1px solid rgba(139,92,246,0.2);border-radius:var(--radius-sm);font-size:12px;color:var(--accent-light);line-height:1.5;">Your API keys are stored securely in the database. They are never exposed to the browser.</div>
@@ -415,11 +424,31 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       <div class="tab-content" id="tab-memory-tab">
         <div class="field-group"><div class="field-label">Memory</div><div class="field-hint">Tell NOVA about yourself. This context is included in every conversation.</div><textarea class="field-input field-textarea" id="memory-input" placeholder="My name is..., I prefer..." style="min-height:120px;"></textarea></div>
       </div>
+      <div class="tab-content" id="tab-theme-tab">
+        <div class="field-group">
+          <div class="field-label">Color Theme</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div onclick="setTheme('dark')" style="padding:16px;background:#09090b;border:2px solid #8b5cf6;border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#fafafa;font-weight:600;">Dark</div><div style="color:#71717a;font-size:11px;margin-top:4px;">Default dark mode</div></div>
+            <div onclick="setTheme('light')" style="padding:16px;background:#ffffff;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#18181b;font-weight:600;">Light</div><div style="color:#71717a;font-size:11px;margin-top:4px;">Light mode</div></div>
+            <div onclick="setTheme('ocean')" style="padding:16px;background:#0a192f;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#64ffda;font-weight:600;">Ocean</div><div style="color:#5a6a7a;font-size:11px;margin-top:4px;">Cool blue tones</div></div>
+            <div onclick="setTheme('sunset')" style="padding:16px;background:#1a1423;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#ff6b6b;font-weight:600;">Sunset</div><div style="color:#a08070;font-size:11px;margin-top:4px;">Warm purple tones</div></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Keyboard Shortcuts</div>
+          <div style="font-size:12px;color:var(--text2);line-height:2;">
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+N</kbd> New chat</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+E</kbd> Export chat</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+,</kbd> Open settings</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+Shift+T</kbd> Cycle themes</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Esc</kbd> Close settings</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Save Changes</button></div>
   </div>
 </div>
-
 <script>
 var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 640;
 document.getElementById('desktop-app').style.display = isMobile ? 'none' : 'flex';
@@ -489,7 +518,7 @@ function applyAiName() {
 
 function switchTab(tabName) {
   document.querySelectorAll('.tab').forEach(function(t, i) {
-    var names = ['general', 'keys', 'memory-tab'];
+    var names = ['general', 'keys', 'memory-tab', 'theme-tab'];
     t.classList.toggle('active', names[i] === tabName);
   });
   document.querySelectorAll('.tab-content').forEach(function(tc) {
@@ -1004,6 +1033,173 @@ function appendSearchMessage(query, searchData) {
     area.scrollTop = area.scrollHeight;
   });
 }
+
+// ─── Voice Input ─────────────────────────────────────────────────────────────
+var voiceRecognition = null;
+var isListening = false;
+
+function toggleVoiceInput(platform) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('Voice input not supported in this browser');
+    return;
+  }
+  var btn = document.getElementById(platform + '-voice-btn');
+  if (isListening) {
+    if (voiceRecognition) { voiceRecognition.stop(); isListening = false; btn.classList.remove('active'); showToast('Voice stopped'); }
+    return;
+  }
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;
+  voiceRecognition.lang = 'en-US';
+  voiceRecognition.onstart = function() { isListening = true; btn.classList.add('active'); showToast('Listening...'); };
+  voiceRecognition.onresult = function(event) {
+    var transcript = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) { transcript += event.results[i][0].transcript; }
+    var input = document.getElementById(platform + '-msg-input');
+    if (input) { input.value = transcript; autoResize(input); }
+  };
+  voiceRecognition.onerror = function(event) { isListening = false; btn.classList.remove('active'); showToast('Voice error: ' + event.error); };
+  voiceRecognition.onend = function() { isListening = false; btn.classList.remove('active'); };
+  voiceRecognition.start();
+}
+
+// ─── File Upload ─────────────────────────────────────────────────────────────
+function triggerFileUpload(platform) {
+  var input = document.getElementById(platform + '-file-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = platform + '-file-input';
+    input.style.display = 'none';
+    input.accept = 'image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css';
+    input.onchange = function(e) { handleFileUpload(e, platform); };
+    document.body.appendChild(input);
+  }
+  input.click();
+}
+
+function handleFileUpload(event, platform) {
+  var file = event.target.files[0];
+  if (!file) return;
+  showToast('Reading ' + file.name + '...');
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var input = document.getElementById(platform + '-msg-input');
+    if (input) { input.value = '[Attached: ' + file.name + ']\n\n' + (input.value || ''); autoResize(input); }
+    showToast('File attached: ' + file.name);
+  };
+  if (file.type.startsWith('image/')) { reader.readAsDataURL(file); } else { reader.readAsText(file); }
+}
+
+// ─── Export Chat ─────────────────────────────────────────────────────────────
+function exportChat() {
+  if (!state.history || state.history.length === 0) { showToast('No messages to export'); return; }
+  var text = '# NOVA Chat Export\n# Date: ' + new Date().toISOString() + '\n\n';
+  state.history.forEach(function(msg) { text += '**' + (msg.role === 'user' ? 'You' : state.aiName) + ':**\n' + msg.content + '\n\n---\n\n'; });
+  var blob = new Blob([text], { type: 'text/markdown' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nova-chat-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  showToast('Chat exported!');
+}
+
+// ─── Themes ─────────────────────────────────────────────────────────────────
+var themes = {
+  dark: { bg: '#09090b', surface: '#0f0f12', surface2: '#18181b', surface3: '#27272a', text: '#fafafa', text2: '#a1a1aa', muted: '#71717a', accent: '#8b5cf6' },
+  light: { bg: '#ffffff', surface: '#f4f4f5', surface2: '#e4e4e7', surface3: '#d4d4d8', text: '#18181b', text2: '#3f3f46', muted: '#71717a', accent: '#8b5cf6' },
+  ocean: { bg: '#0a192f', surface: '#112240', surface2: '#1d3557', surface3: '#264653', text: '#ccd6f6', text2: '#8892b0', muted: '#5a6a7a', accent: '#64ffda' },
+  sunset: { bg: '#1a1423', surface: '#2d1f3d', surface2: '#3d2a4f', surface3: '#4d3561', text: '#f8e8d4', text2: '#d4b8a0', muted: '#a08070', accent: '#ff6b6b' }
+};
+
+function setTheme(themeName) {
+  var theme = themes[themeName];
+  if (!theme) return;
+  var root = document.documentElement;
+  root.style.setProperty('--bg', theme.bg);
+  root.style.setProperty('--surface', theme.surface);
+  root.style.setProperty('--surface2', theme.surface2);
+  root.style.setProperty('--surface3', theme.surface3);
+  root.style.setProperty('--text', theme.text);
+  root.style.setProperty('--text2', theme.text2);
+  root.style.setProperty('--muted', theme.muted);
+  root.style.setProperty('--accent', theme.accent);
+  localStorage.setItem('nova_theme', themeName);
+  showToast('Theme: ' + themeName);
+}
+
+// ─── Keyboard Shortcuts ──────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newChat(); showToast('New chat'); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') { e.preventDefault(); exportChat(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') { e.preventDefault(); openSettings(); }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    var current = localStorage.getItem('nova_theme') || 'dark';
+    var keys = Object.keys(themes);
+    setTheme(keys[(keys.indexOf(current) + 1) % keys.length]);
+  }
+  if (e.key === 'Escape') { closeSettings(); }
+});
+
+// ─── Chat Sharing ────────────────────────────────────────────────────────────
+function shareChat() {
+  if (!state.history || state.history.length === 0) { showToast('No messages to share'); return; }
+  var text = state.history.slice(0, 3).map(function(m) { return (m.role === 'user' ? 'You' : state.aiName) + ': ' + m.content.slice(0, 100); }).join('\n\n') + '\n\n' + window.location.href;
+  if (navigator.share) { navigator.share({ title: 'NOVA Chat', text: text, url: window.location.href }).catch(function() {}); }
+  else { navigator.clipboard.writeText(text).then(function() { showToast('Chat copied!'); }).catch(function() { showToast('Could not copy'); }); }
+}
+
+// ─── Code Execution ──────────────────────────────────────────────────────────
+function executeCode(code, language) {
+  try {
+    var logs = [];
+    var originalLog = console.log;
+    console.log = function() { logs.push(Array.from(arguments).join(' ')); };
+    var result;
+    if (language === 'javascript' || language === 'js') { result = eval(code); }
+    else { return { error: 'Use JavaScript for client-side execution.' }; }
+    console.log = originalLog;
+    return { result: result !== undefined ? String(result) : undefined, logs: logs };
+  } catch (err) { return { error: err.message }; }
+}
+
+function addCodeButtons() {
+  document.querySelectorAll('.bubble pre').forEach(function(pre) {
+    if (pre.querySelector('.code-actions')) return;
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var lang = code.className.includes('language-') ? code.className.replace('language-', '') : '';
+    var actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:4px;margin-bottom:8px;';
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copy';
+    copyBtn.style.cssText = 'padding:4px 10px;font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text2);';
+    copyBtn.onclick = function() { navigator.clipboard.writeText(code.textContent); showToast('Copied!'); };
+    actions.appendChild(copyBtn);
+    if (lang === 'javascript' || lang === 'js') {
+      var runBtn = document.createElement('button');
+      runBtn.textContent = 'Run';
+      runBtn.style.cssText = 'padding:4px 10px;font-size:11px;background:var(--accent);border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;';
+      runBtn.onclick = function() {
+        var res = executeCode(code.textContent, lang);
+        showToast(res.error ? 'Error: ' + res.error : (res.logs.join('\n') || res.result || 'Done'));
+      };
+      actions.appendChild(runBtn);
+    }
+    pre.insertBefore(actions, pre.firstChild);
+  });
+}
+
+// Override appendMessage to add code buttons
+var _origAppendMessage = appendMessage;
+appendMessage = function(role, content, animate) { _origAppendMessage(role, content, animate); setTimeout(addCodeButtons, 100); };
+
+// ─── Init Theme ──────────────────────────────────────────────────────────────
+var savedTheme = localStorage.getItem('nova_theme');
+if (savedTheme && themes[savedTheme]) { setTheme(savedTheme); }
 
 init();
 </script>
