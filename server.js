@@ -234,47 +234,76 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Pollinations.ai - Free) ───────────────────────────────
+// ─── API: Image Generation (Hugging Face - Free) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
-  const { prompt, seed } = req.body;
+  const { prompt } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
   try {
-    // Pollinations.ai is completely free with no API key needed
-    // Add seed for variety, nologo to remove watermark
-    const encodedPrompt = encodeURIComponent(prompt);
-    const randomSeed = seed || Math.floor(Math.random() * 1000000);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
-    
-    // Verify the image is accessible before returning
-    try {
-      const checkResponse = await fetch(imageUrl, { method: 'HEAD' });
-      if (!checkResponse.ok) {
-        // Try with a different seed
-        const newSeed = Math.floor(Math.random() * 1000000);
-        const retryUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${newSeed}`;
+    // Use Hugging Face free inference API (Stable Diffusion)
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            negative_prompt: 'blurry, bad quality, distorted',
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      // If model is loading, return a placeholder
+      if (errorText.includes('loading') || response.status === 503) {
+        // Fallback to Pollinations
+        const encodedPrompt = encodeURIComponent(prompt);
+        const randomSeed = Math.floor(Math.random() * 1000000);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
         return res.json({
           data: [{
-            url: retryUrl,
+            url: imageUrl,
             revised_prompt: prompt
           }]
         });
       }
-    } catch (e) {
-      // Continue anyway, let frontend handle loading
+      throw new Error(`Hugging Face API error: ${response.status}`);
     }
-    
+
+    // Hugging Face returns the image as a blob
+    const imageBuffer = await response.buffer();
+    const base64Image = imageBuffer.toString('base64');
+    const dataUrl = `data:image/png;base64,${base64Image}`;
+
     res.json({
       data: [{
-        url: imageUrl,
+        url: dataUrl,
         revised_prompt: prompt
       }]
     });
   } catch (err) {
-    res.status(500).json({ error: { message: err.message } });
+    // Fallback to Pollinations on any error
+    try {
+      const encodedPrompt = encodeURIComponent(prompt);
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`;
+      res.json({
+        data: [{
+          url: imageUrl,
+          revised_prompt: prompt
+        }]
+      });
+    } catch (fallbackErr) {
+      res.status(500).json({ error: { message: err.message } });
+    }
   }
 });
 
