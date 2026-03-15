@@ -234,7 +234,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Immediate URL response) ───────────────────────────────
+// ─── API: Image Generation (DeepAI - Free tier) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
   const { prompt } = req.body;
 
@@ -242,17 +242,44 @@ app.post('/api/image', async (req, res) => {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
-  const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
-  const randomSeed = Math.floor(Math.random() * 999999);
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}&width=512&height=512`;
-  
-  // Return URL immediately - frontend will load it
-  res.json({
-    data: [{
-      url: imageUrl,
-      revised_prompt: prompt
-    }]
-  });
+  try {
+    // DeepAI free API (no key required for basic usage)
+    const formData = new URLSearchParams();
+    formData.append('text', prompt);
+    
+    const response = await fetch('https://api.deepai.org/api/text2img', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+    
+    if (data.output_url) {
+      res.json({
+        data: [{
+          url: data.output_url,
+          revised_prompt: prompt
+        }]
+      });
+    } else {
+      throw new Error('No image URL returned');
+    }
+  } catch (err) {
+    // Fallback to Pollinations
+    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
+    const randomSeed = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}&width=512&height=512`;
+    
+    res.json({
+      data: [{
+        url: imageUrl,
+        revised_prompt: prompt
+      }]
+    });
+  }
 });
 
 // ─── API: Web Search (Tavily) ────────────────────────────────────────────────
