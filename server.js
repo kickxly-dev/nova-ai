@@ -234,7 +234,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Fetch and return base64) ───────────────────────────────
+// ─── API: Image Generation (Placeholder with prompt text) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
   const { prompt } = req.body;
 
@@ -242,47 +242,41 @@ app.post('/api/image', async (req, res) => {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
-  // Try multiple free APIs
-  const apis = [
-    {
-      name: 'Pollinations',
-      getUrl: (p) => `https://image.pollinations.ai/prompt/${encodeURIComponent(p.substring(0,150))}?width=512&height=512`
-    },
-    {
-      name: 'Picsum',
-      getUrl: (p) => `https://picsum.photos/seed/${Math.random().toString(36).slice(2)}/512/512`
-    }
-  ];
-
-  for (const api of apis) {
-    try {
-      const imageUrl = api.getUrl(prompt);
-      console.log(`Trying ${api.name}: ${imageUrl}`);
-      
-      const response = await fetch(imageUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+  // Generate a unique placeholder image using DiceBear (very reliable)
+  const seed = encodeURIComponent(prompt.substring(0, 50));
+  const imageUrl = `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${seed}&size=512`;
+  
+  try {
+    // Fetch and return as base64
+    const response = await fetch(imageUrl);
+    if (response.ok) {
+      const buffer = await response.buffer();
+      const base64 = buffer.toString('base64');
+      return res.json({
+        data: [{
+          url: `data:image/svg+xml;base64,${base64}`,
+          revised_prompt: prompt
+        }]
       });
-      
-      if (response.ok) {
-        const buffer = await response.buffer();
-        const base64 = buffer.toString('base64');
-        const mimeType = response.headers.get('content-type') || 'image/png';
-        
-        console.log(`${api.name} succeeded, returning base64`);
-        return res.json({
-          data: [{
-            url: `data:${mimeType};base64,${base64}`,
-            revised_prompt: prompt
-          }]
-        });
-      }
-    } catch (err) {
-      console.log(`${api.name} failed: ${err.message}`);
     }
+  } catch (err) {
+    console.log('DiceBear failed:', err.message);
   }
 
-  // All failed - return error
-  res.status(500).json({ error: { message: 'All image APIs failed. Please try again.' } });
+  // Fallback: generate simple SVG with text
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+    <rect width="512" height="512" fill="#8b5cf6"/>
+    <text x="256" y="240" text-anchor="middle" fill="white" font-size="20" font-family="Arial">${prompt.substring(0, 30)}</text>
+    <text x="256" y="280" text-anchor="middle" fill="white" font-size="14" font-family="Arial">[Image Placeholder]</text>
+  </svg>`;
+  const base64 = Buffer.from(svg).toString('base64');
+  
+  res.json({
+    data: [{
+      url: `data:image/svg+xml;base64,${base64}`,
+      revised_prompt: prompt
+    }]
+  });
 });
 
 // ─── API: Web Search (Tavily) ────────────────────────────────────────────────
