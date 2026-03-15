@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,8 +10,37 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ─── Database ────────────────────────────────────────────────────────────────
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : null;
+
+async function initDB() {
+  if (!pool) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_api_keys (
+        id SERIAL PRIMARY KEY,
+        user_token VARCHAR(64) NOT NULL,
+        provider VARCHAR(32) NOT NULL,
+        api_key TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_token, provider)
+      )
+    `);
+    console.log('Database initialized');
+  } catch (err) {
+    console.error('Database init error:', err.message);
+  }
+}
+
+initDB();
+
 // ─── Provider config ──────────────────────────────────────────────────────────
-// All providers use the OpenAI-compatible /v1/chat/completions format
 const PROVIDERS = {
   openai: {
     name: 'OpenAI',
@@ -54,31 +84,119 @@ const PROVIDERS = {
   },
 };
 
-// ─── Tell the frontend which providers are available ─────────────────────────
-app.get('/api/providers', (req, res) => {
+// ─── Helper: get API key (user DB key takes priority, then env var) ──────────
+async function getApiKey(provider, userToken) {
+  const cfg = PROVIDERS[provider];
+  if (!cfg) return null;
+
+  if (userToken && pool) {
+    try {
+      const result = await pool.query(
+        'SELECT api_key FROM user_api_keys WHERE user_token = $1 AND provider = $2',
+        [userToken, provider]
+      );
+      if (result.rows.length > 0) return result.rows[0].api_key;
+    } catch (err) {
+      console.error('DB key lookup error:', err.message);
+    }
+  }
+
+  return process.env[cfg.keyEnv] || null;
+}
+
+// ─── API: Save user API key ──────────────────────────────────────────────────
+app.post('/api/keys', async (req, res) => {
+  const { userToken, provider, apiKey } = req.body;
+  if (!userToken || !provider || !apiKey) {
+    return res.status(400).json({ error: 'Missing userToken, provider, or apiKey' });
+  }
+  if (!PROVIDERS[provider]) {
+    return res.status(400).json({ error: `Unknown provider: ${provider}` });
+  }
+  if (!pool) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO user_api_keys (user_token, provider, api_key, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_token, provider)
+       DO UPDATE SET api_key = $3, updated_at = NOW()`,
+      [userToken, provider, apiKey]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Get which providers a user has keys for ────────────────────────────
+app.get('/api/keys/:userToken', async (req, res) => {
+  const { userToken } = req.params;
+  if (!pool) {
+    return res.json({});
+  }
+  try {
+    const result = await pool.query(
+      'SELECT provider FROM user_api_keys WHERE user_token = $1',
+      [userToken]
+    );
+    const keys = {};
+    result.rows.forEach(row => { keys[row.provider] = true; });
+    res.json(keys);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Delete user API key ────────────────────────────────────────────────
+app.delete('/api/keys', async (req, res) => {
+  const { userToken, provider } = req.body;
+  if (!userToken || !provider) {
+    return res.status(400).json({ error: 'Missing userToken or provider' });
+  }
+  if (!pool) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+  try {
+    await pool.query(
+      'DELETE FROM user_api_keys WHERE user_token = $1 AND provider = $2',
+      [userToken, provider]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Tell the frontend which providers are available ────────────────────
+app.get('/api/providers', async (req, res) => {
+  const userToken = req.query.userToken;
   const available = {};
+
   for (const [id, cfg] of Object.entries(PROVIDERS)) {
+    const key = await getApiKey(id, userToken);
     available[id] = {
       name: cfg.name,
-      available: !!process.env[cfg.keyEnv],
+      available: !!key,
     };
   }
   res.json(available);
 });
 
-// ─── Unified chat proxy ───────────────────────────────────────────────────────
+// ─── API: Unified chat proxy ─────────────────────────────────────────────────
 app.post('/api/chat', async (req, res) => {
-  const { provider = 'openai', model, messages, max_tokens = 1500, temperature = 0.7 } = req.body;
+  const { provider = 'openai', model, messages, max_tokens = 1500, temperature = 0.7, userToken } = req.body;
 
   const cfg = PROVIDERS[provider];
   if (!cfg) {
     return res.status(400).json({ error: { message: `Unknown provider: ${provider}` } });
   }
 
-  const apiKey = process.env[cfg.keyEnv];
+  const apiKey = await getApiKey(provider, userToken);
   if (!apiKey) {
     return res.status(500).json({
-      error: { message: `${cfg.name} API key not set. Add ${cfg.keyEnv} in Render environment variables.` }
+      error: { message: `No API key found for ${cfg.name}. Add your key in Settings.` }
     });
   }
 
@@ -88,7 +206,6 @@ app.post('/api/chat', async (req, res) => {
       'Authorization': `Bearer ${apiKey}`,
     };
 
-    // OpenRouter requires these extra headers
     if (provider === 'openrouter' || provider === 'anthropic_compat') {
       headers['HTTP-Referer'] = 'https://nova-ai.onrender.com';
       headers['X-Title'] = 'NOVA AI';
@@ -112,14 +229,15 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── Fallback ─────────────────────────────────────────────────────────────────
+// ─── Fallback ────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
   console.log(`NOVA server running on port ${PORT}`);
-  console.log('Available providers:');
+  console.log(`Database: ${pool ? 'connected' : 'not configured'}`);
+  console.log('Server-side provider keys:');
   for (const [id, cfg] of Object.entries(PROVIDERS)) {
     const hasKey = !!process.env[cfg.keyEnv];
     console.log(`  ${hasKey ? '✓' : '✗'} ${cfg.name} (${cfg.keyEnv})`);
