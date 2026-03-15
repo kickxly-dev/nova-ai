@@ -42,6 +42,31 @@ initDB();
 
 // ─── Provider config ──────────────────────────────────────────────────────────
 const PROVIDERS = {
+  // FREE - Local AI (Ollama)
+  ollama: {
+    name: 'Ollama (Local)',
+    baseURL: 'http://localhost:11434/v1',
+    keyEnv: null, // No key needed!
+    free: true,
+    local: true,
+  },
+  // FREE - NOVA hosted model
+  nova: {
+    name: 'NOVA Free',
+    baseURL: null, // Custom handler
+    keyEnv: null,
+    free: true,
+    hosted: true,
+  },
+  // FREE - Hugging Face
+  huggingface: {
+    name: 'Hugging Face',
+    baseURL: 'https://api-inference.huggingface.co/models',
+    keyEnv: 'HUGGINGFACE_API_KEY',
+    free: true,
+    freeTier: true,
+  },
+  // PAID providers
   openai: {
     name: 'OpenAI',
     baseURL: 'https://api.openai.com/v1',
@@ -66,6 +91,7 @@ const PROVIDERS = {
     name: 'Together AI',
     baseURL: 'https://api.together.xyz/v1',
     keyEnv: 'TOGETHER_API_KEY',
+    freeTier: true,
   },
   mistral: {
     name: 'Mistral',
@@ -94,6 +120,12 @@ async function getApiKey(provider, userToken) {
   const cfg = PROVIDERS[provider];
   if (!cfg) return null;
 
+  // FREE providers - no key needed
+  if (cfg.free && !cfg.keyEnv) {
+    return 'free'; // Mark as available
+  }
+
+  // Check user's stored key first
   if (userToken && pool) {
     try {
       const result = await pool.query(
@@ -205,6 +237,99 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
+  // ─── FREE: Ollama (Local AI) ───────────────────────────────────────────────
+  if (provider === 'ollama') {
+    try {
+      // Check if Ollama is running
+      const ollamaModel = model || 'llama3.2';
+      const response = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: messages,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return res.status(503).json({
+          error: { message: `Ollama not running. Start it with: ollama serve. Details: ${errData.error || 'Connection refused'}` }
+        });
+      }
+
+      const data = await response.json();
+      // Convert Ollama format to OpenAI format
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: data.message?.content || '' },
+          finish_reason: 'stop',
+        }],
+        model: ollamaModel,
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      });
+    } catch (err) {
+      res.status(503).json({
+        error: { message: `Ollama not running. Install: curl -fsSL https://ollama.com/install.sh | sh && ollama pull llama3.2` }
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: NOVA Hosted (using free inference APIs) ───────────────────────────
+  if (provider === 'nova') {
+    try {
+      // Use free Hugging Face inference as fallback
+      const hfModel = 'microsoft/DialoGPT-large';
+      const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+      
+      const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: Math.min(max_tokens, 500),
+            temperature: temperature,
+            return_full_text: false,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        // Fallback to a simple response
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `NOVA Free mode: The hosted model is loading. Try again in 30 seconds, or use Ollama for unlimited local AI!\n\nTo use Ollama:\n1. Install: curl -fsSL https://ollama.com/install.sh | sh\n2. Run: ollama pull llama3.2\n3. Select "Ollama (Local)" from the provider menu` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const generatedText = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || 'Sorry, I could not generate a response. Try Ollama for local AI!';
+      
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: generatedText },
+          finish_reason: 'stop',
+        }],
+        model: 'nova-free',
+      });
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `NOVA Free mode error: ${err.message}\n\nFor unlimited free AI, install Ollama:\n1. curl -fsSL https://ollama.com/install.sh | sh\n2. ollama pull llama3.2\n3. Select "Ollama (Local)" from provider menu` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── STANDARD: OpenAI-compatible APIs ───────────────────────────────────────
   try {
     const headers = {
       'Content-Type': 'application/json',
