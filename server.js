@@ -234,7 +234,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Fetch and return base64) ───────────────────────────────
+// ─── API: Image Generation (Immediate URL response) ───────────────────────────────
 app.post('/api/image', async (req, res) => {
   const { prompt } = req.body;
 
@@ -242,55 +242,17 @@ app.post('/api/image', async (req, res) => {
     return res.status(400).json({ error: { message: 'Prompt is required' } });
   }
 
-  try {
-    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
-    const randomSeed = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}`;
-    
-    // Fetch the image on the backend with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-    
-    try {
-      const imageResponse = await fetch(imageUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      clearTimeout(timeoutId);
-      
-      if (!imageResponse.ok) {
-        throw new Error('Failed to generate image');
-      }
-      
-      const imageBuffer = await imageResponse.buffer();
-      const base64Image = imageBuffer.toString('base64');
-      const dataUrl = `data:image/png;base64,${base64Image}`;
-      
-      res.json({
-        data: [{
-          url: dataUrl,
-          revised_prompt: prompt
-        }]
-      });
-    } catch (fetchErr) {
-      clearTimeout(timeoutId);
-      throw fetchErr;
-    }
-  } catch (err) {
-    // Fallback: return URL and let frontend try
-    const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
-    const randomSeed = Math.floor(Math.random() * 999999);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}`;
-    
-    res.json({
-      data: [{
-        url: imageUrl,
-        revised_prompt: prompt
-      }]
-    });
-  }
+  const encodedPrompt = encodeURIComponent(prompt.substring(0, 200));
+  const randomSeed = Math.floor(Math.random() * 999999);
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${randomSeed}&width=512&height=512`;
+  
+  // Return URL immediately - frontend will load it
+  res.json({
+    data: [{
+      url: imageUrl,
+      revised_prompt: prompt
+    }]
+  });
 });
 
 // ─── API: Web Search (Tavily) ────────────────────────────────────────────────
