@@ -948,6 +948,7 @@ async function performWebSearch(query) {
 }
 
 function appendImageMessage(imageUrl, caption) {
+  var safeCaption = caption.replace(/"/g, '&quot;');
   [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
     var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
     var area = document.getElementById(p + '-chat-area');
@@ -958,13 +959,22 @@ function appendImageMessage(imageUrl, caption) {
     msg.className = msgCls + ' ai';
     var imgId = 'img-' + Date.now() + '-' + p;
     var loaderId = imgId + '-loader';
-    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><div id="' + loaderId + '" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + escHtml(caption) + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;" onload="this.style.display=\'block\';document.getElementById(\'' + loaderId + '\').style.display=\'none\';" onerror="var loader=document.getElementById(\'' + loaderId + '\');loader.innerHTML=\'<p style=color:var(--accent2);>Image failed to load</p><button onclick=\\\'retryImage(\\\"' + escHtml(caption).replace(/'/g, "\\'") + '\\\")\\\' style=\\\"margin-top:8px;padding:8px 16px;background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:600;\\\">Retry</button>\';"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Image Generated</div><div id="' + loaderId + '" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + safeCaption + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
     area.appendChild(msg);
+    
+    var img = document.getElementById(imgId);
+    var loader = document.getElementById(loaderId);
+    img.onload = function() { img.style.display = 'block'; loader.style.display = 'none'; };
+    img.onerror = function() {
+      loader.innerHTML = '<p style="color:var(--accent2);margin-bottom:8px;">Image failed to load</p><button id="retry-btn-' + imgId + '" style="padding:8px 16px;background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:600;">Retry</button>';
+      document.getElementById('retry-btn-' + imgId).onclick = function() { retryImage(caption); };
+    };
     area.scrollTop = area.scrollHeight;
   });
 }
 
 function retryImage(prompt) {
+  state.imageMode = true;
   generateImage(prompt);
 }
 
