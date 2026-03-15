@@ -1153,17 +1153,23 @@ function shareChat() {
 }
 
 // ─── Code Execution ──────────────────────────────────────────────────────────
-function executeCode(code, language) {
+function executeCode(code, language, outputEl) {
   try {
     var logs = [];
     var originalLog = console.log;
-    console.log = function() { logs.push(Array.from(arguments).join(' ')); };
+    console.log = function() { logs.push(Array.from(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ')); };
     var result;
     if (language === 'javascript' || language === 'js') { result = eval(code); }
-    else { return { error: 'Use JavaScript for client-side execution.' }; }
+    else { outputEl.innerHTML = '<span style="color:var(--accent2)">Only JavaScript can run in browser</span>'; return; }
     console.log = originalLog;
-    return { result: result !== undefined ? String(result) : undefined, logs: logs };
-  } catch (err) { return { error: err.message }; }
+    var output = '';
+    if (logs.length > 0) { output += '<span style="color:var(--muted)">Output:</span>\n' + logs.join('\n'); }
+    if (result !== undefined) { output += '\n<span style="color:var(--accent)">Result:</span> ' + String(result); }
+    if (!output) { output = '<span style="color:var(--green)">✓ Executed successfully (no output)</span>'; }
+    outputEl.innerHTML = output;
+  } catch (err) {
+    outputEl.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
+  }
 }
 
 function addCodeButtons() {
@@ -1173,6 +1179,7 @@ function addCodeButtons() {
     if (!code) return;
     var lang = code.className.includes('language-') ? code.className.replace('language-', '') : '';
     var actions = document.createElement('div');
+    actions.className = 'code-actions';
     actions.style.cssText = 'display:flex;gap:4px;margin-bottom:8px;';
     var copyBtn = document.createElement('button');
     copyBtn.textContent = 'Copy';
@@ -1183,11 +1190,15 @@ function addCodeButtons() {
       var runBtn = document.createElement('button');
       runBtn.textContent = 'Run';
       runBtn.style.cssText = 'padding:4px 10px;font-size:11px;background:var(--accent);border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;';
+      var outputEl = document.createElement('div');
+      outputEl.style.cssText = 'display:none;margin-top:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;overflow-x:auto;';
       runBtn.onclick = function() {
-        var res = executeCode(code.textContent, lang);
-        showToast(res.error ? 'Error: ' + res.error : (res.logs.join('\n') || res.result || 'Done'));
+        outputEl.style.display = 'block';
+        outputEl.innerHTML = '<span style="color:var(--muted)">Running...</span>';
+        setTimeout(function() { executeCode(code.textContent, lang, outputEl); }, 10);
       };
       actions.appendChild(runBtn);
+      pre.appendChild(outputEl);
     }
     pre.insertBefore(actions, pre.firstChild);
   });
