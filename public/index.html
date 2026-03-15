@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>NOVA — Your AI</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 <style>
 :root {
   --bg: #09090b;
@@ -99,44 +106,82 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .key-btn.del { color: var(--red); border-color: rgba(239,68,68,0.2); }
 .key-btn.del:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
 
-/* Code Section */
-.code-section { display: none; height: 100%; flex-direction: column; }
+/* Code Section - Pro Editor */
+.code-section { display: none; height: 100%; flex-direction: column; background: var(--bg); }
 .code-section.active { display: flex; }
-.code-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); gap: 12px; }
 .code-title { display: flex; align-items: center; gap: 10px; }
-.code-title-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #22c55e, #10b981); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: #fff; }
-.code-title h2 { font-size: 16px; font-weight: 700; }
-.code-title span { font-size: 11px; color: var(--muted); }
-.code-actions-bar { display: flex; gap: 6px; }
-.code-btn { padding: 8px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-xs); font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
-.code-btn:hover { background: var(--surface3); color: var(--text); }
-.code-btn.primary { background: var(--green); border: none; color: #fff; }
-.code-btn.primary:hover { background: #16a34a; }
+.code-title-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #22c55e, #10b981); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; }
+.code-title h2 { font-size: 14px; font-weight: 700; }
+.code-title span { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.code-actions-bar { display: flex; gap: 4px; flex-wrap: wrap; }
+.code-btn { padding: 6px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+.code-btn:hover { background: var(--surface3); color: var(--text); border-color: var(--border-hover); }
+.code-btn.primary { background: linear-gradient(135deg, #22c55e, #16a34a); border: none; color: #fff; }
+.code-btn.primary:hover { background: linear-gradient(135deg, #16a34a, #15803d); transform: translateY(-1px); }
+.code-btn.danger { color: var(--red); border-color: rgba(239,68,68,0.3); }
+.code-btn.danger:hover { background: rgba(239,68,68,0.1); }
+.code-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .code-main { display: flex; flex: 1; overflow: hidden; }
-.code-editor-panel { flex: 1; display: flex; flex-direction: column; background: #0c0c0f; border-right: 1px solid var(--border); }
-.code-editor-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
-.code-lang-select { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text); cursor: pointer; }
+.code-editor-panel { flex: 1; min-width: 300px; display: flex; flex-direction: column; background: #0d0d0f; position: relative; }
+.code-editor-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.code-editor-header-left { display: flex; align-items: center; gap: 8px; }
+.code-lang-select { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text); cursor: pointer; font-family: var(--mono); }
+.code-lang-select:focus { outline: none; border-color: var(--accent); }
+.code-snippets-btn { padding: 4px 10px; background: transparent; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--muted); cursor: pointer; }
+.code-snippets-btn:hover { background: var(--surface2); color: var(--text); }
+.code-editor-wrapper { flex: 1; display: flex; overflow: hidden; position: relative; }
+.code-line-numbers { padding: 12px 8px; background: #0a0a0c; text-align: right; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--muted2); user-select: none; overflow: hidden; min-width: 40px; border-right: 1px solid var(--border); }
+.code-line-numbers span { display: block; }
+.code-line-numbers span.active { color: var(--accent); }
+.code-editor-container { flex: 1; position: relative; overflow: hidden; }
+.code-editor { position: absolute; inset: 0; padding: 12px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: transparent; caret-color: var(--text); background: transparent; border: none; outline: none; resize: none; white-space: pre; overflow: auto; z-index: 2; }
+.code-highlight { position: absolute; inset: 0; padding: 12px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: #d4d4d8; white-space: pre; overflow: auto; pointer-events: none; z-index: 1; }
+.code-highlight code { font-family: inherit; font-size: inherit; line-height: inherit; }
 .code-textarea { flex: 1; background: transparent; border: none; padding: 16px; font-family: var(--mono); font-size: 13px; color: #d4d4d8; line-height: 1.7; resize: none; outline: none; white-space: pre; overflow: auto; }
 .code-textarea::placeholder { color: var(--muted); }
-.code-output-panel { width: 320px; display: flex; flex-direction: column; background: var(--surface); }
-.code-output-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 6px; }
-.code-output-content { flex: 1; padding: 14px; font-family: var(--mono); font-size: 12px; line-height: 1.6; overflow: auto; white-space: pre-wrap; color: var(--text2); }
+.code-status-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; background: var(--surface); border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.code-status-left, .code-status-right { display: flex; align-items: center; gap: 12px; }
+.code-resizer { width: 4px; background: var(--border); cursor: col-resize; transition: background 0.15s; }
+.code-resizer:hover { background: var(--accent); }
+.code-output-panel { width: 280px; min-width: 200px; display: flex; flex-direction: column; background: var(--surface); }
+.code-output-header { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text2); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.code-output-tabs { display: flex; gap: 2px; }
+.code-output-tab { padding: 4px 8px; background: transparent; border: none; border-radius: 4px; font-size: 10px; color: var(--muted); cursor: pointer; font-family: var(--mono); }
+.code-output-tab.active { background: var(--surface2); color: var(--text); }
+.code-output-content { flex: 1; padding: 12px; font-family: var(--mono); font-size: 11px; line-height: 1.6; overflow: auto; white-space: pre-wrap; color: var(--text2); background: #0a0a0c; }
 .code-output-content.error { color: var(--red); }
 .code-output-content.success { color: var(--green); }
-.code-chat-panel { flex: 1; display: flex; flex-direction: column; }
-.code-chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.code-chat-input { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-.code-chat-input textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-family: var(--font); font-size: 13px; color: var(--text); resize: none; outline: none; }
-.code-chat-input textarea:focus { border-color: var(--border-focus); }
-.code-chat-input button { padding: 10px 18px; background: var(--green); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; }
-.code-msg { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.6; }
-.code-msg.user { background: var(--accent-glow); border: 1px solid rgba(139,92,246,0.2); margin-left: 20px; }
-.code-msg.ai { background: var(--surface2); border: 1px solid var(--border); margin-right: 20px; }
-.code-msg pre { margin: 8px 0; padding: 10px; background: #0c0c0f; border-radius: 6px; overflow-x: auto; }
-.key-input-row { display: flex; gap: 6px; margin-top: 8px; animation: fadeUp 0.15s ease; width: 100%; }
-.key-input-row input { flex: 1; background: var(--bg); border: 1px solid var(--border-focus); border-radius: var(--radius-xs); padding: 8px 12px; font-family: var(--mono); font-size: 12px; color: var(--text); outline: none; }
-.key-input-row button { padding: 8px 14px; border: none; background: var(--accent); border-radius: var(--radius-xs); font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; font-family: var(--font); transition: all 0.15s; }
-.key-input-row button:hover { background: var(--accent-light); }
+.code-output-content.warning { color: var(--accent2); }
+.code-output-timer { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.code-chat-panel { width: 320px; min-width: 280px; display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--border); }
+.code-chat-header { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 6px; background: var(--surface); }
+.code-chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.code-chat-input { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; background: var(--surface); }
+.code-chat-input textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: var(--font); font-size: 12px; color: var(--text); resize: none; outline: none; max-height: 80px; }
+.code-chat-input textarea:focus { border-color: var(--accent); }
+.code-chat-input button { padding: 8px 14px; background: var(--green); border: none; border-radius: 6px; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; transition: all 0.15s; }
+.code-chat-input button:hover { background: #16a34a; }
+.code-msg { padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; animation: fadeUp 0.2s ease; }
+.code-msg.user { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.08)); border: 1px solid rgba(139,92,246,0.2); margin-left: 16px; }
+.code-msg.ai { background: var(--surface2); border: 1px solid var(--border); margin-right: 16px; }
+.code-msg pre { margin: 6px 0; padding: 8px; background: #0c0c0f; border-radius: 4px; overflow-x: auto; font-size: 11px; }
+.code-msg .insert-btn { margin-top: 6px; padding: 4px 10px; background: var(--green); border: none; border-radius: 4px; color: #fff; font-size: 10px; cursor: pointer; }
+.code-msg .insert-btn:hover { background: #16a34a; }
+/* Snippets dropdown */
+.code-snippets-dropdown { position: absolute; top: 100%; left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px; min-width: 200px; z-index: 100; display: none; box-shadow: var(--shadow-lg); }
+.code-snippets-dropdown.open { display: block; }
+.code-snippet-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+.code-snippet-item:hover { background: var(--surface2); color: var(--text); }
+.code-snippet-item .snippet-icon { width: 20px; height: 20px; background: var(--surface2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+/* Find & Replace */
+.code-find-bar { display: none; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); gap: 8px; align-items: center; }
+.code-find-bar.open { display: flex; }
+.code-find-bar input { flex: 1; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--text); outline: none; }
+.code-find-bar input:focus { border-color: var(--accent); }
+.code-find-bar button { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--text2); cursor: pointer; }
+.code-find-bar button:hover { background: var(--surface3); color: var(--text); }
+.code-find-count { font-size: 11px; color: var(--muted); min-width: 60px; }
 
 /* DESKTOP */
 #desktop-app { display: flex; height: 100dvh; }
@@ -384,46 +429,91 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
   <div class="code-header">
     <div class="code-title">
       <div class="code-title-icon">&lt;/&gt;</div>
-      <div><h2>NOVA Code</h2><span>AI-Powered Coding Assistant</span></div>
+      <div><h2>NOVA Code</h2><span>AI-Powered Editor</span></div>
     </div>
     <div class="code-actions-bar">
-      <button class="code-btn" onclick="clearCode()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Clear</button>
-      <button class="code-btn" onclick="copyCode()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</button>
-      <button class="code-btn primary" onclick="runCode()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
+      <button class="code-btn" onclick="toggleFindBar()" id="find-btn" title="Find & Replace (Ctrl+F)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Find</button>
+      <button class="code-btn" onclick="formatCode()" title="Format Code"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg> Format</button>
+      <button class="code-btn" onclick="downloadCode()" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save</button>
+      <button class="code-btn danger" onclick="clearCode()" title="Clear"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+      <button class="code-btn primary" onclick="runCode()" id="run-btn" title="Run (Ctrl+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
     </div>
+  </div>
+  <div class="code-find-bar" id="code-find-bar">
+    <input type="text" id="code-find-input" placeholder="Find..." oninput="findInCode()">
+    <input type="text" id="code-replace-input" placeholder="Replace...">
+    <button onclick="findNext()">Next</button>
+    <button onclick="replaceOne()">Replace</button>
+    <button onclick="replaceAll()">All</button>
+    <span class="code-find-count" id="code-find-count"></span>
   </div>
   <div class="code-main">
     <div class="code-editor-panel">
       <div class="code-editor-header">
-        <select class="code-lang-select" id="code-lang" onchange="changeLanguage()">
-          <option value="javascript">JavaScript</option>
-          <option value="python">Python</option>
-          <option value="html">HTML</option>
-          <option value="css">CSS</option>
-          <option value="json">JSON</option>
-        </select>
-        <span style="font-size:11px;color:var(--muted);">Write code or ask AI for help</span>
+        <div class="code-editor-header-left">
+          <select class="code-lang-select" id="code-lang" onchange="changeLanguage()">
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="json">JSON</option>
+          </select>
+          <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">📋 Snippets</button>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="code-btn" onclick="undoCode()" title="Undo (Ctrl+Z)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
+          <button class="code-btn" onclick="redoCode()" title="Redo (Ctrl+Y)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
+        </div>
       </div>
-      <textarea class="code-textarea" id="code-editor" placeholder="// Start coding or ask NOVA to help...
-// Example: 'Write a function that sorts an array'
-
-function hello() {
-  console.log('Hello, World!');
-}
-
-hello();" spellcheck="false"></textarea>
+      <div class="code-snippets-dropdown" id="code-snippets-dropdown">
+        <div class="code-snippet-item" onclick="insertSnippet('forloop')"><div class="snippet-icon">🔄</div><div>For Loop</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('foreach')"><div class="snippet-icon">🔁</div><div>ForEach</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('function')"><div class="snippet-icon">⚡</div><div>Function</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('arrow')"><div class="snippet-icon">→</div><div>Arrow Function</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('class')"><div class="snippet-icon">📦</div><div>Class</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('trycatch')"><div class="snippet-icon">🛡️</div><div>Try/Catch</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('fetch')"><div class="snippet-icon">🌐</div><div>Fetch API</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('async')"><div class="snippet-icon">⏳</div><div>Async Function</div></div>
+      </div>
+      <div class="code-editor-wrapper">
+        <div class="code-line-numbers" id="code-line-numbers"></div>
+        <div class="code-editor-container">
+          <div class="code-highlight" id="code-highlight"><code class="language-javascript"></code></div>
+          <textarea class="code-editor" id="code-editor" spellcheck="false" oninput="updateEditor()" onscroll="syncScroll()" onkeydown="handleEditorKey(event)" onclick="updateCurrentLine()"></textarea>
+        </div>
+      </div>
+      <div class="code-status-bar">
+        <div class="code-status-left">
+          <span id="code-lang-display">JavaScript</span>
+          <span>|</span>
+          <span id="code-cursor-pos">Ln 1, Col 1</span>
+        </div>
+        <div class="code-status-right">
+          <span id="code-line-count">0 lines</span>
+          <span>|</span>
+          <span id="code-char-count">0 chars</span>
+        </div>
+      </div>
     </div>
-    <div class="code-output-panel">
-      <div class="code-output-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Output</div>
-      <div class="code-output-content" id="code-output">Run your code to see output here...</div>
+    <div class="code-resizer" id="output-resizer"></div>
+    <div class="code-output-panel" id="code-output-panel">
+      <div class="code-output-header">
+        <div class="code-output-tabs">
+          <button class="code-output-tab active" onclick="switchOutputTab('output')" id="tab-output">Output</button>
+          <button class="code-output-tab" onclick="switchOutputTab('console')" id="tab-console">Console</button>
+        </div>
+        <span class="code-output-timer" id="code-output-timer"></span>
+      </div>
+      <div class="code-output-content" id="code-output">Click Run or press Ctrl+Enter to execute your code...</div>
     </div>
-    <div class="code-chat-panel">
-      <div class="code-output-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> AI Code Assistant</div>
+    <div class="code-resizer" id="chat-resizer"></div>
+    <div class="code-chat-panel" id="code-chat-panel">
+      <div class="code-chat-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> AI Assistant</div>
       <div class="code-chat-messages" id="code-chat-messages">
-        <div class="code-msg ai">Hi! I'm your coding assistant. Ask me to write, explain, debug, or optimize code. I can help with JavaScript, Python, HTML, CSS, and more!</div>
+        <div class="code-msg ai">Hi! I'm your coding assistant. Ask me to write, debug, explain, or optimize code. I can see your current code and help improve it!</div>
       </div>
       <div class="code-chat-input">
-        <textarea id="code-chat-input" placeholder="Ask NOVA to help with code..." rows="1" onkeydown="handleCodeChatKey(event)"></textarea>
+        <textarea id="code-chat-input" placeholder="Ask for help with your code..." rows="1" onkeydown="handleCodeChatKey(event)"></textarea>
         <button onclick="sendCodeChat()">Ask</button>
       </div>
     </div>
@@ -1298,9 +1388,13 @@ function addCodeButtons() {
 var _origAppendMessage = appendMessage;
 appendMessage = function(role, content, animate) { _origAppendMessage(role, content, animate); setTimeout(addCodeButtons, 100); };
 
-// ─── Code Section Functions ────────────────────────────────────────────────────
+// ─── Code Section Functions - Pro Editor ────────────────────────────────────────
 var currentMode = 'chat';
 var codeHistory = [];
+var codeUndoStack = [];
+var codeRedoStack = [];
+var currentOutputTab = 'output';
+var consoleLogs = [];
 
 function switchMode(mode) {
   currentMode = mode;
@@ -1323,62 +1417,298 @@ function switchMode(mode) {
     chatTab.style.color = 'var(--muted)';
     desktopApp.style.display = 'none';
     codeSection.classList.add('active');
+    setTimeout(function() { updateEditor(); document.getElementById('code-editor').focus(); }, 50);
+  }
+}
+
+// Syntax highlighting with Prism
+function updateEditor() {
+  var editor = document.getElementById('code-editor');
+  var highlight = document.getElementById('code-highlight');
+  var code = editor.value;
+  var lang = document.getElementById('code-lang').value;
+  
+  // Update highlight
+  var prismLang = lang === 'html' ? 'markup' : lang;
+  highlight.innerHTML = '<code class="language-' + prismLang + '">' + escapeHtml(code) + '</code>';
+  if (window.Prism) Prism.highlightElement(highlight.querySelector('code'));
+  
+  // Update line numbers
+  updateLineNumbers(code);
+  
+  // Update status bar
+  var lines = code.split('\n');
+  document.getElementById('code-line-count').textContent = lines.length + ' lines';
+  document.getElementById('code-char-count').textContent = code.length + ' chars';
+  document.getElementById('code-lang-display').textContent = document.getElementById('code-lang').options[document.getElementById('code-lang').selectedIndex].text;
+  
+  // Update cursor position
+  updateCurrentLine();
+  
+  // Save to undo stack (debounced)
+  if (codeUndoStack.length === 0 || codeUndoStack[codeUndoStack.length - 1] !== code) {
+    codeUndoStack.push(code);
+    if (codeUndoStack.length > 50) codeUndoStack.shift();
+    codeRedoStack = [];
+  }
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function updateLineNumbers(code) {
+  var lines = code.split('\n');
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var html = '';
+  for (var i = 1; i <= lines.length; i++) {
+    html += '<span>' + i + '</span>';
+  }
+  lineNumbers.innerHTML = html;
+}
+
+function updateCurrentLine() {
+  var editor = document.getElementById('code-editor');
+  var pos = editor.selectionStart;
+  var text = editor.value.substring(0, pos);
+  var lines = text.split('\n');
+  var line = lines.length;
+  var col = lines[lines.length - 1].length + 1;
+  document.getElementById('code-cursor-pos').textContent = 'Ln ' + line + ', Col ' + col;
+  
+  // Highlight current line number
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var spans = lineNumbers.querySelectorAll('span');
+  spans.forEach(function(s, i) { s.classList.toggle('active', i === line - 1); });
+}
+
+function syncScroll() {
+  var editor = document.getElementById('code-editor');
+  var highlight = document.getElementById('code-highlight');
+  var lineNumbers = document.getElementById('code-line-numbers');
+  highlight.scrollTop = editor.scrollTop;
+  highlight.scrollLeft = editor.scrollLeft;
+  lineNumbers.scrollTop = editor.scrollTop;
+}
+
+function handleEditorKey(e) {
+  var editor = e.target;
+  
+  // Tab key - insert spaces
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    var start = editor.selectionStart;
+    var end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    updateEditor();
+  }
+  
+  // Auto-close brackets
+  var pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
+  if (pairs[e.key]) {
+    var start = editor.selectionStart;
+    var end = editor.selectionEnd;
+    if (start === end) {
+      e.preventDefault();
+      editor.value = editor.value.substring(0, start) + e.key + pairs[e.key] + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 1;
+      updateEditor();
+    }
+  }
+  
+  // Auto-indent on Enter
+  if (e.key === 'Enter') {
+    var start = editor.selectionStart;
+    var lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+    var line = editor.value.substring(lineStart, start);
+    var indent = line.match(/^\s*/)[0];
+    var lastChar = editor.value.substring(start - 1, start);
+    
+    // Extra indent after { or :
+    if (lastChar === '{' || lastChar === ':') indent += '  ';
+    
+    e.preventDefault();
+    editor.value = editor.value.substring(0, start) + '\n' + indent + editor.value.substring(start);
+    editor.selectionStart = editor.selectionEnd = start + 1 + indent.length;
+    updateEditor();
+  }
+  
+  // Run with Ctrl+Enter
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    runCode();
+  }
+  
+  // Find with Ctrl+F
+  if (e.key === 'f' && e.ctrlKey) {
+    e.preventDefault();
+    toggleFindBar();
+  }
+  
+  // Save with Ctrl+S
+  if (e.key === 's' && e.ctrlKey) {
+    e.preventDefault();
+    downloadCode();
+  }
+}
+
+function undoCode() {
+  if (codeUndoStack.length > 1) {
+    codeRedoStack.push(codeUndoStack.pop());
+    document.getElementById('code-editor').value = codeUndoStack[codeUndoStack.length - 1];
+    updateEditor();
+  }
+}
+
+function redoCode() {
+  if (codeRedoStack.length > 0) {
+    var code = codeRedoStack.pop();
+    codeUndoStack.push(code);
+    document.getElementById('code-editor').value = code;
+    updateEditor();
   }
 }
 
 function clearCode() {
-  document.getElementById('code-editor').value = '';
-  document.getElementById('code-output').textContent = 'Run your code to see output here...';
-  document.getElementById('code-output').className = 'code-output-content';
-  showToast('Code cleared');
+  if (document.getElementById('code-editor').value) {
+    document.getElementById('code-editor').value = '';
+    document.getElementById('code-output').textContent = 'Click Run or press Ctrl+Enter to execute your code...';
+    document.getElementById('code-output').className = 'code-output-content';
+    document.getElementById('code-output-timer').textContent = '';
+    consoleLogs = [];
+    updateEditor();
+    showToast('Code cleared');
+  }
 }
 
 function copyCode() {
   var code = document.getElementById('code-editor').value;
   if (!code) { showToast('No code to copy'); return; }
-  navigator.clipboard.writeText(code).then(function() { showToast('Code copied!'); });
+  navigator.clipboard.writeText(code).then(function() { showToast('Code copied to clipboard!'); });
+}
+
+function downloadCode() {
+  var code = document.getElementById('code-editor').value;
+  if (!code) { showToast('No code to save'); return; }
+  var lang = document.getElementById('code-lang').value;
+  var ext = { javascript: 'js', python: 'py', html: 'html', css: 'css', json: 'json' };
+  var blob = new Blob([code], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'code.' + (ext[lang] || 'txt');
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Code saved!');
+}
+
+function formatCode() {
+  var editor = document.getElementById('code-editor');
+  var code = editor.value;
+  var lang = document.getElementById('code-lang').value;
+  
+  if (lang === 'json') {
+    try {
+      editor.value = JSON.stringify(JSON.parse(code), null, 2);
+      updateEditor();
+      showToast('JSON formatted!');
+    } catch (e) {
+      showToast('Invalid JSON');
+    }
+  } else if (lang === 'javascript') {
+    // Basic JS formatting - indent properly
+    try {
+      var formatted = code
+        .replace(/\s*{\s*/g, ' {\n  ')
+        .replace(/\s*}\s*/g, '\n}\n')
+        .replace(/;\s*/g, ';\n')
+        .replace(/\n\s*\n/g, '\n');
+      editor.value = formatted.trim();
+      updateEditor();
+      showToast('Code formatted!');
+    } catch (e) {
+      showToast('Could not format');
+    }
+  } else {
+    showToast('Format available for JS/JSON');
+  }
 }
 
 function runCode() {
   var code = document.getElementById('code-editor').value;
   var lang = document.getElementById('code-lang').value;
   var output = document.getElementById('code-output');
+  var timer = document.getElementById('code-output-timer');
   
   if (!code) { showToast('No code to run'); return; }
   
+  var startTime = performance.now();
   output.className = 'code-output-content';
   output.innerHTML = '<span style="color:var(--muted)">Running...</span>';
+  consoleLogs = [];
   
   setTimeout(function() {
     if (lang === 'javascript') {
       try {
         var logs = [];
         var originalLog = console.log;
-        console.log = function() { logs.push(Array.from(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ')); };
+        var originalWarn = console.warn;
+        var originalError = console.error;
+        
+        console.log = function() { logs.push({ type: 'log', args: Array.from(arguments) }); };
+        console.warn = function() { logs.push({ type: 'warn', args: Array.from(arguments) }); };
+        console.error = function() { logs.push({ type: 'error', args: Array.from(arguments) }); };
+        
         var result = eval(code);
+        
         console.log = originalLog;
+        console.warn = originalWarn;
+        console.error = originalError;
+        
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
+        
         var out = '';
-        if (logs.length > 0) { out += logs.join('\n'); }
-        if (result !== undefined) { out += (out ? '\n' : '') + '→ ' + String(result); }
+        logs.forEach(function(l) {
+          var str = l.args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
+          if (l.type === 'error') out += '❌ ' + str + '\n';
+          else if (l.type === 'warn') out += '⚠️ ' + str + '\n';
+          else out += str + '\n';
+        });
+        
+        if (result !== undefined) {
+          var resultStr = typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result);
+          out += '→ ' + resultStr;
+        }
+        
         if (!out) { out = '✓ Executed successfully (no output)'; output.className = 'code-output-content success'; }
         else { output.className = 'code-output-content'; }
+        
         output.textContent = out;
+        consoleLogs = logs;
       } catch (err) {
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
         output.className = 'code-output-content error';
-        output.textContent = 'Error: ' + err.message;
+        output.textContent = '❌ ' + err.name + ': ' + err.message + '\n\nLine ' + (err.lineNumber || '?') + ', Column ' + (err.columnNumber || '?');
       }
     } else if (lang === 'json') {
       try {
         var parsed = JSON.parse(code);
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
         output.className = 'code-output-content success';
         output.textContent = '✓ Valid JSON\n\n' + JSON.stringify(parsed, null, 2);
       } catch (err) {
+        var elapsed = (performance.now() - startTime).toFixed(2);
+        timer.textContent = elapsed + 'ms';
         output.className = 'code-output-content error';
-        output.textContent = 'Invalid JSON: ' + err.message;
+        output.textContent = '❌ Invalid JSON: ' + err.message;
       }
     } else {
-      output.className = 'code-output-content';
-      output.textContent = 'Only JavaScript and JSON can run in browser.\n\nFor Python, use the AI assistant to help write code, then run it locally.';
+      timer.textContent = '';
+      output.className = 'code-output-content warning';
+      output.textContent = '⚠️ ' + lang.toUpperCase() + ' cannot run in browser.\n\nUse the AI assistant to help write code, then run it locally.\n\nFor Python, try: python -c "your code"';
     }
   }, 10);
 }
@@ -1386,23 +1716,131 @@ function runCode() {
 function changeLanguage() {
   var lang = document.getElementById('code-lang').value;
   var editor = document.getElementById('code-editor');
-  var placeholder = '';
+  var highlight = document.getElementById('code-highlight');
   
-  if (lang === 'javascript') {
-    placeholder = '// JavaScript code\nfunction hello() {\n  console.log("Hello, World!");\n}\n\nhello();';
-  } else if (lang === 'python') {
-    placeholder = '# Python code\n# Run locally or ask AI for help\n\ndef hello():\n    print("Hello, World!")\n\nhello()';
-  } else if (lang === 'html') {
-    placeholder = '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Page</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>';
-  } else if (lang === 'css') {
-    placeholder = '/* CSS styles */\nbody {\n  background: #09090b;\n  color: #fafafa;\n  font-family: sans-serif;\n}';
-  } else if (lang === 'json') {
-    placeholder = '{\n  "name": "NOVA",\n  "version": "1.0",\n  "features": ["chat", "code", "memory"]\n}';
-  }
+  // Update placeholder
+  var placeholders = {
+    javascript: '// Start coding...\nfunction hello() {\n  console.log("Hello, World!");\n}\n\nhello();',
+    python: '# Python code\n# Run locally or ask AI for help\n\ndef hello():\n    print("Hello, World!")\n\nhello()',
+    html: '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Page</title>\n</head>\n<body>\n  <h1>Hello World</h1>\n</body>\n</html>',
+    css: '/* CSS styles */\nbody {\n  background: #09090b;\n  color: #fafafa;\n}',
+    json: '{\n  "name": "NOVA",\n  "version": "1.0"\n}'
+  };
   
-  editor.placeholder = placeholder;
+  editor.placeholder = placeholders[lang] || '';
+  updateEditor();
 }
 
+// Snippets
+function toggleSnippets() {
+  var dropdown = document.getElementById('code-snippets-dropdown');
+  dropdown.classList.toggle('open');
+}
+
+function insertSnippet(type) {
+  var editor = document.getElementById('code-editor');
+  var start = editor.selectionStart;
+  var end = editor.selectionEnd;
+  
+  var snippets = {
+    forloop: 'for (let i = 0; i < array.length; i++) {\n  \n}',
+    foreach: 'array.forEach((item, index) => {\n  \n});',
+    function: 'function name(params) {\n  \n  return result;\n}',
+    arrow: 'const name = (params) => {\n  \n};',
+    class: 'class Name {\n  constructor(props) {\n    \n  }\n\n  method() {\n    \n  }\n}',
+    trycatch: 'try {\n  \n} catch (error) {\n  console.error(error);\n}',
+    fetch: 'fetch(url)\n  .then(res => res.json())\n  .then(data => {\n    \n  })\n  .catch(err => console.error(err));',
+    async: 'async function name(params) {\n  try {\n    const result = await promise;\n    \n  } catch (error) {\n    console.error(error);\n  }\n}'
+  };
+  
+  var snippet = snippets[type] || '';
+  editor.value = editor.value.substring(0, start) + snippet + editor.value.substring(end);
+  editor.selectionStart = editor.selectionEnd = start + snippet.indexOf('\n') + 2;
+  updateEditor();
+  toggleSnippets();
+  editor.focus();
+}
+
+// Find & Replace
+function toggleFindBar() {
+  var bar = document.getElementById('code-find-bar');
+  bar.classList.toggle('open');
+  if (bar.classList.contains('open')) {
+    document.getElementById('code-find-input').focus();
+    document.getElementById('code-find-input').select();
+  }
+}
+
+function findInCode() {
+  var search = document.getElementById('code-find-input').value;
+  var code = document.getElementById('code-editor').value;
+  var count = document.getElementById('code-find-count');
+  
+  if (!search) {
+    count.textContent = '';
+    return;
+  }
+  
+  var matches = code.split(search).length - 1;
+  count.textContent = matches + ' match' + (matches !== 1 ? 'es' : '');
+}
+
+function findNext() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  if (!search) return;
+  
+  var code = editor.value;
+  var pos = code.indexOf(search, editor.selectionEnd);
+  if (pos === -1) pos = code.indexOf(search, 0);
+  if (pos !== -1) {
+    editor.selectionStart = pos;
+    editor.selectionEnd = pos + search.length;
+    editor.focus();
+  }
+}
+
+function replaceOne() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  var replace = document.getElementById('code-replace-input').value;
+  if (!search) return;
+  
+  var selected = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  if (selected === search) {
+    editor.value = editor.value.substring(0, editor.selectionStart) + replace + editor.value.substring(editor.selectionEnd);
+    updateEditor();
+  }
+  findNext();
+}
+
+function replaceAll() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  var replace = document.getElementById('code-replace-input').value;
+  if (!search) return;
+  
+  editor.value = editor.value.split(search).join(replace);
+  updateEditor();
+  findInCode();
+  showToast('Replaced all occurrences');
+}
+
+// Output tabs
+function switchOutputTab(tab) {
+  currentOutputTab = tab;
+  document.getElementById('tab-output').classList.toggle('active', tab === 'output');
+  document.getElementById('tab-console').classList.toggle('active', tab === 'console');
+  
+  var output = document.getElementById('code-output');
+  if (tab === 'console' && consoleLogs.length > 0) {
+    output.textContent = consoleLogs.map(function(l) {
+      return l.args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
+    }).join('\n');
+  }
+}
+
+// AI Chat
 function handleCodeChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -1483,10 +1921,11 @@ async function sendCodeChat() {
     var codeMatch = reply.match(/```(?:javascript|js|python|html|css|json)?\n([\s\S]*?)```/);
     if (codeMatch) {
       var insertBtn = document.createElement('button');
+      insertBtn.className = 'insert-btn';
       insertBtn.textContent = 'Insert Code';
-      insertBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:var(--green);border:none;border-radius:4px;color:#fff;font-size:11px;cursor:pointer;';
       insertBtn.onclick = function() {
         document.getElementById('code-editor').value = codeMatch[1].trim();
+        updateEditor();
         showToast('Code inserted!');
       };
       aiMsg.appendChild(insertBtn);
@@ -1502,6 +1941,55 @@ async function sendCodeChat() {
   
   messages.scrollTop = messages.scrollHeight;
 }
+
+// Panel resizers
+function initResizers() {
+  var outputResizer = document.getElementById('output-resizer');
+  var chatResizer = document.getElementById('chat-resizer');
+  var outputPanel = document.getElementById('code-output-panel');
+  var chatPanel = document.getElementById('code-chat-panel');
+  
+  var isResizing = false;
+  var currentResizer = null;
+  
+  function startResize(e, resizer) {
+    isResizing = true;
+    currentResizer = resizer;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+  
+  function stopResize() {
+    isResizing = false;
+    currentResizer = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+  
+  function doResize(e) {
+    if (!isResizing) return;
+    
+    if (currentResizer === outputResizer) {
+      var newWidth = outputPanel.parentElement.getBoundingClientRect().right - e.clientX;
+      if (newWidth > 150 && newWidth < 500) {
+        outputPanel.style.width = newWidth + 'px';
+      }
+    } else if (currentResizer === chatResizer) {
+      var newWidth = e.clientX - chatPanel.getBoundingClientRect().left;
+      if (newWidth > 250 && newWidth < 500) {
+        chatPanel.style.width = newWidth + 'px';
+      }
+    }
+  }
+  
+  outputResizer.addEventListener('mousedown', function(e) { startResize(e, outputResizer); });
+  chatResizer.addEventListener('mousedown', function(e) { startResize(e, chatResizer); });
+  document.addEventListener('mousemove', doResize);
+  document.addEventListener('mouseup', stopResize);
+}
+
+// Initialize resizers when code section becomes active
+setTimeout(initResizers, 100);
 
 // ─── Init Theme ──────────────────────────────────────────────────────────────
 var savedTheme = localStorage.getItem('nova_theme');
