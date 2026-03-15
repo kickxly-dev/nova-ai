@@ -1,9 +1,59 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
+
+// Session configuration for OAuth
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'nova-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport serialization
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((user, done) => done(null, user));
+
+// Google OAuth Strategy
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+  }, async (accessToken, refreshToken, profile, done) => {
+    const user = {
+      id: profile.id,
+      name: profile.displayName,
+      email: profile.emails?.[0]?.value,
+      picture: profile.photos?.[0]?.value,
+      token: 'g_' + profile.id
+    };
+    // Store user in database if available
+    if (pool) {
+      try {
+        await pool.query(`
+          INSERT INTO users (google_id, name, email, picture, user_token)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (google_id) DO UPDATE SET name = $2, email = $3, picture = $4, last_login = NOW()
+        `, [user.id, user.name, user.email, user.picture, user.token]);
+      } catch (err) {
+        console.error('Error saving user:', err.message);
+      }
+    }
+    return done(null, user);
+  }));
+}
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -21,6 +71,18 @@ const pool = process.env.DATABASE_URL
 async function initDB() {
   if (!pool) return;
   try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        google_id VARCHAR(64) UNIQUE,
+        name VARCHAR(128),
+        email VARCHAR(128),
+        picture TEXT,
+        user_token VARCHAR(64) UNIQUE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_login TIMESTAMP DEFAULT NOW()
+      )
+    `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_api_keys (
         id SERIAL PRIMARY KEY,
@@ -484,6 +546,37 @@ app.post('/api/python', async (req, res) => {
     } else {
       res.json({ error: err.message });
     }
+  });
+});
+
+// ─── Auth Routes ─────────────────────────────────────────────────────────────
+app.get('/auth/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect('/?error=google_not_configured');
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+app.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/?error=auth_failed' }),
+  (req, res) => {
+    const user = req.user;
+    // Redirect to home with user data in URL fragment (client-side accessible)
+    res.redirect(`/#auth=${encodeURIComponent(JSON.stringify({ token: user.token, user: { name: user.name, email: user.email, picture: user.picture } }))}`);
+  }
+);
+
+app.get('/auth/me', (req, res) => {
+  if (req.user) {
+    res.json({ user: req.user });
+  } else {
+    res.json({ user: null });
+  }
+});
+
+app.post('/auth/logout', (req, res) => {
+  req.logout(() => {
+    res.json({ success: true });
   });
 });
 
