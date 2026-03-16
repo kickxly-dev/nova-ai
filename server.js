@@ -104,6 +104,26 @@ async function initDB() {
         UNIQUE(user_token, provider)
       )
     `);
+    // Chat persistence tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chats (
+        id SERIAL PRIMARY KEY,
+        chat_id VARCHAR(64) UNIQUE NOT NULL,
+        user_token VARCHAR(64) NOT NULL,
+        title VARCHAR(256),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id SERIAL PRIMARY KEY,
+        chat_id VARCHAR(64) REFERENCES chats(chat_id) ON DELETE CASCADE,
+        role VARCHAR(16) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
     console.log('Database initialized');
   } catch (err) {
     console.error('Database init error:', err.message);
@@ -848,6 +868,107 @@ app.post('/auth/logout', (req, res) => {
   req.logout(() => {
     res.json({ success: true });
   });
+});
+
+// ─── API: Chat Persistence ───────────────────────────────────────────────────
+
+// Get all chats for a user
+app.get('/api/chats/:userToken', async (req, res) => {
+  const { userToken } = req.params;
+  if (!pool) return res.json({ chats: [] });
+  try {
+    const result = await pool.query(
+      `SELECT c.chat_id, c.title, c.created_at, c.updated_at,
+        (SELECT json_agg(json_build_object('role', role, 'content', content, 'created_at', created_at) ORDER BY created_at)
+         FROM chat_messages m WHERE m.chat_id = c.chat_id) as history
+       FROM chats c
+       WHERE c.user_token = $1
+       ORDER BY c.updated_at DESC
+       LIMIT 50`,
+      [userToken]
+    );
+    const chats = result.rows.map(row => ({
+      id: row.chat_id,
+      title: row.title,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      history: row.history || []
+    }));
+    res.json({ chats });
+  } catch (err) {
+    console.error('Error loading chats:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save or update a chat
+app.post('/api/chats', async (req, res) => {
+  const { userToken, chatId, title, history } = req.body;
+  if (!userToken || !chatId) {
+    return res.status(400).json({ error: 'Missing userToken or chatId' });
+  }
+  if (!pool) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+  try {
+    // Insert or update chat
+    await pool.query(
+      `INSERT INTO chats (chat_id, user_token, title, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (chat_id) DO UPDATE SET title = $3, updated_at = NOW()`,
+      [chatId, userToken, title?.slice(0, 256) || 'Untitled']
+    );
+    
+    // Delete old messages and insert new ones
+    await pool.query('DELETE FROM chat_messages WHERE chat_id = $1', [chatId]);
+    
+    if (history && history.length > 0) {
+      const values = history.map((msg, i) => 
+        `($1, $2, $3, NOW() + INTERVAL '${i} milliseconds')`
+      ).join(',');
+      const params = [chatId];
+      history.forEach(msg => {
+        params.push(msg.role, msg.content);
+      });
+      
+      // Build parameterized query
+      let paramIndex = 1;
+      const queryValues = history.map(msg => {
+        paramIndex += 2;
+        return `($1, $${paramIndex-1}, $${paramIndex}, NOW())`;
+      }).join(',');
+      
+      const query = `INSERT INTO chat_messages (chat_id, role, content, created_at) VALUES ${queryValues}`;
+      const flatParams = [chatId, ...history.flatMap(msg => [msg.role, msg.content])];
+      
+      await pool.query(query, flatParams);
+    }
+    
+    res.json({ ok: true, chatId });
+  } catch (err) {
+    console.error('Error saving chat:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a chat
+app.delete('/api/chats/:userToken/:chatId', async (req, res) => {
+  const { userToken, chatId } = req.params;
+  if (!pool) return res.json({ ok: true });
+  try {
+    // Verify ownership before deleting
+    const result = await pool.query(
+      'DELETE FROM chats WHERE chat_id = $1 AND user_token = $2 RETURNING *',
+      [chatId, userToken]
+    );
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Chat not found or access denied' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting chat:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Admin & Maintenance Mode ───────────────────────────────────────────────
