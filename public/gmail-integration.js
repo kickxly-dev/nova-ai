@@ -21,16 +21,16 @@
         return false;
       }
       
-      // Use the Render deployment URL
-      const redirectUri = encodeURIComponent('https://nova-ai-yhow.onrender.com/');
+      // Use the Render deployment URL (no trailing slash)
+      const redirectUri = encodeURIComponent('https://nova-ai-yhow.onrender.com');
       
       const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly');
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&include_granted_scopes=true&state=gmail_auth`;
       
       // Show user what to configure
-      alert('Add this to Google Cloud Console → Authorized redirect URIs:\n\nhttps://nova-ai-yhow.onrender.com/\n\nThen try again.');
-      console.log('Configure this redirect URI in Google Cloud:', 'https://nova-ai-yhow.onrender.com/');
+      alert('Add this to Google Cloud Console → Authorized redirect URIs:\n\nhttps://nova-ai-yhow.onrender.com\n\nThen try again.');
+      console.log('Configure this redirect URI in Google Cloud:', 'https://nova-ai-yhow.onrender.com');
       
       // Open popup for OAuth
       const popup = window.open(authUrl, 'gmail_auth', 'width=500,height=600');
