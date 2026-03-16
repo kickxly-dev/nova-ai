@@ -556,7 +556,7 @@ app.post('/api/chat', async (req, res) => {
       if (!hfKey) {
         return res.json({
           choices: [{
-            message: { role: 'assistant', content: 'Hugging Face requires an API key. Get one free at: https://huggingface.co/settings/tokens\n\nAdd your key in Settings > API Keys.' },
+            message: { role: 'assistant', content: 'Hugging Face requires an API key with Inference API permissions.\n\n1. Go to: https://huggingface.co/settings/tokens\n2. Create a new token\n3. Enable "Make calls to the serverless Inference API" permission\n4. Add your key in Settings > API Keys' },
             finish_reason: 'stop',
           }],
         });
