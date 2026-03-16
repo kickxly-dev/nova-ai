@@ -295,6 +295,17 @@ APPROACH:
       btn.onclick = window.quickThemeToggle;
       
       container.appendChild(btn);
+      
+      // Add personality button
+      const personalityBtn = document.createElement('button');
+      personalityBtn.className = 'm-icon-btn';
+      personalityBtn.id = 'personality-btn';
+      personalityBtn.style.marginLeft = '4px';
+      personalityBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v14a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v4a3 3 0 0 1-6 0V5"/><path d="M5 10v4a3 3 0 0 0 6 0V5"/></svg>';
+      personalityBtn.title = 'AI Personality';
+      personalityBtn.onclick = window.openPersonalitySelector;
+      
+      container.appendChild(personalityBtn);
     });
   };
   
