@@ -804,70 +804,125 @@ Just tell me what you want to build!</div>
         <div class="template-desc">Reusable UI component</div>
       </div>
     </div>
-    <button onclick="closeTemplateModal()" style="margin-top:20px;padding:10px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;">Cancel</button>
   </div>
-</div>
 
-<!-- Command Palette -->
-<div class="code-command-palette" id="code-command-palette">
-  <input type="text" class="code-command-input" id="code-command-input" placeholder="Type a command or search..." oninput="filterCommands()">
-  <div class="code-command-list" id="code-command-list"></div>
-</div>
-
-<!-- MOBILE -->
-<div id="mobile-app" style="display:none">
-  <div class="m-drawer-overlay" id="m-drawer-overlay" onclick="closeDrawer()"></div>
-  <div class="m-drawer" id="m-drawer">
-    <div class="m-drawer-head">
-      <div class="m-drawer-title">Chats</div>
-      <button class="m-drawer-new" onclick="newChat();closeDrawer()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New</button>
-    </div>
-    <div style="padding:8px 12px;"><input type="text" id="m-chat-search" placeholder="Search chats..." oninput="searchMobileChats(this.value)" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);outline:none;"/></div>
-    <div class="m-drawer-list" id="m-chat-list"></div>
-    <div class="m-drawer-foot">
-      <div class="m-drawer-sett" onclick="exportChats();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export All</div>
-      <div class="m-drawer-sett" onclick="openSettings();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 1 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Settings</div>
-    </div>
-  </div>
-  <div class="m-navbar">
-    <div class="m-nav-left">
-      <button class="m-icon-btn" onclick="openDrawer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-      <div class="m-logo-mark" id="m-logo-mark">N</div>
-      <div><div class="m-title" id="m-title">NOVA</div><div class="m-subtitle">AI Assistant</div></div>
-    </div>
-    <div class="m-nav-right">
-      <button class="m-icon-btn" onclick="newChat()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      <button class="m-icon-btn" onclick="openSettings()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-    </div>
-  </div>
-  <div class="m-provider-bar" id="m-provider-bar"></div>
-  <div class="m-chat-area" id="m-chat-area">
-    <div class="m-welcome" id="m-welcome">
-      <div class="m-welcome-icon" id="m-welcome-icon">N</div>
-      <h2>Hey, I'm NOVA</h2>
-      <p>Your AI with memory, search, tools, and image generation.</p>
-      <div class="m-sug-grid">
-        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Search</strong>What's new in AI?</div>
-        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Generate</strong>Neon city at night</div>
-        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Brainstorm</strong>5 AI startup ideas</div>
-        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Memory</strong>What do you know about me?</div>
+  <!-- Admin Panel (Shift+Alt+A to toggle) -->
+  <div class="admin-panel" id="admin-panel">
+    <div class="admin-panel-content">
+      <div class="admin-header">
+        <h2>NOVA Admin Panel</h2>
+        <button onclick="closeAdminPanel()" class="admin-close-btn">&times;</button>
+      </div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('overview')">Overview</button>
+        <button class="admin-tab" onclick="switchAdminTab('maintenance')">Maintenance</button>
+        <button class="admin-tab" onclick="switchAdminTab('users')">Users</button>
+        <button class="admin-tab" onclick="switchAdminTab('ai')">AI Config</button>
+      </div>
+      <div class="admin-body">
+        <div class="admin-section" id="admin-overview">
+          <div class="admin-stats">
+            <div class="admin-stat-card"><div class="stat-value" id="admin-uptime">--</div><div class="stat-label">Uptime</div></div>
+            <div class="admin-stat-card"><div class="stat-value" id="admin-users">--</div><div class="stat-label">Users</div></div>
+            <div class="admin-stat-card"><div class="stat-value" id="admin-memory">--</div><div class="stat-label">Memory</div></div>
+            <div class="admin-stat-card"><div class="stat-value" id="admin-status">Online</div><div class="stat-label">Status</div></div>
+          </div>
+        </div>
+        <div class="admin-section" id="admin-maintenance" style="display:none">
+          <div class="maintenance-status"><div class="status-indicator" id="maintenance-indicator"></div><span id="maintenance-status-text">Site is Online</span></div>
+          <div class="maintenance-toggle">
+            <label class="toggle-switch"><input type="checkbox" id="maintenance-toggle" onchange="toggleMaintenance()"><span class="toggle-slider"></span></label>
+            <span>Enable Maintenance Mode</span>
+          </div>
+          <div class="maintenance-message">
+            <label>Maintenance Message:</label>
+            <textarea id="maintenance-message-input">NOVA is currently under maintenance. Please check back soon.</textarea>
+            <button onclick="updateMaintenanceMessage()" class="admin-btn">Update Message</button>
+          </div>
+        </div>
+        <div class="admin-section" id="admin-users" style="display:none">
+          <h3>Recent Users</h3>
+          <div class="admin-users-list" id="admin-users-list"><p>Loading...</p></div>
+        </div>
+        <div class="admin-section" id="admin-ai" style="display:none">
+          <h3>AI Self-Awareness</h3>
+          <div class="ai-config-section"><label>AI Name:</label><input type="text" id="admin-ai-name" value="NOVA"></div>
+          <div class="ai-config-section"><label>Self-Knowledge:</label><textarea id="admin-ai-self" rows="4">I am NOVA, an AI assistant. I remember conversations and learn from them.</textarea></div>
+          <button onclick="saveAIConfig()" class="admin-btn primary">Save AI Config</button>
+        </div>
+      </div>
+      <div class="admin-footer">
+        <input type="password" id="admin-token" placeholder="Admin Token">
       </div>
     </div>
   </div>
-  <div class="m-input-area">
-    <div class="m-tools-row">
-      <div class="m-tool-chip active" id="m-pill-memory" onclick="toggleTool('memory')">Memory</div>
-      <div class="m-tool-chip active" id="m-pill-search" onclick="toggleTool('search')">Search</div>
-      <div class="m-tool-chip active" id="m-pill-tools" onclick="toggleTool('tools')">Tools</div>
-      <div class="m-tool-chip active" id="m-pill-image" onclick="toggleTool('image')">Images</div>
-    </div>
-    <div class="m-input-row">
-      <div class="m-input-wrap">
-        <button class="m-img-btn" id="m-attach-btn" onclick="triggerFileUpload('m')" title="Attach file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
-        <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this)"></textarea>
-        <button class="m-img-btn" id="m-voice-btn" onclick="toggleVoiceInput('m')" title="Voice input"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+
+  <!-- Maintenance Overlay -->
+  <div class="maintenance-overlay" id="maintenance-overlay">
+    <div class="maintenance-content">
+      <div class="maintenance-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
       </div>
-      <button class="m-send-btn" id="m-send-btn" onclick="sendMessage('m')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      <h2>Under Maintenance</h2>
+      <p id="maintenance-overlay-message">NOVA is currently under maintenance. Please check back soon.</p>
+    </div>
+  </div>
+
+  <!-- MOBILE -->
+  <div id="mobile-app" style="display:none">
+    <div class="m-drawer-overlay" id="m-drawer-overlay" onclick="closeDrawer()"></div>
+    <div class="m-drawer" id="m-drawer">
+      <div class="m-drawer-head">
+        <div class="m-drawer-title">Chats</div>
+        <button class="m-drawer-new" onclick="newChat();closeDrawer()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New</button>
+      </div>
+      <div style="padding:8px 12px;"><input type="text" id="m-chat-search" placeholder="Search chats..." oninput="searchMobileChats(this.value)" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);outline:none;"/></div>
+      <div class="m-drawer-list" id="m-chat-list"></div>
+      <div class="m-drawer-foot">
+        <div class="m-drawer-sett" onclick="exportChats();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export All</div>
+        <div class="m-drawer-sett" onclick="openSettings();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 1 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Settings</div>
+      </div>
+    </div>
+    <div class="m-navbar">
+      <div class="m-nav-left">
+        <button class="m-icon-btn" onclick="openDrawer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div class="m-logo-mark" id="m-logo-mark">N</div>
+        <div><div class="m-title" id="m-title">NOVA</div><div class="m-subtitle">AI Assistant</div></div>
+      </div>
+      <div class="m-nav-right">
+        <button class="m-icon-btn" onclick="newChat()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <button class="m-icon-btn" onclick="openSettings()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 1 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+    </div>
+    <div class="m-provider-bar" id="m-provider-bar"></div>
+    <div class="m-chat-area" id="m-chat-area">
+      <div class="m-welcome" id="m-welcome">
+        <div class="m-welcome-icon" id="m-welcome-icon">N</div>
+        <h2>Hey, I'm NOVA</h2>
+        <p>Your AI with memory, search, tools, and image generation.</p>
+        <div class="m-sug-grid">
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Search</strong>What's new in AI?</div>
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Generate</strong>Neon city at night</div>
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Brainstorm</strong>5 AI startup ideas</div>
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Memory</strong>What do you know about me?</div>
+        </div>
+      </div>
+    </div>
+    <div class="m-input-area">
+      <div class="m-tools-row">
+        <div class="m-tool-chip active" id="m-pill-memory" onclick="toggleTool('memory')">Memory</div>
+        <div class="m-tool-chip active" id="m-pill-search" onclick="toggleTool('search')">Search</div>
+        <div class="m-tool-chip active" id="m-pill-tools" onclick="toggleTool('tools')">Tools</div>
+        <div class="m-tool-chip active" id="m-pill-image" onclick="toggleTool('image')">Images</div>
+      </div>
+      <div class="m-input-row">
+        <div class="m-input-wrap">
+          <button class="m-img-btn" id="m-attach-btn" onclick="triggerFileUpload('m')" title="Attach file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+          <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this)"></textarea>
+          <button class="m-img-btn" id="m-voice-btn" onclick="toggleVoiceInput('m')" title="Voice input"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+        </div>
+        <button class="m-send-btn" id="m-send-btn" onclick="sendMessage('m')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
     </div>
   </div>
 </div>
@@ -3197,6 +3252,173 @@ async function generateFullProject() {
 
 // Initialize enhanced editor
 updateFileList();
+
+// ─── Admin Panel Functions ───────────────────────────────────────────────────
+var adminPanelOpen = false;
+
+function toggleAdminPanel() {
+  var panel = document.getElementById('admin-panel');
+  adminPanelOpen = !adminPanelOpen;
+  if (adminPanelOpen) {
+    panel.classList.add('open');
+    fetchAdminStatus();
+  } else {
+    panel.classList.remove('open');
+  }
+}
+
+function closeAdminPanel() {
+  document.getElementById('admin-panel').classList.remove('open');
+  adminPanelOpen = false;
+}
+
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.admin-section').forEach(function(s) { s.style.display = 'none'; });
+  event.target.classList.add('active');
+  document.getElementById('admin-' + tab).style.display = 'block';
+  
+  if (tab === 'overview') fetchAdminStatus();
+  if (tab === 'users') fetchAdminUsers();
+}
+
+function fetchAdminStatus() {
+  fetch('/admin/status')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      document.getElementById('admin-uptime').textContent = Math.floor(data.uptime / 60) + 'm';
+      document.getElementById('admin-memory').textContent = Math.floor(data.memory.heapUsed / 1024 / 1024) + 'MB';
+      document.getElementById('admin-status').textContent = data.maintenance ? 'Maintenance' : 'Online';
+      
+      var indicator = document.getElementById('maintenance-indicator');
+      var statusText = document.getElementById('maintenance-status-text');
+      var toggle = document.getElementById('maintenance-toggle');
+      
+      if (data.maintenance) {
+        indicator.classList.add('maintenance');
+        statusText.textContent = 'Site is in Maintenance Mode';
+        toggle.checked = true;
+      } else {
+        indicator.classList.remove('maintenance');
+        statusText.textContent = 'Site is Online';
+        toggle.checked = false;
+      }
+      
+      document.getElementById('maintenance-message-input').value = data.message || '';
+    })
+    .catch(function(err) {
+      console.error('Failed to fetch admin status:', err);
+    });
+}
+
+function fetchAdminUsers() {
+  var token = document.getElementById('admin-token').value || 'nova-admin-2024';
+  
+  fetch('/admin/users', {
+    headers: { 'x-admin-token': token }
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var list = document.getElementById('admin-users-list');
+      if (data.users && data.users.length > 0) {
+        list.innerHTML = data.users.map(function(u) {
+          return '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px;">' +
+            '<strong>' + (u.name || 'Unknown') + '</strong><br>' +
+            '<span style="color:var(--muted)">' + u.email + '</span>' +
+          '</div>';
+        }).join('');
+      } else {
+        list.innerHTML = '<p style="color:var(--muted)">No users found</p>';
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('admin-users-list').innerHTML = '<p style="color:var(--red)">Failed to load users</p>';
+    });
+}
+
+function toggleMaintenance() {
+  var token = document.getElementById('admin-token').value || 'nova-admin-2024';
+  var toggle = document.getElementById('maintenance-toggle');
+  
+  fetch('/admin/maintenance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+    body: JSON.stringify({ enabled: toggle.checked })
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast(data.maintenance ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
+        fetchAdminStatus();
+        checkMaintenanceOverlay();
+      } else {
+        showToast('Failed to toggle maintenance', 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Error toggling maintenance', 'error');
+    });
+}
+
+function updateMaintenanceMessage() {
+  var token = document.getElementById('admin-token').value || 'nova-admin-2024';
+  var message = document.getElementById('maintenance-message-input').value;
+  
+  fetch('/admin/maintenance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+    body: JSON.stringify({ message: message })
+  })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast('Maintenance message updated');
+      }
+    })
+    .catch(function(err) {
+      showToast('Error updating message', 'error');
+    });
+}
+
+function saveAIConfig() {
+  var aiName = document.getElementById('admin-ai-name').value;
+  var aiSelf = document.getElementById('admin-ai-self').value;
+  
+  state.aiName = aiName;
+  localStorage.setItem('nova_name', aiName);
+  localStorage.setItem('nova_ai_self', aiSelf);
+  
+  showToast('AI config saved');
+  applyAiName();
+}
+
+function checkMaintenanceOverlay() {
+  fetch('/admin/status')
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var overlay = document.getElementById('maintenance-overlay');
+      var msgEl = document.getElementById('maintenance-overlay-message');
+      
+      if (data.maintenance) {
+        overlay.classList.add('show');
+        msgEl.textContent = data.message || 'NOVA is currently under maintenance. Please check back soon.';
+      } else {
+        overlay.classList.remove('show');
+      }
+    })
+    .catch(function() {});
+}
+
+// Keyboard shortcut for admin panel (Shift+Alt+A)
+document.addEventListener('keydown', function(e) {
+  if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    toggleAdminPanel();
+  }
+});
+
+// Check maintenance status on load
+checkMaintenanceOverlay();
 
 // ─── Init Theme ──────────────────────────────────────────────────────────────
 var savedTheme = localStorage.getItem('nova_theme');

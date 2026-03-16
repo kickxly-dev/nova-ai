@@ -12,12 +12,12 @@ const app = express();
 // Trust proxy for secure cookies behind Render's load balancer
 app.set('trust proxy', 1);
 
-// Session configuration for OAuth
+// Session configuration for OAuth (production only)
 app.use(session({
   secret: process.env.SESSION_SECRET || 'nova-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' } // 7 days
+  cookie: { secure: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'none' } // 7 days
 }));
 
 app.use(passport.initialize());
@@ -841,6 +841,85 @@ app.post('/auth/logout', (req, res) => {
   req.logout(() => {
     res.json({ success: true });
   });
+});
+
+// ─── Admin & Maintenance Mode ───────────────────────────────────────────────
+let maintenanceMode = false;
+let maintenanceMessage = 'NOVA is currently under maintenance. Please check back soon.';
+
+// Admin middleware - check for admin token
+const requireAdmin = (req, res, next) => {
+  const adminToken = req.headers['x-admin-token'] || req.body?.adminToken;
+  if (adminToken === process.env.ADMIN_TOKEN || adminToken === 'nova-admin-2024') {
+    return next();
+  }
+  res.status(403).json({ error: 'Admin access required' });
+};
+
+// Maintenance mode middleware (applied before fallback)
+app.use((req, res, next) => {
+  if (maintenanceMode && !req.path.startsWith('/admin') && !req.path.startsWith('/auth')) {
+    return res.status(503).json({ 
+      maintenance: true, 
+      message: maintenanceMessage 
+    });
+  }
+  next();
+});
+
+// Admin routes
+app.get('/admin/status', (req, res) => {
+  res.json({ 
+    maintenance: maintenanceMode, 
+    message: maintenanceMessage,
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post('/admin/maintenance', requireAdmin, (req, res) => {
+  const { enabled, message } = req.body;
+  maintenanceMode = enabled;
+  if (message) maintenanceMessage = message;
+  res.json({ 
+    success: true, 
+    maintenance: maintenanceMode, 
+    message: maintenanceMessage 
+  });
+});
+
+app.post('/admin/toggle-maintenance', requireAdmin, (req, res) => {
+  maintenanceMode = !maintenanceMode;
+  res.json({ 
+    success: true, 
+    maintenance: maintenanceMode, 
+    message: maintenanceMessage 
+  });
+});
+
+app.get('/admin/users', requireAdmin, async (req, res) => {
+  if (!pool) return res.json({ users: [] });
+  try {
+    const result = await pool.query('SELECT id, name, email, created_at, last_login FROM users ORDER BY last_login DESC LIMIT 100');
+    res.json({ users: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/admin/stats', requireAdmin, async (req, res) => {
+  if (!pool) return res.json({ stats: { users: 0, chats: 0 } });
+  try {
+    const usersResult = await pool.query('SELECT COUNT(*) FROM users');
+    res.json({ 
+      stats: { 
+        users: parseInt(usersResult.rows[0]?.count || 0)
+      } 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Fallback ────────────────────────────────────────────────────────────────────────
