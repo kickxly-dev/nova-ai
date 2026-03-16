@@ -191,14 +191,14 @@
   
   window.testZapier = async function() {
     try {
-      await ZapierIntegration.trigger({
+      const result = await ZapierIntegration.trigger({
         event: 'test',
         message: 'Hello from NOVA AI!',
         timestamp: Date.now()
       });
-      showToast('Zapier test successful!');
+      showToast('✅ Zapier test sent! Check your Zap (e.g., Discord)');
     } catch (err) {
-      showToast('Test failed: ' + err.message, 'error');
+      showToast('Test error: ' + err.message, 'error');
     }
   };
   
@@ -224,22 +224,34 @@
     
     // Send to automations if enabled
     if (role === 'ai') {
-      const lastUserMsg = state.history[state.history.length - 1]?.content || '';
+      // Find the most recent user message
+      let lastUserMsg = '';
+      for (let i = state.history.length - 1; i >= 0; i--) {
+        if (state.history[i].role === 'user') {
+          lastUserMsg = state.history[i].content;
+          break;
+        }
+      }
+      
+      const data = {
+        event: 'ai_response',
+        prompt: lastUserMsg.slice(0, 500),
+        response: typeof content === 'string' ? content.slice(0, 2000) : String(content).slice(0, 2000),
+        model: state.model || 'unknown',
+        provider: state.provider || 'unknown',
+        timestamp: Date.now()
+      };
+      
+      console.log('[Zapier] Sending data:', data);
       
       if (ZapierIntegration.webhookUrl) {
-        ZapierIntegration.sendAIResponse(lastUserMsg, content).catch(console.error);
+        ZapierIntegration.trigger(data).catch(err => console.error('[Zapier] Error:', err));
       }
       
       if (MakeIntegration.webhookUrl) {
         MakeIntegration.trigger({
-          event: 'ai_response',
-          timestamp: new Date().toISOString(),
-          data: {
-            prompt: lastUserMsg.slice(0, 500),
-            response: content.slice(0, 1000),
-            model: state.model,
-            provider: state.provider
-          }
+          ...data,
+          timestamp: new Date().toISOString()
         }).catch(console.error);
       }
     }
