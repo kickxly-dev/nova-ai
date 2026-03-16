@@ -118,6 +118,11 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .key-btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--surface3); }
 .key-btn.del { color: var(--red); border-color: rgba(239,68,68,0.2); }
 .key-btn.del:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.key-input-row { width: 100%; display: flex; gap: 8px; margin-top: 10px; }
+.key-input-row input { flex: 1; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xs); font-size: 12px; color: var(--text); font-family: var(--mono); }
+.key-input-row input:focus { border-color: var(--accent); outline: none; }
+.key-input-row button { padding: 8px 16px; background: var(--accent); border: none; border-radius: var(--radius-xs); font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
+.key-input-row button:hover { background: #7c3aed; }
 
 /* Code Section - Pro Editor */
 .code-section { display: none; height: 100%; flex-direction: column; background: var(--bg); }
