@@ -696,9 +696,25 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <span id="code-line-count">0 lines</span>
           <span>|</span>
           <span id="code-char-count">0 chars</span>
+          <span>|</span>
+          <button onclick="toggleTerminal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;font-family:var(--mono);">Terminal</button>
         </div>
       </div>
     </div>
+    
+    <!-- Terminal Panel -->
+    <div class="code-terminal-panel" id="code-terminal-panel">
+      <div class="code-terminal-header">
+        <span style="font-size:11px;font-weight:600;">Terminal</span>
+        <button onclick="toggleTerminal()" style="background:none;border:none;color:var(--muted);cursor:pointer;">×</button>
+      </div>
+      <div class="code-terminal-content" id="code-terminal"></div>
+      <div class="code-terminal-input">
+        <span>➜</span>
+        <input type="text" id="terminal-input" placeholder="Type command..." onkeydown="handleTerminalKey(event)">
+      </div>
+    </div>
+    
     <div class="code-resizer" id="output-resizer"></div>
     <div class="code-output-panel" id="code-output-panel">
       <div class="code-output-header">
@@ -2871,86 +2887,23 @@ function toggleAIPanel() {
   panel.classList.toggle('active');
 }
 
-async function generateCode() {
-  var input = document.getElementById('code-ai-textarea');
-  var prompt = input.value.trim();
-  if (!prompt) {
-    showToast('Enter a description first');
-    return;
+function toggleTerminal() {
+  var terminal = document.getElementById('code-terminal-panel');
+  terminal.classList.toggle('active');
+  if (terminal.classList.contains('active')) {
+    initTerminal();
+    document.getElementById('terminal-input').focus();
   }
-  
-  var messages = document.getElementById('code-ai-messages');
-  
-  // Add user message
-  var userMsg = document.createElement('div');
-  userMsg.className = 'code-msg user';
-  userMsg.textContent = prompt;
-  messages.appendChild(userMsg);
-  
-  input.value = '';
-  
-  // Add loading indicator
-  var loading = document.createElement('div');
-  loading.className = 'code-msg ai';
-  loading.innerHTML = '<div class="code-ai-loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Generating...</div>';
-  messages.appendChild(loading);
-  messages.scrollTop = messages.scrollHeight;
-  
-  try {
-    var res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider: state.provider,
-        model: state.model,
-        messages: [
-          { role: 'system', content: 'You are an expert programmer with years of experience building production software. Generate clean, efficient, well-documented code following industry best practices. Include error handling, input validation, and comments explaining complex logic. Always write code that is maintainable and scalable.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 2000,
-        temperature: 0.3,
-        userToken: userToken
-      })
-    });
-    
-    if (!res.ok) throw new Error('Failed to generate');
-    
-    var data = await res.json();
-    var code = data.choices[0].message.content;
-    
-    // Extract code from markdown if present
-    var codeMatch = code.match(/```(?:\w+)?\n([\s\S]*?)```/);
-    if (codeMatch) code = codeMatch[1];
-    
-    loading.remove();
-    
-    // Show generated code
-    var aiMsg = document.createElement('div');
-    aiMsg.className = 'code-msg ai';
-    aiMsg.innerHTML = '<p>Generated code:</p><pre style="margin:8px 0;padding:10px;background:#0c0c0f;border-radius:6px;overflow-x:auto;font-size:11px;">' + 
-      code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
-    
-    // Add insert button
-    var insertBtn = document.createElement('button');
-    insertBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:var(--accent);border:none;border-radius:4px;color:#fff;cursor:pointer;font-size:11px;';
-    insertBtn.textContent = 'Insert into Editor';
-    insertBtn.onclick = function() {
-      document.getElementById('code-editor').value = code;
-      updateEditor();
-      showToast('Code inserted!');
-    };
-    aiMsg.appendChild(insertBtn);
-    
-    messages.appendChild(aiMsg);
-    messages.scrollTop = messages.scrollHeight;
-    
-  } catch (err) {
-    loading.remove();
-    var errMsg = document.createElement('div');
-    errMsg.className = 'code-msg ai';
-    errMsg.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
-    messages.appendChild(errMsg);
-    messages.scrollTop = messages.scrollHeight;
+}
+
+function handleTerminalKey(e) {
+  if (e.key === 'Enter') {
+    var input = document.getElementById('terminal-input');
+    var cmd = input.value.trim();
+    if (cmd) {
+      executeTerminalCommand(cmd);
+      input.value = '';
+    }
   }
 }
 
