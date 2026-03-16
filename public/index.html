@@ -1730,7 +1730,9 @@ async function sendMessage(p) {
 
   // Regular chat
   var sys = state.systemPrompt;
-  if (state.tools.memory && state.memory) sys += '\n\nUser memory:\n' + state.memory;
+  if (state.tools.memory && state.memory) {
+    sys += '\n\n=== USER MEMORY (IMPORTANT: Reference this information when relevant) ===\n' + state.memory + '\n=== END USER MEMORY ===';
+  }
   var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
   appendTyping();
   try {
