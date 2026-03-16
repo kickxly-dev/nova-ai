@@ -622,10 +622,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
     <!-- File Explorer -->
     <div class="code-file-explorer" id="code-file-explorer">
       <div class="code-file-explorer-header">
-        <span>Files</span>
-        <button onclick="newFile()" title="New File">+</button>
+        <span>Project</span>
+        <div style="display:flex;gap:4px;">
+          <button onclick="newFolder()" title="New Folder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+          <button onclick="newFile()" title="New File">+</button>
+          <button onclick="toggleProjectSearch()" title="Search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+        </div>
       </div>
-      <div class="code-file-list" id="code-file-list"></div>
+      <div class="code-project-search" id="code-project-search" style="display:none;padding:8px;border-bottom:1px solid var(--border);">
+        <input type="text" id="project-search-input" placeholder="Search files..." oninput="searchProjectFiles(this.value)" style="width:100%;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text);outline:none;">
+        <div id="project-search-results" style="max-height:150px;overflow-y:auto;margin-top:6px;font-size:11px;"></div>
+      </div>
+      <div class="code-file-tree" id="code-file-tree"></div>
     </div>
     
     <div class="code-editor-panel">
@@ -2639,87 +2647,44 @@ handleEditorKey = function(e) {
 // ENHANCED CODE EDITOR - FILE MANAGEMENT & AI GENERATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ─── File Management ──────────────────────────────────────────────────────────
-var codeFiles = {
-  'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+// ─── File System with Folder Support ──────────────────────────────────────────
+var fileSystem = {
+  type: 'folder',
+  name: 'project',
+  expanded: true,
+  children: {
+    'main': { type: 'file', name: 'main.js', language: 'javascript', content: '', icon: 'JS', path: '/' }
+  }
 };
 var currentFile = 'main';
+var currentPath = '/';
 var fileCounter = 1;
+var expandedFolders = { '/': true };
 
-function updateFileList() {
-  var list = document.getElementById('code-file-list');
-  list.innerHTML = '';
-  
-  Object.keys(codeFiles).forEach(function(id) {
-    var file = codeFiles[id];
-    var item = document.createElement('div');
-    item.className = 'code-file-item' + (id === currentFile ? ' active' : '');
-    item.innerHTML = 
-      '<span class="file-icon">' + file.icon + '</span>' +
-      '<span class="file-name">' + file.name + '</span>' +
-      '<div class="file-actions">' +
-        '<button onclick="renameFile(\'' + id + '\')" title="Rename">Rn</button>' +
-        '<button onclick="deleteFile(\'' + id + '\')" title="Delete">Del</button>' +
-      '</div>';
-    item.onclick = function() { switchFile(id); };
-    list.appendChild(item);
-  });
+// ─── File Tree Rendering ──────────────────────────────────────────────────────
+function renderFileTree() {
+  var tree = document.getElementById('code-file-tree');
+  if (!tree) return;
+  tree.innerHTML = '';
+  renderFolder(fileSystem, tree, '/');
 }
 
-function newFile() {
-  var name = prompt('File name (with extension):');
-  if (!name) return;
+function renderFolder(folder, container, path) {
+  var isExpanded = expandedFolders[path] !== false;
   
-  var ext = name.split('.').pop().toLowerCase();
-  var langMap = {
-    'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
-    'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
-    'md': 'markdown', 'txt': 'text'
-  };
-  var iconMap = {
-    'js': 'JS', 'jsx': 'RX', 'ts': 'TS', 'tsx': 'TX', 'py': 'PY',
-    'html': 'HT', 'css': 'CS', 'json': 'JS', 'md': 'MD', 'txt': 'TX'
-  };
-  
-  var id = 'file' + fileCounter++;
-  codeFiles[id] = {
-    name: name,
-    language: langMap[ext] || 'javascript',
-    content: '',
-    icon: iconMap[ext] || 'TX'
-  };
-  
-  updateFileList();
-  switchFile(id);
-  showToast('Created ' + name);
-}
-
-function renameFile(id) {
-  var file = codeFiles[id];
-  var newName = prompt('New name:', file.name);
-  if (newName && newName !== file.name) {
-    file.name = newName;
-    updateFileList();
-    updateFileTabs();
-    showToast('Renamed to ' + newName);
+  // Render files and subfolders
+  if (folder.children) {
+    Object.keys(folder.children).forEach(function(key) {
+      var item = folder.children[key];
+      var itemPath = path + (path === '/' ? '' : '/') + key;
+      
+      if (item.type === 'folder') {
+        renderFolderItem(item, key, container, itemPath, isExpanded);
+      } else {
+        renderFileItem(item, key, container, itemPath);
+      }
+    });
   }
-}
-
-function deleteFile(id) {
-  if (Object.keys(codeFiles).length <= 1) {
-    showToast('Cannot delete last file');
-    return;
-  }
-  if (!confirm('Delete ' + codeFiles[id].name + '?')) return;
-  
-  delete codeFiles[id];
-  if (currentFile === id) {
-    currentFile = Object.keys(codeFiles)[0];
-  }
-  updateFileList();
-  updateFileTabs();
-  switchFile(currentFile);
-  showToast('File deleted');
 }
 
 function switchFile(id) {
