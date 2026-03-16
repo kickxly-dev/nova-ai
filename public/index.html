@@ -661,7 +661,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <span id="code-lang-display">JavaScript</span>
           <span>|</span>
           <span id="code-cursor-pos">Ln 1, Col 1</span>
-          <span id="code-error-indicator" style="display:none;color:var(--red);">| ⚠ Errors</span>
+          <span id="code-error-indicator" style="display:none;color:var(--red);">| Errors</span>
         </div>
         <div class="code-status-right">
           <span id="code-line-count">0 lines</span>
@@ -1773,7 +1773,7 @@ function executeCode(code, language, outputEl) {
     var output = '';
     if (logs.length > 0) { output += '<span style="color:var(--muted)">Output:</span>\n' + logs.join('\n'); }
     if (result !== undefined) { output += '\n<span style="color:var(--accent)">Result:</span> ' + String(result); }
-    if (!output) { output = '<span style="color:var(--green)">✓ Executed successfully (no output)</span>'; }
+    if (!output) { output = '<span style="color:var(--green)">Executed successfully (no output)</span>'; }
     outputEl.innerHTML = output;
   } catch (err) {
     outputEl.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
