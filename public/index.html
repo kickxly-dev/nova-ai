@@ -60,6 +60,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .typing span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: bounce 1.2s infinite; opacity: 0.6; }
 .typing span:nth-child(2) { animation-delay: 0.15s; }
 .typing span:nth-child(3) { animation-delay: 0.3s; }
+.typing-indicator { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.typing-text { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.retry-btn, .settings-link { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; margin-right: 8px; transition: all 0.15s; }
+.retry-btn { background: var(--accent); border: none; color: #fff; }
+.retry-btn:hover { background: var(--accent-light); transform: translateY(-1px); }
+.settings-link { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+.settings-link:hover { background: var(--surface2); color: var(--text); }
 
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(12px); }
@@ -1312,7 +1319,8 @@ function appendTyping() {
     var msg = document.createElement('div');
     msg.className = msgCls + ' ai';
     msg.id = p + '-typing';
-    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + '"><div class="typing"><span></span><span></span><span></span></div></div>';
+    var provName = PROVIDERS[state.provider] ? PROVIDERS[state.provider].name : state.provider;
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + '"><div class="typing-indicator"><div class="typing"><span></span><span></span><span></span></div><span class="typing-text">Thinking via ' + provName + '...</span></div></div>';
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
   });
@@ -1377,11 +1385,25 @@ async function sendMessage(p) {
   } catch(err) {
     removeTyping();
     var provName = PROVIDERS[state.provider] ? PROVIDERS[state.provider].name : state.provider;
-    appendMessage('ai', '**Error:** ' + err.message + '\n\nAdd your API key for **' + provName + '** in Settings > API Keys.');
+    var errorMsg = err.message || 'Unknown error';
+    appendMessage('ai', '**Error:** ' + errorMsg + '\n\n<button class="retry-btn" onclick="retryLastMessage()">Retry</button> | <button class="settings-link" onclick="openSettings()">Add API Key</button>');
   }
   state.isTyping = false;
   ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
   inputEl.focus();
+}
+
+function retryLastMessage() {
+  if (state.history.length === 0) return;
+  var lastUserMsg = state.history.filter(function(m) { return m.role === 'user'; }).pop();
+  if (!lastUserMsg) return;
+  state.history.pop(); // Remove last assistant message
+  state.history.pop(); // Remove last user message
+  var inputEl = document.getElementById('d-msg-input') || document.getElementById('m-msg-input');
+  if (inputEl) {
+    inputEl.value = lastUserMsg.content;
+    sendMessage(isMobile ? 'm' : 'd');
+  }
 }
 
 async function generateImage(prompt) {
