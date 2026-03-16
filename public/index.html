@@ -3589,6 +3589,13 @@ var savedTheme = localStorage.getItem('nova_theme');
 if (savedTheme && themes[savedTheme]) { setTheme(savedTheme); }
 
 init();
+
+// Auto-open admin panel if URL is /admin
+if (window.location.pathname === '/admin') {
+  setTimeout(function() {
+    toggleAdminPanel();
+  }, 500);
+}
 </script>
 </body>
 </html>

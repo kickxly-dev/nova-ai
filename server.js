@@ -922,6 +922,11 @@ app.get('/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
+// ─── Admin Page Route ────────────────────────────────────────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ─── Fallback ────────────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
