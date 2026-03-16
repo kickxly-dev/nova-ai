@@ -1166,7 +1166,102 @@ function learnFromConversation(userMsg, aiMsg) {
     }
     
     localStorage.setItem('nova_user_preferences', JSON.stringify(prefs));
+    
+    // Extract entities from conversation
+    extractEntities(userMsg, aiMsg);
   } catch(e) {}
+}
+
+// ─── Entity Recognition & Disambiguation ────────────────────────────────────
+function extractEntities(userMsg, aiMsg) {
+  var entities = JSON.parse(localStorage.getItem('nova_entities') || '[]');
+  var text = (userMsg + ' ' + aiMsg).toLowerCase();
+  
+  // Person names (capitalized words that aren't common words)
+  var personPatterns = /\b(John|Jane|Mike|Sarah|Alex|Chris|David|Emma|Tom|Lisa|Mark|Anna|James|Emily|Robert|Laura|Daniel|Sophie|Matthew|Olivia)\b/gi;
+  var persons = text.match(personPatterns) || [];
+  
+  // Organizations/Companies
+  var orgPatterns = /\b(Google|Microsoft|Apple|Amazon|Meta|OpenAI|Anthropic|Groq|NVIDIA|Intel|AMD|Samsung|Sony|Tesla|SpaceX|Netflix|Spotify|Uber|Airbnb|Stripe|Shopify)\b/gi;
+  var orgs = text.match(orgPatterns) || [];
+  
+  // Technologies/Frameworks
+  var techPatterns = /\b(React|Vue|Angular|Svelte|Next\.?js|Nuxt|Node\.?js|Python|JavaScript|TypeScript|Rust|Go|Kotlin|Swift|Docker|Kubernetes|AWS|Azure|GCP|Firebase|Supabase|PostgreSQL|MongoDB|Redis|GraphQL|REST|API)\b/gi;
+  var techs = text.match(techPatterns) || [];
+  
+  // Places/Locations
+  var placePatterns = /\b(New York|San Francisco|Los Angeles|London|Paris|Tokyo|Berlin|Singapore|Sydney|Toronto|Chicago|Seattle|Austin|Boston|Miami|Denver|Portland|Vancouver|Dublin|Amsterdam|Barcelona)\b/gi;
+  var places = text.match(placePatterns) || [];
+  
+  // Topics/Concepts
+  var topicPatterns = /\b(machine learning|artificial intelligence|blockchain|cryptocurrency|web3|cloud computing|cybersecurity|data science|devops|microservices|serverless|frontend|backend|fullstack)\b/gi;
+  var topics = text.match(topicPatterns) || [];
+  
+  // Process all matches
+  var allMatches = [
+    ...persons.map(function(p) { return { name: p, type: 'person' }; }),
+    ...orgs.map(function(o) { return { name: o, type: 'organization' }; }),
+    ...techs.map(function(t) { return { name: t, type: 'technology' }; }),
+    ...places.map(function(p) { return { name: p, type: 'location' }; }),
+    ...topics.map(function(t) { return { name: t, type: 'topic' }; })
+  ];
+  
+  // Add new entities or update frequency
+  allMatches.forEach(function(match) {
+    var existing = entities.find(function(e) { return e.name.toLowerCase() === match.name.toLowerCase(); });
+    if (existing) {
+      existing.mentions = (existing.mentions || 1) + 1;
+      existing.lastMentioned = Date.now();
+    } else {
+      entities.push({
+        name: match.name,
+        type: match.type,
+        mentions: 1,
+        firstSeen: Date.now(),
+        lastMentioned: Date.now()
+      });
+    }
+  });
+  
+  // Keep only top 50 entities by mention count
+  entities.sort(function(a, b) { return (b.mentions || 1) - (a.mentions || 1); });
+  entities = entities.slice(0, 50);
+  
+  localStorage.setItem('nova_entities', JSON.stringify(entities));
+}
+
+function getEntitySummary() {
+  var entities = JSON.parse(localStorage.getItem('nova_entities') || '[]');
+  if (entities.length === 0) return '';
+  
+  var byType = {};
+  entities.forEach(function(e) {
+    if (!byType[e.type]) byType[e.type] = [];
+    byType[e.type].push(e.name);
+  });
+  
+  var parts = [];
+  if (byType.person && byType.person.length > 0) {
+    parts.push('People discussed: ' + byType.person.slice(0, 5).join(', '));
+  }
+  if (byType.technology && byType.technology.length > 0) {
+    parts.push('Technologies: ' + byType.technology.slice(0, 5).join(', '));
+  }
+  if (byType.topic && byType.topic.length > 0) {
+    parts.push('Topics: ' + byType.topic.slice(0, 5).join(', '));
+  }
+  if (byType.location && byType.location.length > 0) {
+    parts.push('Locations: ' + byType.location.slice(0, 5).join(', '));
+  }
+  if (byType.organization && byType.organization.length > 0) {
+    parts.push('Organizations: ' + byType.organization.slice(0, 5).join(', '));
+  }
+  
+  return parts.join('; ');
+}
+
+function clearEntities() {
+  localStorage.removeItem('nova_entities');
 }
 
 function getUserToken() {
@@ -1635,6 +1730,7 @@ function loadChat(id) {
   ['d','m'].forEach(function(p) { var a = document.getElementById(p + '-chat-area'); if (a) { a.innerHTML = ''; a.appendChild(createWelcome(p)); } });
   state.history.forEach(function(msg) { if (msg.role !== 'system') appendMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, false); });
   renderChatList();
+  updateUserStats('chat');
 }
 
 function useSuggestion(el, p) {
