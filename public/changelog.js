@@ -1,4 +1,4 @@
-// Changelog Modal Component
+// Changelog Modal Component - Updated for v2.0
 (function() {
   // Changelog content
   const changelogHTML = `
@@ -6,41 +6,90 @@
       <div class="changelog-box" onclick="event.stopPropagation()">
         <button class="changelog-close" onclick="closeChangelog()">&times;</button>
         <div class="changelog-header">
-          <div class="changelog-icon">✨</div>
-          <h2>What's New</h2>
-          <p class="changelog-version">Version 1.0 - March 2026</p>
+          <div class="changelog-icon">🚀</div>
+          <h2>What's New in NOVA 2.0</h2>
+          <p class="changelog-version">Version 2.0 - Major Feature Update</p>
         </div>
         <div class="changelog-body">
           <div class="changelog-section">
-            <h3>🖼️ Image Upload & Vision</h3>
+            <h3>🎭 AI Personalities</h3>
             <ul>
-              <li>Upload images for AI analysis - just click the paperclip!</li>
-              <li>Visual thumbnail preview shows what you're sending</li>
-              <li>Works with Ollama vision models (llava, moondream)</li>
+              <li><strong>5 specialized personas:</strong> NOVA, CodeMaster, Muse, Sage, Insight</li>
+              <li>Each with unique expertise and response style</li>
+              <li>Click the sliders icon in the toolbar to switch</li>
             </ul>
           </div>
           <div class="changelog-section">
-            <h3>🔐 User System</h3>
+            <h3>🔍 Enhanced Web Search</h3>
             <ul>
-              <li>Sign in with Google to sync across devices</li>
-              <li>Save API keys securely in your account</li>
-              <li>Guest mode for quick access</li>
+              <li>Tavily, SerpAPI, and DuckDuckGo support</li>
+              <li>Automatic citations with source links</li>
+              <li>AI answers from real-time search results</li>
             </ul>
           </div>
           <div class="changelog-section">
-            <h3>🎨 Better Mobile Experience</h3>
+            <h3>🔄 Multi-Model Mode</h3>
             <ul>
-              <li>Responsive design optimized for phones</li>
-              <li>Swipe-friendly chat interface</li>
-              <li>Quick access drawer for chat history</li>
+              <li>Ask multiple AIs at once and compare responses</li>
+              <li>Compare GPT-4, Claude, Gemini side-by-side</li>
+              <li>Click "Multi" in the toolbar to enable</li>
             </ul>
           </div>
           <div class="changelog-section">
-            <h3>💻 Code Editor</h3>
+            <h3>� Chat Persistence</h3>
             <ul>
-              <li>Full-featured code editor with syntax highlighting</li>
-              <li>Run JavaScript directly in browser</li>
-              <li>AI-powered code assistance</li>
+              <li>Conversations auto-sync to database</li>
+              <li>Access chats from any device</li>
+              <li>Share chats with public links</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>📁 Chat Organization</h3>
+            <ul>
+              <li><strong>Folders:</strong> Work, Personal, Coding, Ideas, Archive</li>
+              <li>Right-click chats to organize</li>
+              <li>Export as JSON, Markdown, or Text</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>🧠 AI Memory</h3>
+            <ul>
+              <li>AI automatically remembers facts about you</li>
+              <li>Name, location, interests, technologies</li>
+              <li>Personalized responses over time</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>🗣️ Voice Features</h3>
+            <ul>
+              <li>Speech-to-text input (microphone button)</li>
+              <li>Text-to-speech for AI responses</li>
+              <li>Toggle "TTS" in the toolbar</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>🎨 Themes & Animations</h3>
+            <ul>
+              <li>4 themes: Dark, Light, Ocean, Sunset</li>
+              <li>Click sun icon to toggle</li>
+              <li>Smooth animations throughout UI</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>⌨️ Keyboard Shortcuts</h3>
+            <ul>
+              <li><strong>Ctrl+N:</strong> New chat</li>
+              <li><strong>Ctrl+K:</strong> Focus input</li>
+              <li><strong>Ctrl+Shift+T:</strong> Toggle theme</li>
+              <li><strong>Ctrl+H:</strong> View all shortcuts</li>
+            </ul>
+          </div>
+          <div class="changelog-section">
+            <h3>🔌 Plugin System</h3>
+            <ul>
+              <li>Calculator, Weather, Dictionary, News</li>
+              <li>AI can use plugins automatically</li>
+              <li>Manage plugins from sidebar</li>
             </ul>
           </div>
         </div>
@@ -61,17 +110,17 @@
   // Check if user has seen the changelog
   function shouldShowChangelog() {
     const lastVersion = localStorage.getItem('nova_changelog_version');
-    const currentVersion = '1.0';
+    const currentVersion = '2.0';
     return lastVersion !== currentVersion;
   }
 
   // Show the changelog
-  function showChangelog() {
+  window.showChangelog = function() {
     const overlay = document.getElementById('changelog-overlay');
     if (overlay) {
       overlay.classList.add('active');
     }
-  }
+  };
 
   // Close the changelog
   window.closeChangelog = function() {
@@ -80,7 +129,7 @@
       overlay.classList.remove('active');
     }
     // Mark as seen
-    localStorage.setItem('nova_changelog_version', '1.0');
+    localStorage.setItem('nova_changelog_version', '2.0');
     localStorage.setItem('nova_changelog_seen', Date.now().toString());
   };
 
