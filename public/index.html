@@ -623,127 +623,71 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">Snippets</button>
         </div>
         <div style="display:flex;gap:4px;">
+          <button class="code-btn" onclick="undoCode()" title="Undo (Ctrl+Z)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
+          <button class="code-btn" onclick="redoCode()" title="Redo (Ctrl+Y)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
         </div>
-        <div class="code-actions-group">
-          <button class="code-btn" onclick="toggleFindBar()" id="find-btn" title="Find & Replace"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Find</button>
-          <button class="code-btn" onclick="formatCode()" title="Format Code"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg> Format</button>
+      </div>
+      <div class="code-snippets-dropdown" id="code-snippets-dropdown">
+        <div class="code-snippet-item" onclick="insertSnippet('forloop')"><div class="snippet-icon">FL</div><div>For Loop</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('foreach')"><div class="snippet-icon">FE</div><div>ForEach</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('function')"><div class="snippet-icon">Fn</div><div>Function</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('arrow')"><div class="snippet-icon">AF</div><div>Arrow Function</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('class')"><div class="snippet-icon">Cl</div><div>Class</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('trycatch')"><div class="snippet-icon">TC</div><div>Try/Catch</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('fetch')"><div class="snippet-icon">API</div><div>Fetch API</div></div>
+        <div class="code-snippet-item" onclick="insertSnippet('async')"><div class="snippet-icon">AS</div><div>Async Function</div></div>
+      </div>
+      <div class="code-editor-wrapper">
+        <div class="code-line-numbers" id="code-line-numbers"></div>
+        <div class="code-editor-container">
+          <div class="code-highlight" id="code-highlight"><code class="language-javascript"></code></div>
+          <textarea class="code-editor" id="code-editor" spellcheck="false" oninput="updateEditor()" onscroll="syncScroll()" onkeydown="handleEditorKey(event)" onclick="updateCurrentLine();hideAutocomplete()"></textarea>
+          <div class="code-autocomplete" id="code-autocomplete"></div>
+          <div class="code-quick-actions">
+            <button class="code-quick-btn" onclick="aiQuickAction('explain')">Explain</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('refactor')">Refactor</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('debug')">Debug</button>
+            <button class="code-quick-btn" onclick="aiQuickAction('optimize')">Optimize</button>
+          </div>
+          <div class="code-error-widget" id="code-error-widget"></div>
         </div>
-        <div class="code-actions-group">
-          <button class="code-btn" onclick="downloadProject()" title="Export"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
-          <button class="code-btn danger" onclick="clearProject()" title="Clear All"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        <div class="code-minimap" id="code-minimap">
+          <div class="code-minimap-content" id="code-minimap-content"></div>
+          <div class="code-minimap-viewport" id="code-minimap-viewport"></div>
         </div>
-        <div class="code-actions-group">
-          <button class="code-btn primary" onclick="runCode()" id="run-btn" title="Run (Ctrl+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
+      </div>
+      <div class="code-status-bar">
+        <div class="code-status-left">
+          <span id="code-lang-display">JavaScript</span>
+          <span>|</span>
+          <span id="code-cursor-pos">Ln 1, Col 1</span>
+          <span id="code-error-indicator" style="display:none;color:var(--red);">| ⚠ Errors</span>
+        </div>
+        <div class="code-status-right">
+          <span id="code-line-count">0 lines</span>
+          <span>|</span>
+          <span id="code-char-count">0 chars</span>
         </div>
       </div>
     </div>
-    <div class="code-file-tabs" id="code-file-tabs">
-      <div class="code-file-tab active" data-file="main" onclick="switchFile('main')">
-        <span class="file-icon">JS</span>
-        <span class="file-name">main.js</span>
-        <span class="close-btn" onclick="event.stopPropagation();closeFile('main')">×</span>
+    <div class="code-resizer" id="output-resizer"></div>
+    <div class="code-output-panel" id="code-output-panel">
+      <div class="code-output-header">
+        <div class="code-output-tabs">
+          <button class="code-output-tab active" onclick="switchOutputTab('output')" id="tab-output">Output</button>
+          <button class="code-output-tab" onclick="switchOutputTab('console')" id="tab-console">Console</button>
+          <button class="code-output-tab" onclick="switchOutputTab('problems')" id="tab-problems">Problems</button>
+        </div>
+        <span class="code-output-timer" id="code-output-timer"></span>
       </div>
-      <button class="code-new-tab" onclick="newFile()" title="New File">+</button>
+      <div class="code-output-content" id="code-output">Click Run or press Ctrl+Enter to execute your code...</div>
     </div>
-    <div class="code-find-bar" id="code-find-bar">
-      <input type="text" id="code-find-input" placeholder="Find..." oninput="findInCode()">
-      <input type="text" id="code-replace-input" placeholder="Replace...">
-      <button onclick="findNext()">Next</button>
-      <button onclick="replaceOne()">Replace</button>
-      <button onclick="replaceAll()">All</button>
-      <span class="code-find-count" id="code-find-count"></span>
-    </div>
-    <div class="code-main">
-      <!-- File Explorer -->
-      <div class="code-file-explorer" id="code-file-explorer">
-        <div class="code-file-explorer-header">
-          <span>Files</span>
-          <button onclick="newFile()" title="New File">+</button>
-        </div>
-        <div class="code-file-list" id="code-file-list"></div>
-      </div>
-      
-      <div class="code-editor-panel">
-        <div class="code-editor-header">
-          <div class="code-editor-header-left">
-            <select class="code-lang-select" id="code-lang" onchange="changeLanguage()">
-              <option value="javascript">JavaScript</option>
-              <option value="python">Python</option>
-              <option value="html">HTML</option>
-              <option value="css">CSS</option>
-              <option value="json">JSON</option>
-              <option value="typescript">TypeScript</option>
-              <option value="jsx">JSX</option>
-              <option value="tsx">TSX</option>
-            </select>
-            <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">Snippets</button>
-          </div>
-          <div style="display:flex;gap:4px;">
-            <button class="code-btn" onclick="undoCode()" title="Undo (Ctrl+Z)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg></button>
-            <button class="code-btn" onclick="redoCode()" title="Redo (Ctrl+Y)" style="padding:4px 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg></button>
-          </div>
-        </div>
-        <div class="code-snippets-dropdown" id="code-snippets-dropdown">
-          <div class="code-snippet-item" onclick="insertSnippet('forloop')"><div class="snippet-icon">FL</div><div>For Loop</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('foreach')"><div class="snippet-icon">FE</div><div>ForEach</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('function')"><div class="snippet-icon">fn</div><div>Function</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('arrow')"><div class="snippet-icon">=&gt;</div><div>Arrow Function</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('class')"><div class="snippet-icon">Cl</div><div>Class</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('trycatch')"><div class="snippet-icon">TC</div><div>Try/Catch</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('fetch')"><div class="snippet-icon">RQ</div><div>Fetch API</div></div>
-          <div class="code-snippet-item" onclick="insertSnippet('async')"><div class="snippet-icon">AS</div><div>Async Function</div></div>
-        </div>
-        <div class="code-editor-wrapper">
-          <div class="code-line-numbers" id="code-line-numbers"></div>
-          <div class="code-editor-container">
-            <div class="code-highlight" id="code-highlight"><code class="language-javascript"></code></div>
-            <textarea class="code-editor" id="code-editor" spellcheck="false" oninput="updateEditor()" onscroll="syncScroll()" onkeydown="handleEditorKey(event)" onclick="updateCurrentLine();hideAutocomplete()"></textarea>
-            <div class="code-autocomplete" id="code-autocomplete"></div>
-            <div class="code-quick-actions">
-              <button class="code-quick-btn" onclick="aiQuickAction('explain')">Explain</button>
-              <button class="code-quick-btn" onclick="aiQuickAction('refactor')">Refactor</button>
-              <button class="code-quick-btn" onclick="aiQuickAction('debug')">Debug</button>
-              <button class="code-quick-btn" onclick="aiQuickAction('optimize')">Optimize</button>
-            </div>
-            <div class="code-error-widget" id="code-error-widget"></div>
-          </div>
-          <div class="code-minimap" id="code-minimap">
-            <div class="code-minimap-content" id="code-minimap-content"></div>
-            <div class="code-minimap-viewport" id="code-minimap-viewport"></div>
-          </div>
-        </div>
-        <div class="code-status-bar">
-          <div class="code-status-left">
-            <span id="code-lang-display">JavaScript</span>
-            <span>|</span>
-            <span id="code-cursor-pos">Ln 1, Col 1</span>
-            <span id="code-error-indicator" style="display:none;color:var(--red);">| [ERR] Errors</span>
-          </div>
-          <div class="code-status-right">
-            <span id="code-line-count">0 lines</span>
-            <span>|</span>
-            <span id="code-char-count">0 chars</span>
-          </div>
-        </div>
-      </div>
-      <div class="code-resizer" id="output-resizer"></div>
-      <div class="code-output-panel" id="code-output-panel">
-        <div class="code-output-header">
-          <div class="code-output-tabs">
-            <button class="code-output-tab active" onclick="switchOutputTab('output')" id="tab-output">Output</button>
-            <button class="code-output-tab" onclick="switchOutputTab('console')" id="tab-console">Console</button>
-            <button class="code-output-tab" onclick="switchOutputTab('problems')" id="tab-problems">Problems</button>
-          </div>
-          <span class="code-output-timer" id="code-output-timer"></span>
-        </div>
-        <div class="code-output-content" id="code-output">Click Run or press Ctrl+Enter to execute your code...</div>
-      </div>
-      
-      <!-- AI Panel -->
-      <div class="code-ai-panel" id="code-ai-panel">
-        <div class="code-ai-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z"/><circle cx="12" cy="12" r="3"/></svg> NOVA AI Coder</div>
-        <div class="code-ai-messages" id="code-ai-messages">
-          <div class="code-msg ai">I'm your AI coding assistant! I can:
+    
+    <!-- AI Panel -->
+    <div class="code-ai-panel" id="code-ai-panel">
+      <div class="code-ai-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z"/><circle cx="12" cy="12" r="3"/></svg> NOVA AI Coder</div>
+      <div class="code-ai-messages" id="code-ai-messages">
+        <div class="code-msg ai">I'm your AI coding assistant! I can:
 • Generate complete files
 • Write code for you
 • Create entire projects
@@ -751,90 +695,2259 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 • Debug issues
 
 Just tell me what you want to build!</div>
+      </div>
+      <div class="code-ai-input">
+        <textarea id="code-ai-textarea" placeholder="e.g., Create a React todo app with styling..." rows="3"></textarea>
+        <div class="code-ai-actions">
+          <button onclick="generateCode()">Generate</button>
+          <button class="secondary" onclick="generateFullProject()">Full Project</button>
         </div>
-        <div class="code-ai-input">
-          <textarea id="code-ai-textarea" placeholder="e.g., Create a React todo app with styling..." rows="3"></textarea>
-          <div class="code-ai-actions">
-            <button onclick="generateCode()">Generate</button>
-            <button class="secondary" onclick="generateFullProject()">Full Project</button>
+      </div>
+    </div>
+    
+    <div class="code-preview-panel" id="code-preview-panel">
+      <div class="code-preview-header">
+        <span>Live Preview</span>
+        <button class="code-preview-mobile" onclick="toggleMobilePreview()">Mobile</button>
+      </div>
+      <iframe class="code-preview-frame" id="code-preview-frame"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- Template Modal -->
+<div class="code-template-modal" id="code-template-modal">
+  <div class="code-template-box">
+    <h3>Start New Project</h3>
+    <div class="code-template-grid">
+      <div class="code-template-item" onclick="loadTemplate('vanilla')">
+        <div class="template-icon">WEB</div>
+        <div class="template-name">HTML/CSS/JS</div>
+        <div class="template-desc">Basic web project</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('react')">
+        <div class="template-icon">RCT</div>
+        <div class="template-name">React</div>
+        <div class="template-desc">React app with hooks</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('vue')">
+        <div class="template-icon">VUE</div>
+        <div class="template-name">Vue</div>
+        <div class="template-desc">Vue 3 composition</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('nodejs')">
+        <div class="template-icon">NODE</div>
+        <div class="template-name">Node.js</div>
+        <div class="template-desc">Express server API</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('python')">
+        <div class="template-icon">PY</div>
+        <div class="template-name">Python</div>
+        <div class="template-desc">Python script/app</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('component')">
+        <div class="template-icon">CMP</div>
+        <div class="template-name">Component</div>
+        <div class="template-desc">Reusable UI component</div>
+      </div>
+    </div>
+    <button onclick="closeTemplateModal()" style="margin-top:20px;padding:10px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<!-- Command Palette -->
+<div class="code-command-palette" id="code-command-palette">
+  <input type="text" class="code-command-input" id="code-command-input" placeholder="Type a command or search..." oninput="filterCommands()">
+  <div class="code-command-list" id="code-command-list"></div>
+</div>
+
+<!-- MOBILE -->
+<div id="mobile-app" style="display:none">
+  <div class="m-drawer-overlay" id="m-drawer-overlay" onclick="closeDrawer()"></div>
+  <div class="m-drawer" id="m-drawer">
+    <div class="m-drawer-head">
+      <div class="m-drawer-title">Chats</div>
+      <button class="m-drawer-new" onclick="newChat();closeDrawer()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New</button>
+    </div>
+    <div style="padding:8px 12px;"><input type="text" id="m-chat-search" placeholder="Search chats..." oninput="searchMobileChats(this.value)" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);outline:none;"/></div>
+    <div class="m-drawer-list" id="m-chat-list"></div>
+    <div class="m-drawer-foot">
+      <div class="m-drawer-sett" onclick="exportChats();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export All</div>
+      <div class="m-drawer-sett" onclick="openSettings();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 1 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Settings</div>
+    </div>
+  </div>
+  <div class="m-navbar">
+    <div class="m-nav-left">
+      <button class="m-icon-btn" onclick="openDrawer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <div class="m-logo-mark" id="m-logo-mark">N</div>
+      <div><div class="m-title" id="m-title">NOVA</div><div class="m-subtitle">AI Assistant</div></div>
+    </div>
+    <div class="m-nav-right">
+      <button class="m-icon-btn" onclick="newChat()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="m-icon-btn" onclick="openSettings()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+  </div>
+  <div class="m-provider-bar" id="m-provider-bar"></div>
+  <div class="m-chat-area" id="m-chat-area">
+    <div class="m-welcome" id="m-welcome">
+      <div class="m-welcome-icon" id="m-welcome-icon">N</div>
+      <h2>Hey, I'm NOVA</h2>
+      <p>Your AI with memory, search, tools, and image generation.</p>
+      <div class="m-sug-grid">
+        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Search</strong>What's new in AI?</div>
+        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Generate</strong>Neon city at night</div>
+        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Brainstorm</strong>5 AI startup ideas</div>
+        <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Memory</strong>What do you know about me?</div>
+      </div>
+    </div>
+  </div>
+  <div class="m-input-area">
+    <div class="m-tools-row">
+      <div class="m-tool-chip active" id="m-pill-memory" onclick="toggleTool('memory')">Memory</div>
+      <div class="m-tool-chip active" id="m-pill-search" onclick="toggleTool('search')">Search</div>
+      <div class="m-tool-chip active" id="m-pill-tools" onclick="toggleTool('tools')">Tools</div>
+      <div class="m-tool-chip active" id="m-pill-image" onclick="toggleTool('image')">Images</div>
+    </div>
+    <div class="m-input-row">
+      <div class="m-input-wrap">
+        <button class="m-img-btn" id="m-attach-btn" onclick="triggerFileUpload('m')" title="Attach file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+        <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this)"></textarea>
+        <button class="m-img-btn" id="m-voice-btn" onclick="toggleVoiceInput('m')" title="Voice input"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+      </div>
+      <button class="m-send-btn" id="m-send-btn" onclick="sendMessage('m')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>
+  </div>
+</div>
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal" onclick="closeSettingsOutside(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-top"><h2>Settings</h2><button class="modal-close" onclick="closeSettings()">&times;</button></div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('general')">General</button>
+        <button class="tab" onclick="switchTab('keys')">API Keys</button>
+        <button class="tab" onclick="switchTab('memory-tab')">Memory</button>
+        <button class="tab" onclick="switchTab('theme-tab')">Theme</button>
+      </div>
+      <div class="tab-content active" id="tab-general">
+        <div class="field-group"><div class="field-label">AI Name</div><input class="field-input" id="ai-name-input" type="text" placeholder="NOVA"/></div>
+        <div class="field-group"><div class="field-label">System Prompt</div><textarea class="field-input field-textarea" id="system-prompt-input" placeholder="You are NOVA, a brilliant and direct AI assistant..."></textarea></div>
+        <div class="field-group">
+          <div class="field-label">Actions</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="exportChat()" style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text);font-size:13px;">Export Chat</button>
+            <button onclick="shareChat()" style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text);font-size:13px;">Share Chat</button>
           </div>
         </div>
       </div>
-      
-      <div class="code-preview-panel" id="code-preview-panel">
-        <div class="code-preview-header">
-          <span>Live Preview</span>
-          <button class="code-preview-mobile" onclick="toggleMobilePreview()">Mobile</button>
+      <div class="tab-content" id="tab-keys">
+        <div style="padding:10px 12px;background:var(--accent-glow);border:1px solid rgba(139,92,246,0.2);border-radius:var(--radius-sm);font-size:12px;color:var(--accent-light);line-height:1.5;">Your API keys are stored securely in the database. They are never exposed to the browser.</div>
+        <div id="keys-list"></div>
+      </div>
+      <div class="tab-content" id="tab-memory-tab">
+        <div class="field-group"><div class="field-label">Memory</div><div class="field-hint">Tell NOVA about yourself. This context is included in every conversation.</div><textarea class="field-input field-textarea" id="memory-input" placeholder="My name is..., I prefer..." style="min-height:120px;"></textarea></div>
+      </div>
+      <div class="tab-content" id="tab-theme-tab">
+        <div class="field-group">
+          <div class="field-label">Color Theme</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div onclick="setTheme('dark')" style="padding:16px;background:#09090b;border:2px solid #8b5cf6;border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#fafafa;font-weight:600;">Dark</div><div style="color:#71717a;font-size:11px;margin-top:4px;">Default dark mode</div></div>
+            <div onclick="setTheme('light')" style="padding:16px;background:#ffffff;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#18181b;font-weight:600;">Light</div><div style="color:#71717a;font-size:11px;margin-top:4px;">Light mode</div></div>
+            <div onclick="setTheme('ocean')" style="padding:16px;background:#0a192f;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#64ffda;font-weight:600;">Ocean</div><div style="color:#5a6a7a;font-size:11px;margin-top:4px;">Cool blue tones</div></div>
+            <div onclick="setTheme('sunset')" style="padding:16px;background:#1a1423;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:center;"><div style="color:#ff6b6b;font-weight:600;">Sunset</div><div style="color:#a08070;font-size:11px;margin-top:4px;">Warm purple tones</div></div>
+          </div>
         </div>
-        <iframe class="code-preview-frame" id="code-preview-frame"></iframe>
+        <div class="field-group">
+          <div class="field-label">Keyboard Shortcuts</div>
+          <div style="font-size:12px;color:var(--text2);line-height:2;">
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+N</kbd> New chat</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+E</kbd> Export chat</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+,</kbd> Open settings</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Ctrl+Shift+T</kbd> Cycle themes</div>
+            <div><kbd style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);">Esc</kbd> Close settings</div>
+          </div>
+        </div>
       </div>
     </div>
+    <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Save Changes</button></div>
   </div>
-  
-  <!-- Template Modal -->
-  <div class="code-template-modal" id="code-template-modal">
-    <div class="code-template-box">
-      <h3>Start New Project</h3>
-      <div class="code-template-grid">
-        <div class="code-template-item" onclick="loadTemplate('vanilla')">
-          <div class="template-icon">&lt;/&gt;</div>
-          <div class="template-name">HTML/CSS/JS</div>
-          <div class="template-desc">Basic web project</div>
-        </div>
-        <div class="code-template-item" onclick="loadTemplate('react')">
-          <div class="template-icon">RE</div>
-          <div class="template-name">React</div>
-          <div class="template-desc">React app with hooks</div>
-        </div>
-        <div class="code-template-item" onclick="loadTemplate('vue')">
-          <div class="template-icon">VU</div>
-          <div class="template-name">Vue</div>
-          <div class="template-desc">Vue 3 composition</div>
-        </div>
-        <div class="code-template-item" onclick="loadTemplate('nodejs')">
-          <div class="template-icon">NO</div>
-          <div class="template-name">Node.js</div>
-          <div class="template-desc">Express server API</div>
-        </div>
-        <div class="code-template-item" onclick="loadTemplate('python')">
-          <div class="template-icon">PY</div>
-          <div class="template-name">Python</div>
-          <div class="template-desc">Python script/app</div>
-        </div>
-        <div class="code-template-item" onclick="loadTemplate('component')">
-          <div class="template-icon">UI</div>
-          <div class="template-name">Component</div>
-          <div class="template-desc">Reusable UI component</div>
-        </div>
+</div>
+
+<!-- Login Modal -->
+<div class="login-modal" id="login-modal" onclick="closeLoginOutside(event)">
+  <div class="login-box" onclick="event.stopPropagation()">
+    <h2>Welcome to NOVA</h2>
+    <p>Sign in to sync your chats, settings, and API keys across devices.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="feature-text"><strong>Sync Chats</strong>Access your conversations anywhere</div>
       </div>
-      <button onclick="closeTemplateModal()" style="margin-top:20px;padding:10px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;">Cancel</button>
+      <div class="feature">
+        <div class="feature-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+        <div class="feature-text"><strong>Secure Keys</strong>Your API keys stay private</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="feature-text"><strong>Free Forever</strong>No subscription required</div>
+      </div>
     </div>
+    <button class="google-btn" onclick="loginWithGoogle()">
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="divider">or</div>
+    <div class="skip" onclick="closeLogin()">Continue as guest &rarr;</div>
   </div>
+</div>
+
+<script>
+var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 640;
+document.getElementById('desktop-app').style.display = isMobile ? 'none' : 'flex';
+document.getElementById('mobile-app').style.display = isMobile ? 'flex' : 'none';
+
+function getUserToken() {
+  var token = localStorage.getItem('nova_user_token');
+  if (!token) { token = 'u_' + crypto.randomUUID(); localStorage.setItem('nova_user_token', token); }
+  return token;
+}
+var userToken = getUserToken();
+
+var PROVIDERS = {
+  ollama: { name: 'Ollama (Local)', color: 'groq', models: ['llama3.2','llama3.1','mistral','codellama','phi3','gemma2'], badge: 'free', free: true },
+  nova: { name: 'NOVA Free', color: 'openrouter', models: ['auto'], badge: 'free', free: true },
+  nova_custom: { name: 'NOVA Custom', color: 'openrouter', models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768'], badge: 'custom', free: true },
+  groq: { name: 'Groq', color: 'groq', models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'], badge: 'free', free: true },
+  huggingface: { name: 'Hugging Face', color: 'openrouter', models: ['meta-llama/Llama-3.2-3B-Instruct','mistralai/Mistral-7B-Instruct-v0.3','Qwen/Qwen2.5-72B-Instruct'], badge: 'free', free: true },
+  deepseek: { name: 'DeepSeek', color: 'openrouter', models: ['deepseek-chat','deepseek-coder'], badge: 'free', free: true },
+  openrouter: { name: 'OpenRouter', color: 'openrouter', models: ['anthropic/claude-3.5-sonnet','google/gemini-pro-1.5','meta-llama/llama-3.1-405b-instruct','mistralai/mistral-large'], badge: 'smart' },
+  cohere: { name: 'Cohere', color: 'cohere', models: ['c4ai-aya-expanse-32b','c4ai-aya-expanse-8b','c4ai-aya-vision-32b','c4ai-aya-vision-8b','command-a-03-2025','command-r-08-2024','command-r-plus-08-2024','command-r7b-12-2024','command-r7b-arabic-02-2025'], badge: 'smart' },
+  tavily: { name: 'Tavily (Search)', color: 'tavily', models: [], badge: 'search' },
+};
+
+var state = {
+  aiName: localStorage.getItem('nova_name') || 'NOVA',
+  systemPrompt: localStorage.getItem('nova_system') || 'You are NOVA, an advanced AI assistant with expertise across multiple domains. You provide thorough, accurate, and actionable responses. You think step-by-step when solving problems, consider edge cases, and explain your reasoning clearly. You are direct but comprehensive, always aiming to give the best possible answer rather than the shortest.',
+  memory: localStorage.getItem('nova_memory') || '',
+  history: [],
+  chats: JSON.parse(localStorage.getItem('nova_chats') || '[]'),
+  currentChatId: null,
+  provider: localStorage.getItem('nova_provider') || 'nova',
+  model: localStorage.getItem('nova_model') || 'auto',
+  tools: { memory: true, search: true, tools: true, image: true },
+  imageMode: false,
+  isTyping: false,
+  availableProviders: {},
+  userKeys: {},
+  user: JSON.parse(localStorage.getItem('nova_user') || 'null'),
+};
+
+// Login/Auth functions
+function toggleLogin() {
+  if (state.user) {
+    var dropdown = document.getElementById('user-dropdown');
+    dropdown.classList.toggle('open');
+  } else {
+    document.getElementById('login-modal').classList.add('open');
+  }
+}
+
+function closeLogin() {
+  document.getElementById('login-modal').classList.remove('open');
+}
+
+function closeLoginOutside(e) {
+  if (e.target.id === 'login-modal') closeLogin();
+}
+
+function loginWithGoogle() {
+  // Redirect to Google OAuth endpoint on backend
+  window.location.href = '/auth/google';
+}
+
+function handleAuthCallback(token, user) {
+  if (token) {
+    localStorage.setItem('nova_user_token', token);
+    userToken = token;
+  }
+  if (user) {
+    state.user = user;
+    localStorage.setItem('nova_user', JSON.stringify(user));
+    updateUserUI();
+  }
+  closeLogin();
+}
+
+function updateUserUI() {
+  var btn = document.getElementById('login-btn');
+  var avatar = document.getElementById('login-avatar');
+  var name = document.getElementById('login-name');
+  var dropdownName = document.getElementById('dropdown-name');
+  var dropdownEmail = document.getElementById('dropdown-email');
   
-  <!-- Command Palette -->
-  <div class="code-command-palette" id="code-command-palette">
-    <input type="text" class="code-command-input" id="code-command-input" placeholder="Type a command or search..." oninput="filterCommands()">
-    <div class="code-command-list" id="code-command-list"></div>
-  </div>
+  if (state.user) {
+    btn.classList.add('logged-in');
+    if (state.user.picture) {
+      avatar.innerHTML = '<img src="' + state.user.picture + '" alt="' + state.user.name + '">';
+    } else {
+      avatar.textContent = state.user.name ? state.user.name[0].toUpperCase() : '?';
+    }
+    name.textContent = state.user.name || 'User';
+    dropdownName.textContent = state.user.name || 'User';
+    dropdownEmail.textContent = state.user.email || '';
+  } else {
+    btn.classList.remove('logged-in');
+    avatar.textContent = '?';
+    name.textContent = 'Sign In';
+    dropdownName.textContent = 'Guest';
+    dropdownEmail.textContent = 'Not signed in';
+  }
+}
+
+function logout() {
+  state.user = null;
+  localStorage.removeItem('nova_user');
+  localStorage.removeItem('nova_user_token');
+  userToken = getUserToken();
+  updateUserUI();
+  document.getElementById('user-dropdown').classList.remove('open');
+  showToast('Signed out successfully');
+}
+
+async function init() {
+  // Check for OAuth callback in URL hash
+  checkAuthCallback();
   
-  <!-- MOBILE -->
-  <div id="mobile-app" style="display:none">
-    <!-- ... -->
-  </div>
+  // Update user UI if logged in
+  updateUserUI();
   
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="settings-modal" onclick="closeSettingsOutside(event)">
-    <!-- ... -->
-  </div>
+  document.getElementById('ai-name-input').value = state.aiName;
+  document.getElementById('system-prompt-input').value = state.systemPrompt;
+  document.getElementById('memory-input').value = state.memory;
+  applyAiName();
+  renderChatList();
+  try {
+    var results = await Promise.all([
+      fetch('/api/providers?userToken=' + encodeURIComponent(userToken)),
+      fetch('/api/keys/' + encodeURIComponent(userToken)),
+    ]);
+    state.availableProviders = await results[0].json();
+    state.userKeys = await results[1].json();
+  } catch(e) {
+    Object.keys(PROVIDERS).forEach(function(id) { state.availableProviders[id] = { available: false, name: PROVIDERS[id].name }; });
+  }
+  buildProviderUI();
+  buildKeysUI();
+}
+
+function checkAuthCallback() {
+  var hash = window.location.hash;
+  if (hash.startsWith('#auth=')) {
+    try {
+      var data = JSON.parse(decodeURIComponent(hash.slice(6)));
+      if (data.token && data.user) {
+        handleAuthCallback(data.token, data.user);
+        showToast('Welcome, ' + data.user.name + '!');
+      }
+    } catch(e) {}
+    // Clear the hash
+    history.replaceState(null, '', window.location.pathname);
+  }
+}
+
+function applyAiName() {
+  var n = state.aiName;
+  var mark = n[0].toUpperCase();
+  [['d-logo-mark',mark],['d-logo-text',n],['d-welcome-icon',mark],['m-logo-mark',mark],['m-title',n],['m-welcome-icon',mark]].forEach(function(pair) {
+    var el = document.getElementById(pair[0]); if (el) el.textContent = pair[1];
+  });
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach(function(t, i) {
+    var names = ['general', 'keys', 'memory-tab', 'theme-tab'];
+    t.classList.toggle('active', names[i] === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(function(tc) {
+    tc.classList.toggle('active', tc.id === 'tab-' + tabName);
+  });
+}
+
+function buildKeysUI() {
+  var list = document.getElementById('keys-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var providerNames = {
+    nova_custom: 'NOVA Custom (uses Groq key)',
+    groq: 'Groq', huggingface: 'Hugging Face',
+    deepseek: 'DeepSeek',
+    openrouter: 'OpenRouter', cohere: 'Cohere', tavily: 'Tavily (Search)'
+  };
+  Object.entries(providerNames).forEach(function(entry) {
+    var id = entry[0], name = entry[1];
+    var isFree = PROVIDERS[id] && PROVIDERS[id].free;
+    var hasKey = state.userKeys[id] || (state.availableProviders[id] && state.availableProviders[id].available);
+    var hasUserKey = !!state.userKeys[id];
+    var row = document.createElement('div');
+    row.className = 'key-row';
+    row.id = 'key-row-' + id;
+    row.innerHTML = '<div class="key-dot ' + (hasKey ? 'on' : 'off') + '"></div>' +
+      '<div class="key-info"><div class="key-name">' + name + (isFree ? ' <span style="color:var(--accent-light);font-size:10px;">FREE</span>' : '') + '</div>' +
+      '<div class="key-status">' + (hasUserKey ? 'Your key active' : hasKey ? 'Server key active' : 'No key set') + '</div></div>' +
+      '<div class="key-actions"><button class="key-btn" onclick="toggleKeyInput(\'' + id + '\')">' +
+      (hasUserKey ? 'Update' : 'Add Key') + '</button>' +
+      (hasUserKey ? '<button class="key-btn del" onclick="deleteKey(\'' + id + '\')">Remove</button>' : '') + '</div>';
+    list.appendChild(row);
+  });
+}
+
+function toggleKeyInput(provider) {
+  var row = document.getElementById('key-row-' + provider);
+  if (!row) return;
+  var existing = row.querySelector('.key-input-row');
+  if (existing) { existing.remove(); return; }
+  var div = document.createElement('div');
+  div.className = 'key-input-row';
+  div.innerHTML = '<input type="password" placeholder="sk-... or paste your API key" id="key-input-' + provider + '" />' +
+    '<button onclick="saveKey(\'' + provider + '\')">Save</button>';
+  row.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+async function saveKey(provider) {
+  var input = document.getElementById('key-input-' + provider);
+  if (!input) return;
+  var apiKey = input.value.trim();
+  if (!apiKey) return;
+  try {
+    var res = await fetch('/api/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userToken: userToken, provider: provider, apiKey: apiKey }),
+    });
+    if (!res.ok) throw new Error('Failed to save');
+    state.userKeys[provider] = true;
+    showToast((PROVIDERS[provider] ? PROVIDERS[provider].name : provider) + ' key saved');
+    await refreshProviders();
+    buildKeysUI();
+  } catch (err) {
+    showToast('Error saving key: ' + err.message);
+  }
+}
+
+async function deleteKey(provider) {
+  try {
+    var res = await fetch('/api/keys', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userToken: userToken, provider: provider }),
+    });
+    if (!res.ok) throw new Error('Failed to delete');
+    delete state.userKeys[provider];
+    showToast((PROVIDERS[provider] ? PROVIDERS[provider].name : provider) + ' key removed');
+    await refreshProviders();
+    buildKeysUI();
+  } catch (err) {
+    showToast('Error removing key: ' + err.message);
+  }
+}
+
+async function refreshProviders() {
+  try {
+    var res = await fetch('/api/providers?userToken=' + encodeURIComponent(userToken));
+    state.availableProviders = await res.json();
+    buildProviderUI();
+  } catch(e) {}
+}
+
+function buildProviderUI() {
+  buildDesktopProviderDropdown();
+  buildMobileProviderBar();
+  updateProviderBtn();
+}
+
+function buildDesktopProviderDropdown() {
+  var list = document.getElementById('d-provider-list');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.entries(PROVIDERS).forEach(function(entry) {
+    var id = entry[0], cfg = entry[1];
+    var avail = state.availableProviders[id] && state.availableProviders[id].available;
+    var isActive = state.provider === id;
+    var div = document.createElement('div');
+    div.className = 'provider-option' + (isActive ? ' active' : '') + (!avail ? ' unavailable' : '');
+    var badgeCls = cfg.badge === 'fast' ? 'fast' : cfg.badge === 'free' ? 'free' : !avail ? 'locked' : 'smart';
+    var badgeText = !avail ? 'no key' : cfg.badge;
+    div.innerHTML = '<div class="provider-dot ' + cfg.color + (!avail ? ' offline' : '') + '"></div>' +
+      '<div class="provider-option-info"><div class="provider-option-name">' + cfg.name + '</div>' +
+      '<div class="provider-option-model">' + (state.provider === id ? state.model : cfg.models[0]) + '</div></div>' +
+      '<div class="provider-option-badge ' + badgeCls + '">' + badgeText + '</div>';
+    if (avail) div.onclick = function() { selectProvider(id); };
+    list.appendChild(div);
+  });
+  buildModelChips();
+}
+
+function buildModelChips() {
+  var chips = document.getElementById('d-model-chips');
+  if (!chips) return;
+  chips.innerHTML = '';
+  var models = PROVIDERS[state.provider] ? PROVIDERS[state.provider].models : [];
+  models.forEach(function(m) {
+    var chip = document.createElement('div');
+    chip.className = 'model-chip' + (state.model === m ? ' active' : '');
+    chip.textContent = m.split('/').pop();
+    chip.title = m;
+    chip.onclick = function() { state.model = m; localStorage.setItem('nova_model', m); buildModelChips(); buildDesktopProviderDropdown(); updateProviderBtn(); };
+    chips.appendChild(chip);
+  });
+}
+
+function buildMobileProviderBar() {
+  var bar = document.getElementById('m-provider-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  Object.entries(PROVIDERS).forEach(function(entry) {
+    var id = entry[0], cfg = entry[1];
+    var avail = state.availableProviders[id] && state.availableProviders[id].available;
+    var chip = document.createElement('div');
+    chip.className = 'm-provider-chip' + (state.provider === id ? ' active' : '') + (!avail ? ' unavailable' : '');
+    chip.innerHTML = '<div class="provider-dot ' + cfg.color + (!avail ? ' offline' : '') + '"></div>' + cfg.name;
+    if (avail) chip.onclick = function() { selectProvider(id); };
+    bar.appendChild(chip);
+  });
+}
+
+function selectProvider(id) {
+  state.provider = id;
+  state.model = PROVIDERS[id].models[0];
+  localStorage.setItem('nova_provider', id);
+  localStorage.setItem('nova_model', state.model);
+  buildProviderUI();
+  closeProviderDropdown();
+  showToast('Switched to ' + PROVIDERS[id].name);
+}
+
+function updateProviderBtn() {
+  var dot = document.getElementById('d-provider-dot');
+  var label = document.getElementById('d-provider-label');
+  var cfg = PROVIDERS[state.provider];
+  var avail = state.availableProviders[state.provider] && state.availableProviders[state.provider].available;
+  if (dot) { dot.className = 'provider-dot ' + (avail && cfg ? cfg.color : 'offline'); }
+  if (label) label.textContent = (cfg ? cfg.name : state.provider) + ' / ' + state.model.split('/').pop();
+}
+
+function toggleProviderDropdown() {
+  var dd = document.getElementById('d-provider-dropdown');
+  if (!dd) return;
+  var isOpen = dd.classList.contains('open');
+  if (!isOpen) buildDesktopProviderDropdown();
+  dd.classList.toggle('open', !isOpen);
+}
+function closeProviderDropdown() {
+  var dd = document.getElementById('d-provider-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  var picker = document.getElementById('d-provider-picker');
+  if (picker && !picker.contains(e.target)) closeProviderDropdown();
+});
+
+function openSettings() { document.getElementById('settings-modal').classList.add('open'); buildKeysUI(); }
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+function closeSettingsOutside(e) { if (e.target.id === 'settings-modal') closeSettings(); }
+
+function saveSettings() {
+  state.aiName = document.getElementById('ai-name-input').value.trim() || 'NOVA';
+  state.systemPrompt = document.getElementById('system-prompt-input').value.trim();
+  state.memory = document.getElementById('memory-input').value.trim();
+  localStorage.setItem('nova_name', state.aiName);
+  localStorage.setItem('nova_system', state.systemPrompt);
+  localStorage.setItem('nova_memory', state.memory);
+  applyAiName();
+  closeSettings();
+  showToast('Settings saved');
+}
+
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.remove(); }, 2200);
+}
+
+function openDrawer() { document.getElementById('m-drawer').classList.add('open'); document.getElementById('m-drawer-overlay').classList.add('open'); }
+function closeDrawer() { document.getElementById('m-drawer').classList.remove('open'); document.getElementById('m-drawer-overlay').classList.remove('open'); }
+
+function toggleTool(tool) {
+  state.tools[tool] = !state.tools[tool];
+  ['d','m'].forEach(function(p) { var el = document.getElementById(p + '-pill-' + tool); if (el) el.classList.toggle('active', state.tools[tool]); });
+}
+
+function toggleImageMode() {
+  state.imageMode = !state.imageMode;
+  ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.toggle('active', state.imageMode); });
+  var ph = state.imageMode ? 'Describe an image to generate...' : 'Message ' + state.aiName + '...';
+  ['d-msg-input','m-msg-input'].forEach(function(id) { var el = document.getElementById(id); if (el) el.placeholder = ph; });
+}
+
+function newChat() {
+  state.history = []; state.currentChatId = null;
+  ['d','m'].forEach(function(p) { var a = document.getElementById(p + '-chat-area'); if (a) { a.innerHTML = ''; a.appendChild(createWelcome(p)); } });
+  renderChatList();
+}
+
+function createWelcome(p) {
+  var w = document.createElement('div');
+  w.className = p === 'd' ? 'd-welcome' : 'm-welcome';
+  w.id = p + '-welcome';
+  var n = state.aiName;
+  if (p === 'd') {
+    w.innerHTML = '<div class="d-welcome-icon">' + n[0] + '</div><h1>What can I help with?</h1><p>Memory, web search, tools, and image generation built in. Pick your provider and start chatting.</p><div class="d-sug-grid"><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Search</strong><span>What\'s happening in AI this week?</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Generate</strong><span>Create an image of a neon city at night</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Brainstorm</strong><span>5 startup ideas in the AI space</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Memory</strong><span>What do you remember about me?</span></div></div>';
+  } else {
+    w.innerHTML = '<div class="m-welcome-icon">' + n[0] + '</div><h2>Hey, I\'m ' + n + '</h2><p>Your AI with memory, search, tools, and image generation.</p><div class="m-sug-grid"><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Search</strong>What\'s new in AI?</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Generate</strong>Neon city at night</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Brainstorm</strong>5 AI startup ideas</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Memory</strong>What do you know about me?</div></div>';
+  }
+  return w;
+}
+
+function renderChatList() {
+  [['d-chat-list','d','d-chat-item','d-chat-dot'],['m-chat-list','m','m-drawer-item','m-drawer-dot']].forEach(function(cfg) {
+    var listId = cfg[0], p = cfg[1], cls = cfg[2], dotCls = cfg[3];
+    var list = document.getElementById(listId);
+    if (!list) return;
+    list.innerHTML = '';
+    state.chats.slice(-10).reverse().forEach(function(chat) {
+      var item = document.createElement('div');
+      item.className = cls + (chat.id === state.currentChatId ? ' active' : '');
+      item.innerHTML = '<div class="' + dotCls + '"></div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + chat.title + '</span>';
+      item.onclick = function() { loadChat(chat.id); if (p === 'm') closeDrawer(); };
+      list.appendChild(item);
+    });
+  });
+}
+
+function saveCurrentChat(firstMsg) {
+  if (!state.currentChatId) {
+    state.currentChatId = Date.now().toString();
+    var title = firstMsg.slice(0, 32) + (firstMsg.length > 32 ? '...' : '');
+    state.chats.push({ id: state.currentChatId, title: title, history: state.history });
+  } else {
+    var c = state.chats.find(function(c) { return c.id === state.currentChatId; });
+    if (c) c.history = state.history;
+  }
+  localStorage.setItem('nova_chats', JSON.stringify(state.chats));
+  renderChatList();
+}
+
+function loadChat(id) {
+  var chat = state.chats.find(function(c) { return c.id === id; });
+  if (!chat) return;
+  state.currentChatId = id;
+  state.history = chat.history;
+  ['d','m'].forEach(function(p) { var a = document.getElementById(p + '-chat-area'); if (a) { a.innerHTML = ''; a.appendChild(createWelcome(p)); } });
+  state.history.forEach(function(msg) { if (msg.role !== 'system') appendMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, false); });
+  renderChatList();
+}
+
+function useSuggestion(el, p) {
+  var spans = el.querySelectorAll('span, strong');
+  var text = '';
+  if (spans.length > 1) text = spans[spans.length - 1].textContent.trim();
+  else text = el.textContent.replace(el.querySelector('strong').textContent, '').trim();
+  var input = document.getElementById(p + '-msg-input');
+  if (input) { input.value = text; sendMessage(p); }
+}
+
+function handleKey(e, p) {
+  if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); sendMessage(p); }
+}
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, isMobile ? 100 : 140) + 'px'; }
+
+function appendMessage(role, content, animate) {
+  if (animate === undefined) animate = true;
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ' + role;
+    if (!animate) msg.style.animation = 'none';
+    var inner = '';
+    if (role === 'ai' && state.tools.memory && state.memory) {
+      inner += '<div class="memory-badge"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3"/></svg> Memory</div>';
+    }
+    var c = content;
+    if (role === 'ai' && content.indexOf('[TOOL:') === 0) {
+      var end = content.indexOf(']');
+      inner += '<div class="tool-indicator"><div class="tool-dot"></div>' + content.slice(6, end) + '</div>';
+      c = content.slice(end + 1).trim();
+    }
+    inner += formatContent(c);
+    msg.innerHTML = '<div class="' + avCls + ' ' + (role === 'ai' ? 'ai' : 'user') + '">' + (role === 'ai' ? state.aiName[0] : 'U') + '</div><div class="' + bubCls + ' bubble">' + inner + '</div>';
+    area.appendChild(msg);
+    area.scrollTop = area.scrollHeight;
+  });
+}
+
+function appendTyping() {
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ai';
+    msg.id = p + '-typing';
+    var provName = PROVIDERS[state.provider] ? PROVIDERS[state.provider].name : state.provider;
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + '"><div class="typing-indicator"><div class="typing"><span></span><span></span><span></span></div><span class="typing-text">Thinking via ' + provName + '...</span></div></div>';
+    area.appendChild(msg);
+    area.scrollTop = area.scrollHeight;
+  });
+}
+
+function removeTyping() {
+  ['d-typing','m-typing'].forEach(function(id) { var el = document.getElementById(id); if (el) el.remove(); });
+}
+
+function formatContent(text) {
+  text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(_, l, c) { return '<pre><code class="language-' + (l || '') + '">' + escHtml(c.trim()) + '</code></pre>'; });
+  text = text.replace(/`([^`]+)`/g, function(_, c) { return '<code>' + escHtml(c) + '</code>'; });
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\n/g, '<br>');
+  return text;
+}
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function sendMessage(p) {
+  var inputEl = document.getElementById(p + '-msg-input');
+  if (!inputEl) return;
+  var text = inputEl.value.trim();
+  if (!text || state.isTyping) return;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  state.isTyping = true;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = true; });
+  appendMessage('user', text);
+
+  // Handle image generation mode
+  if (state.imageMode) {
+    await generateImage(text);
+    return;
+  }
+
+  // Handle web search queries
+  if (state.tools.search && /search|look up|what's new|what is happening|current|latest|recent|news/i.test(text)) {
+    await performWebSearch(text);
+    return;
+  }
+
+  // Regular chat
+  var sys = state.systemPrompt;
+  if (state.tools.memory && state.memory) sys += '\n\nUser memory:\n' + state.memory;
+  var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
+  appendTyping();
+  try {
+    var res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: state.provider, model: state.model, messages: messages, max_tokens: 1500, temperature: 0.7, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    var reply = data.choices[0].message.content;
+    removeTyping();
+    appendMessage('ai', reply);
+    state.history.push({ role: 'user', content: text });
+    state.history.push({ role: 'assistant', content: reply });
+    if (state.history.length > 40) state.history = state.history.slice(-40);
+    saveCurrentChat(text);
+  } catch(err) {
+    removeTyping();
+    var provName = PROVIDERS[state.provider] ? PROVIDERS[state.provider].name : state.provider;
+    var errorMsg = err.message || 'Unknown error';
+    appendMessage('ai', '**Error:** ' + errorMsg + '\n\n<button class="retry-btn" onclick="retryLastMessage()">Retry</button> | <button class="settings-link" onclick="openSettings()">Add API Key</button>');
+  }
+  state.isTyping = false;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
+  inputEl.focus();
+}
+
+function retryLastMessage() {
+  if (state.history.length === 0) return;
+  var lastUserMsg = state.history.filter(function(m) { return m.role === 'user'; }).pop();
+  if (!lastUserMsg) return;
+  state.history.pop(); // Remove last assistant message
+  state.history.pop(); // Remove last user message
+  var inputEl = document.getElementById('d-msg-input') || document.getElementById('m-msg-input');
+  if (inputEl) {
+    inputEl.value = lastUserMsg.content;
+    sendMessage(isMobile ? 'm' : 'd');
+  }
+}
+
+async function generateImage(prompt) {
+  appendTyping();
+  try {
+    var res = await fetch('/api/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    var imageUrl = data.data[0].url;
+    var revisedPrompt = data.data[0].revised_prompt || prompt;
+    removeTyping();
+    appendImageMessage(imageUrl, revisedPrompt);
+    state.history.push({ role: 'user', content: '[Image request] ' + prompt });
+    state.history.push({ role: 'assistant', content: '[Generated image: ' + revisedPrompt + ']' });
+    saveCurrentChat(prompt);
+  } catch(err) {
+    removeTyping();
+    appendMessage('ai', '**Image Generation Error:** ' + err.message);
+  }
+  state.imageMode = false;
+  ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.remove('active'); });
+  state.isTyping = false;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
+}
+
+async function performWebSearch(query) {
+  appendTyping();
+  try {
+    var res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    removeTyping();
+    appendSearchMessage(query, data);
+    state.history.push({ role: 'user', content: query });
+    var resultText = data.answer || 'Search completed';
+    state.history.push({ role: 'assistant', content: '[Web Search Results]\n' + resultText });
+    saveCurrentChat(query);
+  } catch(err) {
+    removeTyping();
+    appendMessage('ai', '**Search Error:** ' + err.message + '\n\nAdd your **Tavily API key** in Settings (provider: tavily). Get one free at tavily.com');
+    state.isTyping = false;
+    ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = false; });
+  }
+}
+
+function appendImageMessage(imageUrl, caption) {
+  var safeCaption = caption.replace(/"/g, '&quot;');
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ai';
+    var imgId = 'img-' + Date.now() + '-' + p;
+    var loaderId = imgId + '-loader';
+    msg.innerHTML = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div id="' + loaderId + '" style="padding:20px;text-align:center;color:var(--muted);"><div class="typing"><span></span><span></span><span></span></div><p style="margin-top:10px;font-size:12px;">Generating image...</p></div><img id="' + imgId + '" src="' + imageUrl + '" alt="' + safeCaption + '" style="max-width:100%;border-radius:8px;margin-top:8px;display:none;"><p style="margin-top:8px;font-size:12px;color:var(--muted);">' + escHtml(caption) + '</p></div>';
+    area.appendChild(msg);
+    
+    var img = document.getElementById(imgId);
+    var loader = document.getElementById(loaderId);
+    img.onload = function() { img.style.display = 'block'; loader.style.display = 'none'; };
+    img.onerror = function() {
+      loader.innerHTML = '<p style="color:var(--accent2);margin-bottom:8px;">Image failed to load</p><button id="retry-btn-' + imgId + '" style="padding:8px 16px;background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:600;">Retry</button>';
+      document.getElementById('retry-btn-' + imgId).onclick = function() { retryImage(caption); };
+    };
+    area.scrollTop = area.scrollHeight;
+  });
+}
+
+function retryImage(prompt) {
+  state.imageMode = true;
+  generateImage(prompt);
+}
+
+function appendSearchMessage(query, searchData) {
+  [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
+    var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
+    var area = document.getElementById(p + '-chat-area');
+    if (!area) return;
+    var welcome = document.getElementById(p + '-welcome');
+    if (welcome) welcome.remove();
+    var msg = document.createElement('div');
+    msg.className = msgCls + ' ai';
+    var html = '<div class="' + avCls + ' ai">' + state.aiName[0] + '</div><div class="' + bubCls + ' bubble"><div class="tool-indicator"><div class="tool-dot"></div>Web Search: ' + escHtml(query) + '</div>';
+    if (searchData.answer) {
+      html += '<p style="margin-bottom:10px;">' + escHtml(searchData.answer) + '</p>';
+    }
+    if (searchData.results && searchData.results.length > 0) {
+      html += '<div style="margin-top:8px;">';
+      searchData.results.slice(0, 5).forEach(function(result) {
+        html += '<a href="' + escHtml(result.url) + '" target="_blank" style="display:block;padding:8px;background:var(--surface2);border-radius:6px;margin-bottom:6px;text-decoration:none;color:var(--text);"><strong style="color:var(--accent);">' + escHtml(result.title) + '</strong><p style="font-size:11px;color:var(--muted);margin-top:4px;">' + escHtml(result.content.slice(0, 150)) + '...</p></a>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    msg.innerHTML = html;
+    area.appendChild(msg);
+    area.scrollTop = area.scrollHeight;
+  });
+}
+
+// ─── Voice Input ─────────────────────────────────────────────────────────────
+var voiceRecognition = null;
+var isListening = false;
+
+function toggleVoiceInput(platform) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('Voice input not supported in this browser');
+    return;
+  }
+  var btn = document.getElementById(platform + '-voice-btn');
+  if (isListening) {
+    if (voiceRecognition) { voiceRecognition.stop(); isListening = false; btn.classList.remove('active'); showToast('Voice stopped'); }
+    return;
+  }
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;
+  voiceRecognition.lang = 'en-US';
+  voiceRecognition.onstart = function() { isListening = true; btn.classList.add('active'); showToast('Listening...'); };
+  voiceRecognition.onresult = function(event) {
+    var transcript = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) { transcript += event.results[i][0].transcript; }
+    var input = document.getElementById(platform + '-msg-input');
+    if (input) { input.value = transcript; autoResize(input); }
+  };
+  voiceRecognition.onerror = function(event) { isListening = false; btn.classList.remove('active'); showToast('Voice error: ' + event.error); };
+  voiceRecognition.onend = function() { isListening = false; };
+  voiceRecognition.start();
+}
+
+// ─── File Upload ─────────────────────────────────────────────────────────────
+function triggerFileUpload(platform) {
+  var input = document.getElementById(platform + '-file-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = platform + '-file-input';
+    input.style.display = 'none';
+    input.accept = 'image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css';
+    input.onchange = function(e) { handleFileUpload(e, platform); };
+    document.body.appendChild(input);
+  }
+  input.click();
+}
+
+function handleFileUpload(event, platform) {
+  var file = event.target.files[0];
+  if (!file) return;
+  showToast('Reading ' + file.name + '...');
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var input = document.getElementById(platform + '-msg-input');
+    if (input) { input.value = '[Attached: ' + file.name + ']\n\n' + (input.value || ''); autoResize(input); }
+    showToast('File attached: ' + file.name);
+  };
+  if (file.type.startsWith('image/')) { reader.readAsDataURL(file); } else { reader.readAsText(file); }
+}
+
+// ─── Export Chat ─────────────────────────────────────────────────────────────
+function exportChat() {
+  if (!state.history || state.history.length === 0) { showToast('No messages to export'); return; }
+  var text = '# NOVA Chat Export\n# Date: ' + new Date().toISOString() + '\n\n';
+  state.history.forEach(function(msg) { text += '**' + (msg.role === 'user' ? 'You' : state.aiName) + ':**\n' + msg.content + '\n\n---\n\n'; });
+  var blob = new Blob([text], { type: 'text/markdown' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nova-chat-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  showToast('Chat exported!');
+}
+
+function exportChats() {
+  if (!state.chats || state.chats.length === 0) { showToast('No chats to export'); return; }
+  var text = '# NOVA All Chats Export\n# Date: ' + new Date().toISOString() + '\n# Total: ' + state.chats.length + ' chats\n\n';
+  state.chats.forEach(function(chat, i) {
+    text += '---\n\n## Chat ' + (i+1) + ': ' + chat.title + '\n\n';
+    if (chat.history) {
+      chat.history.forEach(function(msg) { text += '**' + (msg.role === 'user' ? 'You' : state.aiName) + ':**\n' + msg.content + '\n\n'; });
+    }
+  });
+  var blob = new Blob([text], { type: 'text/markdown' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nova-all-chats-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  showToast('All chats exported!');
+}
+
+function searchChats(query) {
+  var list = document.getElementById('d-chat-list');
+  if (!list) return;
+  var items = list.querySelectorAll('.d-chat-item');
+  var q = query.toLowerCase();
+  items.forEach(function(item) {
+    var text = item.textContent.toLowerCase();
+    item.style.display = text.indexOf(q) > -1 || !q ? '' : 'none';
+  });
+}
+
+function searchMobileChats(query) {
+  var list = document.getElementById('m-chat-list');
+  if (!list) return;
+  var items = list.querySelectorAll('.m-drawer-item');
+  var q = query.toLowerCase();
+  items.forEach(function(item) {
+    var text = item.textContent.toLowerCase();
+    item.style.display = text.indexOf(q) > -1 || !q ? '' : 'none';
+  });
+}
+
+// ─── Themes ─────────────────────────────────────────────────────────────────
+var themes = {
+  dark: { bg: '#09090b', surface: '#0f0f12', surface2: '#18181b', surface3: '#27272a', text: '#fafafa', text2: '#a1a1aa', muted: '#71717a', accent: '#8b5cf6' },
+  light: { bg: '#ffffff', surface: '#f4f4f5', surface2: '#e4e4e7', surface3: '#d4d4d8', text: '#18181b', text2: '#3f3f46', muted: '#71717a', accent: '#8b5cf6' },
+  ocean: { bg: '#0a192f', surface: '#112240', surface2: '#1d3557', surface3: '#264653', text: '#ccd6f6', text2: '#8892b0', muted: '#5a6a7a', accent: '#64ffda' },
+  sunset: { bg: '#1a1423', surface: '#2d1f3d', surface2: '#3d2a4f', surface3: '#4d3561', text: '#f8e8d4', text2: '#d4b8a0', muted: '#a08070', accent: '#ff6b6b' }
+};
+
+function setTheme(themeName) {
+  var theme = themes[themeName];
+  if (!theme) return;
+  var root = document.documentElement;
+  root.style.setProperty('--bg', theme.bg);
+  root.style.setProperty('--surface', theme.surface);
+  root.style.setProperty('--surface2', theme.surface2);
+  root.style.setProperty('--surface3', theme.surface3);
+  root.style.setProperty('--text', theme.text);
+  root.style.setProperty('--text2', theme.text2);
+  root.style.setProperty('--muted', theme.muted);
+  root.style.setProperty('--accent', theme.accent);
+  localStorage.setItem('nova_theme', themeName);
+  showToast('Theme: ' + themeName);
+}
+
+// ─── Keyboard Shortcuts ──────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newChat(); showToast('New chat'); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') { e.preventDefault(); exportChat(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') { e.preventDefault(); openSettings(); }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    var current = localStorage.getItem('nova_theme') || 'dark';
+    var keys = Object.keys(themes);
+    setTheme(keys[(keys.indexOf(current) + 1) % keys.length]);
+  }
+  if (e.key === 'Escape') { closeSettings(); }
+});
+
+// ─── Chat Sharing ────────────────────────────────────────────────────────────
+function shareChat() {
+  if (!state.history || state.history.length === 0) { showToast('No messages to share'); return; }
+  var text = state.history.slice(0, 3).map(function(m) { return (m.role === 'user' ? 'You' : state.aiName) + ': ' + m.content.slice(0, 100); }).join('\n\n') + '\n\n' + window.location.href;
+  if (navigator.share) { navigator.share({ title: 'NOVA Chat', text: text, url: window.location.href }).catch(function() {}); }
+  else { navigator.clipboard.writeText(text).then(function() { showToast('Chat copied!'); }).catch(function() { showToast('Could not copy'); }); }
+}
+
+// ─── Code Execution ──────────────────────────────────────────────────────────
+function executeCode(code, language, outputEl) {
+  try {
+    var logs = [];
+    var originalLog = console.log;
+    console.log = function() { logs.push(Array.from(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ')); };
+    var result;
+    if (language === 'javascript' || language === 'js') { result = eval(code); }
+    else { outputEl.innerHTML = '<span style="color:var(--accent2)">Only JavaScript can run in browser</span>'; return; }
+    console.log = originalLog;
+    var output = '';
+    if (logs.length > 0) { output += '<span style="color:var(--muted)">Output:</span>\n' + logs.join('\n'); }
+    if (result !== undefined) { output += '\n<span style="color:var(--accent)">Result:</span> ' + String(result); }
+    if (!output) { output = '<span style="color:var(--green)">✓ Executed successfully (no output)</span>'; }
+    outputEl.innerHTML = output;
+  } catch (err) {
+    outputEl.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
+  }
+}
+
+function addCodeButtons() {
+  document.querySelectorAll('.bubble pre').forEach(function(pre) {
+    if (pre.querySelector('.code-actions')) return;
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var lang = code.className.includes('language-') ? code.className.replace('language-', '') : '';
+    var actions = document.createElement('div');
+    actions.className = 'code-actions';
+    actions.style.cssText = 'display:flex;gap:4px;margin-bottom:8px;';
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copy';
+    copyBtn.style.cssText = 'padding:4px 10px;font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text2);';
+    copyBtn.onclick = function() { navigator.clipboard.writeText(code.textContent); showToast('Copied!'); };
+    actions.appendChild(copyBtn);
+    if (lang === 'javascript') {
+      var runBtn = document.createElement('button');
+      runBtn.textContent = 'Run';
+      runBtn.style.cssText = 'padding:4px 10px;font-size:11px;background:var(--accent);border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;';
+      var outputEl = document.createElement('div');
+      outputEl.style.cssText = 'display:none;margin-top:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;overflow-x:auto;';
+      runBtn.onclick = function() {
+        outputEl.style.display = 'block';
+        outputEl.innerHTML = '<span style="color:var(--muted)">Running...</span>';
+        setTimeout(function() { executeCode(code.textContent, lang, outputEl); }, 10);
+      };
+      actions.appendChild(runBtn);
+      pre.appendChild(outputEl);
+    }
+    pre.insertBefore(actions, pre.firstChild);
+  });
+}
+
+// Override appendMessage to add code buttons
+var _origAppendMessage = appendMessage;
+appendMessage = function(role, content, animate) { _origAppendMessage(role, content, animate); setTimeout(addCodeButtons, 100); };
+
+// ─── Code Section Functions - Pro Editor ────────────────────────────────────────
+var currentMode = 'chat';
+var codeHistory = [];
+var codeUndoStack = [];
+var codeRedoStack = [];
+var currentOutputTab = 'output';
+var consoleLogs = [];
+
+function switchMode(mode) {
+  currentMode = mode;
+  var chatTab = document.getElementById('mode-chat');
+  var codeTab = document.getElementById('mode-code');
+  var desktopApp = document.getElementById('desktop-app');
+  var codeSection = document.getElementById('code-section');
   
-  <!-- Login Modal -->
-  <div class="login-modal" id="login-modal" onclick="closeLoginOutside(event)">
-    <!-- ... -->
-  </div>
+  if (mode === 'chat') {
+    chatTab.style.background = 'var(--surface)';
+    chatTab.style.color = 'var(--text)';
+    codeTab.style.background = 'transparent';
+    codeTab.style.color = 'var(--muted)';
+    desktopApp.style.display = 'flex';
+    codeSection.classList.remove('active');
+  } else {
+    codeTab.style.background = 'var(--surface)';
+    codeTab.style.color = 'var(--text)';
+    chatTab.style.background = 'transparent';
+    chatTab.style.color = 'var(--muted)';
+    desktopApp.style.display = 'none';
+    codeSection.classList.add('active');
+    setTimeout(function() { updateEditor(); document.getElementById('code-editor').focus(); }, 50);
+  }
+}
+
+// Syntax highlighting with Prism
+function updateEditor() {
+  var editor = document.getElementById('code-editor');
+  var highlight = document.getElementById('code-highlight');
+  var code = editor.value;
+  var lang = document.getElementById('code-lang').value;
   
-  <script>
-    // ...
-  </script>
+  // Update highlight
+  var prismLang = lang === 'html' ? 'markup' : lang;
+  highlight.innerHTML = '<code class="language-' + prismLang + '">' + escapeHtml(code) + '</code>';
+  if (window.Prism) Prism.highlightElement(highlight.querySelector('code'));
+  
+  // Update line numbers
+  updateLineNumbers(code);
+  
+  // Update status bar
+  var lines = code.split('\n');
+  document.getElementById('code-line-count').textContent = lines.length + ' lines';
+  document.getElementById('code-char-count').textContent = code.length + ' chars';
+  document.getElementById('code-lang-display').textContent = document.getElementById('code-lang').options[document.getElementById('code-lang').selectedIndex].text;
+  
+  // Update cursor position
+  updateCurrentLine();
+  
+  // Save to undo stack (debounced)
+  if (codeUndoStack.length === 0 || codeUndoStack[codeUndoStack.length - 1] !== code) {
+    codeUndoStack.push(code);
+    if (codeUndoStack.length > 50) codeUndoStack.shift();
+    codeRedoStack = [];
+  }
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateLineNumbers(code) {
+  var lines = code.split('\n');
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var html = '';
+  for (var i = 1; i <= lines.length; i++) {
+    html += '<span>' + i + '</span>';
+  }
+  lineNumbers.innerHTML = html;
+}
+
+function updateCurrentLine() {
+  var editor = document.getElementById('code-editor');
+  var pos = editor.selectionStart;
+  var text = editor.value.substring(0, pos);
+  var lines = text.split('\n');
+  var line = lines.length;
+  var col = lines[lines.length - 1].length + 1;
+  document.getElementById('code-cursor-pos').textContent = 'Ln ' + line + ', Col ' + col;
+  
+  // Highlight current line number
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var spans = lineNumbers.querySelectorAll('span');
+  spans.forEach(function(s, i) { s.classList.toggle('active', i === line - 1); });
+}
+
+function syncScroll() {
+  var editor = document.getElementById('code-editor');
+  var highlight = document.getElementById('code-highlight');
+  var lineNumbers = document.getElementById('code-line-numbers');
+  highlight.scrollTop = editor.scrollTop;
+  highlight.scrollLeft = editor.scrollLeft;
+  lineNumbers.scrollTop = editor.scrollTop;
+}
+
+function handleEditorKey(e) {
+  var editor = e.target;
+  
+  // Tab key - insert spaces
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    var start = editor.selectionStart;
+    var end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    updateEditor();
+  }
+  
+  // Auto-close brackets
+  var pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
+  if (pairs[e.key]) {
+    var start = editor.selectionStart;
+    var end = editor.selectionEnd;
+    if (start === end) {
+      e.preventDefault();
+      editor.value = editor.value.substring(0, start) + e.key + pairs[e.key] + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 1;
+      updateEditor();
+    }
+  }
+  
+  // Auto-indent on Enter
+  if (e.key === 'Enter') {
+    var start = editor.selectionStart;
+    var lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+    var line = editor.value.substring(lineStart, start);
+    var indent = line.match(/^\s*/)[0];
+    var lastChar = editor.value.substring(start - 1, start);
+    
+    // Extra indent after { or :
+    if (lastChar === '{' || lastChar === ':') indent += '  ';
+    
+    e.preventDefault();
+    editor.value = editor.value.substring(0, start) + '\n' + indent + editor.value.substring(start);
+    editor.selectionStart = editor.selectionEnd = start + 1 + indent.length;
+    updateEditor();
+  }
+  
+  // Run with Ctrl+Enter
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    runCode();
+  }
+  
+  // Find with Ctrl+F
+  if (e.key === 'f' && e.ctrlKey) {
+    e.preventDefault();
+    toggleFindBar();
+  }
+  
+  // Save with Ctrl+S
+  if (e.key === 's' && e.ctrlKey) {
+    e.preventDefault();
+    downloadCode();
+  }
+}
+
+function undoCode() {
+  if (codeUndoStack.length > 1) {
+    codeRedoStack.push(codeUndoStack.pop());
+    document.getElementById('code-editor').value = codeUndoStack[codeUndoStack.length - 1];
+    updateEditor();
+  }
+}
+
+function redoCode() {
+  if (codeRedoStack.length > 0) {
+    var code = codeRedoStack.pop();
+    codeUndoStack.push(code);
+    document.getElementById('code-editor').value = code;
+    updateEditor();
+  }
+}
+
+function clearCode() {
+  if (document.getElementById('code-editor').value) {
+    document.getElementById('code-editor').value = '';
+    document.getElementById('code-output').textContent = 'Click Run or press Ctrl+Enter to execute your code...';
+    document.getElementById('code-output').className = 'code-output-content';
+    document.getElementById('code-output-timer').textContent = '';
+    consoleLogs = [];
+    updateEditor();
+    showToast('Code cleared');
+  }
+}
+
+function copyCode() {
+  var code = document.getElementById('code-editor').value;
+  if (!code) { showToast('No code to copy'); return; }
+  navigator.clipboard.writeText(code).then(function() { showToast('Code copied to clipboard!'); });
+}
+
+function downloadCode() {
+  var code = document.getElementById('code-editor').value;
+  if (!code) { showToast('No code to save'); return; }
+  var lang = document.getElementById('code-lang').value;
+  var ext = { javascript: 'js', python: 'py', html: 'html', css: 'css', json: 'json' };
+  var blob = new Blob([code], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'code.' + (ext[lang] || 'txt');
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Code saved!');
+}
+
+function formatCode() {
+  var editor = document.getElementById('code-editor');
+  var code = editor.value;
+  var lang = document.getElementById('code-lang').value;
+  
+  if (lang === 'json') {
+    try {
+      editor.value = JSON.stringify(JSON.parse(code), null, 2);
+      updateEditor();
+      showToast('JSON formatted!');
+    } catch (e) {
+      showToast('Invalid JSON');
+    }
+  } else if (lang === 'javascript') {
+    // Basic JS formatting - indent properly
+    try {
+      var formatted = code
+        .replace(/\s*{\s*/g, ' {\n  ')
+        .replace(/\s*}\s*/g, '\n}\n')
+        .replace(/;\s*/g, ';\n')
+        .replace(/\n\s*\n/g, '\n');
+      editor.value = formatted.trim();
+      updateEditor();
+      showToast('Code formatted!');
+    } catch (e) {
+      showToast('Could not format');
+    }
+  } else {
+    showToast('Format available for JS/JSON');
+  }
+}
+
+function toggleImageMode() {
+  state.imageMode = !state.imageMode;
+  ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.toggle('active', state.imageMode); });
+  var ph = state.imageMode ? 'Describe an image to generate...' : 'Message ' + state.aiName + '...';
+  ['d-msg-input','m-msg-input'].forEach(function(id) { var el = document.getElementById(id); if (el) el.placeholder = ph; });
+}
+
+function toggleVoiceInput() {
+  var btn = document.getElementById('m-voice-btn');
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    state.isTyping = false;
+  } else {
+    btn.classList.add('active');
+    state.isTyping = true;
+  }
+}
+
+function toggleFindBar() {
+  var bar = document.getElementById('code-find-bar');
+  bar.classList.toggle('open');
+  if (bar.classList.contains('open')) {
+    document.getElementById('code-find-input').focus();
+    document.getElementById('code-find-input').select();
+  }
+}
+
+function findInCode() {
+  var search = document.getElementById('code-find-input').value;
+  var code = document.getElementById('code-editor').value;
+  var count = document.getElementById('code-find-count');
+  
+  if (!search) {
+    count.textContent = '';
+    return;
+  }
+  
+  var matches = code.split(search).length - 1;
+  count.textContent = matches + ' match' + (matches !== 1 ? 'es' : '');
+}
+
+function findNext() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  if (!search) return;
+  
+  var code = editor.value;
+  var pos = code.indexOf(search, editor.selectionEnd);
+  if (pos === -1) pos = code.indexOf(search, 0);
+  if (pos !== -1) {
+    editor.selectionStart = pos;
+    editor.selectionEnd = pos + search.length;
+    editor.focus();
+  }
+}
+
+function replaceOne() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  var replace = document.getElementById('code-replace-input').value;
+  if (!search) return;
+  
+  var selected = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  if (selected === search) {
+    editor.value = editor.value.substring(0, editor.selectionStart) + replace + editor.value.substring(editor.selectionEnd);
+    updateEditor();
+  }
+  findNext();
+}
+
+function replaceAll() {
+  var editor = document.getElementById('code-editor');
+  var search = document.getElementById('code-find-input').value;
+  var replace = document.getElementById('code-replace-input').value;
+  if (!search) return;
+  
+  editor.value = editor.value.split(search).join(replace);
+  updateEditor();
+  findInCode();
+  showToast('Replaced all occurrences');
+}
+
+// Output tabs
+function switchOutputTab(tab) {
+  currentOutputTab = tab;
+  document.getElementById('tab-output').classList.toggle('active', tab === 'output');
+  document.getElementById('tab-console').classList.toggle('active', tab === 'console');
+  
+  var output = document.getElementById('code-output');
+  if (tab === 'console' && consoleLogs.length > 0) {
+    output.textContent = consoleLogs.map(function(l) {
+      return l.args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
+    }).join('\n');
+  }
+}
+
+// AI Chat
+function handleCodeChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendCodeChat();
+  }
+}
+
+async function sendCodeChat() {
+  var input = document.getElementById('code-chat-input');
+  var msg = input.value.trim();
+  if (!msg) return;
+  
+  var messages = document.getElementById('code-chat-messages');
+  
+  // Add user message
+  var userMsg = document.createElement('div');
+  userMsg.className = 'code-msg user';
+  userMsg.textContent = msg;
+  messages.appendChild(userMsg);
+  
+  input.value = '';
+  
+  // Get current code context
+  var currentCode = document.getElementById('code-editor').value;
+  var lang = document.getElementById('code-lang').value;
+  
+  // Add typing indicator
+  var typingMsg = document.createElement('div');
+  typingMsg.className = 'code-msg ai';
+  typingMsg.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  messages.appendChild(typingMsg);
+  messages.scrollTop = messages.scrollHeight;
+  
+  // Build specialized coding system prompt
+  var codeSystemPrompt = 'You are NOVA Code, an elite AI coding assistant with deep expertise in software engineering, algorithms, and best practices. ' +
+    'You provide detailed, production-ready code with comprehensive error handling, comments, and modern patterns. ' +
+    'Always explain the "why" behind your solutions, not just the "what". ' +
+    'Consider performance, security, maintainability, and edge cases in every solution. ' +
+    'When appropriate, suggest improvements and alternative approaches. ' +
+    'The user is currently working in ' + lang.toUpperCase() + '. ' +
+    (currentCode ? 'Current code in editor:\n```\n' + currentCode + '\n```' : '');
+  
+  var codeMessages = [
+    { role: 'system', content: codeSystemPrompt }
+  ].concat(codeHistory).concat([{ role: 'user', content: msg }]);
+  
+  try {
+    var res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: state.provider, model: state.model, messages: codeMessages, max_tokens: 2000, temperature: 0.3, userToken: userToken })
+    });
+    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+    var data = await res.json();
+    var reply = data.choices[0].message.content;
+    
+    codeHistory.push({ role: 'user', content: msg });
+    codeHistory.push({ role: 'assistant', content: reply });
+    if (codeHistory.length > 20) codeHistory = codeHistory.slice(-20);
+    
+    typingMsg.remove();
+    
+    // Format reply with code blocks
+    var aiMsg = document.createElement('div');
+    aiMsg.className = 'code-msg ai';
+    
+    // Format code blocks
+    var formatted = reply.replace(/```(\w+)?\n([\s\S]*?)```/g, function(_, l, c) {
+      return '<pre style="margin:8px 0;padding:10px;background:#0c0c0f;border-radius:6px;overflow-x:auto;"><code>' + 
+        c.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+    });
+    formatted = formatted.replace(/`([^`]+)`/g, '<code style="background:rgba(139,92,246,0.1);padding:2px 6px;border-radius:4px;color:var(--accent-light);">$1</code>');
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    aiMsg.innerHTML = formatted;
+    messages.appendChild(aiMsg);
+    messages.scrollTop = messages.scrollHeight;
+    
+    // Check if reply contains code - offer to insert it
+    var codeMatch = reply.match(/```(?:javascript|js|python|html|css|json)?\n([\s\S]*?)```/);
+    if (codeMatch) {
+      var insertBtn = document.createElement('button');
+      insertBtn.className = 'insert-btn';
+      insertBtn.textContent = 'Insert Code';
+      insertBtn.onclick = function() {
+        document.getElementById('code-editor').value = codeMatch[1].trim();
+        updateEditor();
+        showToast('Code inserted!');
+      };
+      aiMsg.appendChild(insertBtn);
+    }
+    
+  } catch (err) {
+    typingMsg.remove();
+    var errMsg = document.createElement('div');
+    errMsg.className = 'code-msg ai';
+    errMsg.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
+    messages.appendChild(errMsg);
+  }
+  
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function updateMinimap() {
+  var code = document.getElementById('code-editor').value;
+  var minimap = document.getElementById('code-minimap-content');
+  minimap.textContent = code;
+  
+  // Update viewport indicator
+  var editor = document.getElementById('code-editor');
+  var viewport = document.getElementById('code-minimap-viewport');
+  var ratio = editor.clientHeight / editor.scrollHeight;
+  var top = (editor.scrollTop / editor.scrollHeight) * 100;
+  
+  viewport.style.height = (ratio * 100) + '%';
+  viewport.style.top = top + '%';
+}
+
+// AI-powered autocomplete
+async function fetchAutocomplete(prefix, context) {
+  // Built-in completions
+  var jsCompletions = [
+    { text: 'console.log(', icon: 'fn', type: 'method' },
+    { text: 'document.getElementById(', icon: 'fn', type: 'method' },
+    { text: 'document.querySelector(', icon: 'fn', type: 'method' },
+    { text: 'addEventListener(', icon: 'fn', type: 'method' },
+    { text: 'function ', icon: 'fn', type: 'keyword' },
+    { text: 'return ', icon: 'kw', type: 'keyword' },
+    { text: 'const ', icon: 'kw', type: 'keyword' },
+    { text: 'let ', icon: 'kw', type: 'keyword' },
+    { text: 'var ', icon: 'kw', type: 'keyword' },
+    { text: 'if (', icon: 'kw', type: 'keyword' },
+    { text: 'else {', icon: 'kw', type: 'keyword' },
+    { text: 'for (let i = 0; i < ', icon: 'kw', type: 'keyword' },
+    { text: 'forEach(', icon: 'fn', type: 'method' },
+    { text: 'map(', icon: 'fn', type: 'method' },
+    { text: 'filter(', icon: 'fn', type: 'method' },
+    { text: 'reduce(', icon: 'fn', type: 'method' },
+    { text: 'JSON.stringify(', icon: 'fn', type: 'method' },
+    { text: 'JSON.parse(', icon: 'fn', type: 'method' },
+    { text: 'Promise.resolve(', icon: 'fn', type: 'method' },
+    { text: 'async ', icon: 'kw', type: 'keyword' },
+    { text: 'await ', icon: 'kw', type: 'keyword' },
+    { text: 'try {', icon: 'kw', type: 'keyword' },
+    { text: 'catch (error) {', icon: 'kw', type: 'keyword' },
+    { text: 'fetch(', icon: 'fn', type: 'method' },
+    { text: 'setTimeout(', icon: 'fn', type: 'method' },
+    { text: 'setInterval(', icon: 'fn', type: 'method' },
+  ];
+  
+  var lang = document.getElementById('code-lang').value;
+  var completions = lang === 'javascript' ? jsCompletions : [];
+  
+  // Filter by prefix
+  if (prefix) {
+    completions = completions.filter(function(c) {
+      return c.text.toLowerCase().startsWith(prefix.toLowerCase());
+    });
+  }
+  
+  return completions.slice(0, 8);
+}
+
+// ─── Live Preview ─────────────────────────────────────────────────────────────
+var previewEnabled = false;
+var mobilePreview = false;
+
+function togglePreview() {
+  previewEnabled = !previewEnabled;
+  var panel = document.getElementById('code-preview-panel');
+  var btn = document.getElementById('preview-btn');
+  
+  panel.classList.toggle('active', previewEnabled);
+  btn.classList.toggle('active', previewEnabled);
+  
+  if (previewEnabled) updatePreview();
+}
+
+function toggleMobilePreview() {
+  mobilePreview = !mobilePreview;
+  var frame = document.getElementById('code-preview-frame');
+  frame.style.width = mobilePreview ? '375px' : '100%';
+  frame.style.margin = mobilePreview ? '0 auto' : '0';
+  showToast(mobilePreview ? 'Mobile view' : 'Desktop view');
+}
+
+function updatePreview() {
+  if (!previewEnabled) return;
+  
+  var code = document.getElementById('code-editor').value;
+  var lang = document.getElementById('code-lang').value;
+  var frame = document.getElementById('code-preview-frame');
+  
+  if (lang === 'html') {
+    frame.srcdoc = code;
+  } else if (lang === 'javascript') {
+    var html = '<!DOCTYPE html><html><head><style>body{font-family:system-ui;padding:20px;background:#0a0a0c;color:#fafafa;}</style></head><body><pre id="out"></pre><scr' + 'ipt>try{var logs=[];console.log=function(){logs.push(Array.from(arguments).join(" "));};' + code + ';document.getElementById("out").textContent=logs.join("\\n")||"Ran successfully";}catch(e){document.getElementById("out").textContent="Error: "+e.message;}</scr' + 'ipt></body></html>';
+    frame.srcdoc = html;
+  } else if (lang === 'css') {
+    frame.srcdoc = '<!DOCTYPE html><html><head><style>' + code + '</style></head><body><h1>Preview</h1><p>This is a paragraph.</p><button>Button</button><div class="box">Box</div></body></html>';
+  }
+}
+
+// AI Quick Actions
+async function aiQuickAction(action) {
+  var editor = document.getElementById('code-editor');
+  var code = editor.value;
+  var selection = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+  var targetCode = selection || code;
+  
+  if (!targetCode) {
+    showToast('No code to ' + action);
+    return;
+  }
+  
+  var prompts = {
+    explain: 'Explain this code in simple terms. What does it do? How does it work?',
+    refactor: 'Refactor this code to be cleaner, more readable, and follow best practices. Keep the same functionality.',
+    debug: 'Find and fix any bugs or issues in this code. Explain what was wrong and how you fixed it.',
+    optimize: 'Optimize this code for better performance. Explain the optimizations you made.'
+  };
+  
+  var input = document.getElementById('code-chat-input');
+  input.value = prompts[action] + '\n\n```\n' + targetCode + '\n```';
+  sendCodeChat();
+}
+
+// ─── Command Palette ───────────────────────────────────────────────────────────
+var commandPaletteOpen = false;
+var commands = [
+  { name: 'Run Code', action: runCode, shortcut: 'Ctrl+Enter' },
+  { name: 'Save File', action: downloadCode, shortcut: 'Ctrl+S' },
+  { name: 'Find & Replace', action: toggleFindBar, shortcut: 'Ctrl+F' },
+  { name: 'Format Code', action: formatCode, shortcut: '' },
+  { name: 'Toggle Preview', action: togglePreview, shortcut: '' },
+  { name: 'New File', action: newFile, shortcut: '' },
+  { name: 'Clear Code', action: clearCode, shortcut: '' },
+  { name: 'Undo', action: undoCode, shortcut: 'Ctrl+Z' },
+  { name: 'Redo', action: redoCode, shortcut: 'Ctrl+Y' },
+  { name: 'Explain Code', action: function() { aiQuickAction('explain'); }, shortcut: '' },
+  { name: 'Refactor Code', action: function() { aiQuickAction('refactor'); }, shortcut: '' },
+  { name: 'Debug Code', action: function() { aiQuickAction('debug'); }, shortcut: '' },
+  { name: 'Optimize Code', action: function() { aiQuickAction('optimize'); }, shortcut: '' },
+  { name: 'Insert For Loop', action: function() { insertSnippet('forloop'); }, shortcut: '' },
+  { name: 'Insert Function', action: function() { insertSnippet('function'); }, shortcut: '' },
+  { name: 'Insert Async Function', action: function() { insertSnippet('async'); }, shortcut: '' },
+  { name: 'Insert Fetch', action: function() { insertSnippet('fetch'); }, shortcut: '' },
+  { name: 'Insert Try/Catch', action: function() { insertSnippet('trycatch'); }, shortcut: '' },
+];
+
+function toggleCommandPalette() {
+  commandPaletteOpen = !commandPaletteOpen;
+  var palette = document.getElementById('code-command-palette');
+  palette.classList.toggle('open', commandPaletteOpen);
+  
+  if (commandPaletteOpen) {
+    var input = document.getElementById('code-command-input');
+    input.value = '';
+    input.focus();
+    renderCommands(commands);
+  }
+}
+
+function renderCommands(cmds) {
+  var list = document.getElementById('code-command-list');
+  list.innerHTML = cmds.map(function(cmd, i) {
+    return '<div class="code-command-item' + (i === 0 ? ' selected' : '') + '" onclick="executeCommand(' + commands.indexOf(cmd) + ')">' +
+      '<span>' + cmd.name + '</span>' +
+      (cmd.shortcut ? '<kbd>' + cmd.shortcut + '</kbd>' : '') + '</div>';
+  }).join('');
+}
+
+function filterCommands() {
+  var query = document.getElementById('code-command-input').value.toLowerCase();
+  var filtered = commands.filter(function(cmd) {
+    return cmd.name.toLowerCase().includes(query);
+  });
+  renderCommands(filtered);
+}
+
+function executeCommand(index) {
+  commands[index].action();
+  toggleCommandPalette();
+}
+
+// ─── Minimap ────────────────────────────────────────────────────────────────
+function updateMinimap() {
+  var code = document.getElementById('code-editor').value;
+  var minimap = document.getElementById('code-minimap-content');
+  minimap.textContent = code;
+  
+  // Update viewport indicator
+  var editor = document.getElementById('code-editor');
+  var viewport = document.getElementById('code-minimap-viewport');
+  var ratio = editor.clientHeight / editor.scrollHeight;
+  var top = (editor.scrollTop / editor.scrollHeight) * 100;
+  
+  viewport.style.height = (ratio * 100) + '%';
+  viewport.style.top = top + '%';
+}
+
+// ─── Error Linting ──────────────────────────────────────────────────────────
+var lintErrors = [];
+
+function lintCode() {
+  var code = document.getElementById('code-editor').value;
+  var lang = document.getElementById('code-lang').value;
+  lintErrors = [];
+  
+  if (lang === 'javascript') {
+    // Basic JS linting
+    var lines = code.split('\n');
+    lines.forEach(function(line, i) {
+      // Check for common issues
+      if (line.includes('==') && !line.includes('===')) {
+        lintErrors.push({ line: i + 1, msg: 'Use === instead of ==', severity: 'warning' });
+      }
+      if (line.includes('var ')) {
+        lintErrors.push({ line: i + 1, msg: 'Consider using let or const instead of var', severity: 'warning' });
+      }
+      if (/^\s*$/.test(line) && i > 0 && /^\s*$/.test(lines[i-1])) {
+        lintErrors.push({ line: i + 1, msg: 'Multiple blank lines', severity: 'info' });
+      }
+    });
+    
+    // Try to parse for syntax errors
+    try {
+      new Function(code);
+    } catch (e) {
+      var match = e.message.match(/line (\d+)/);
+      lintErrors.push({
+        line: match ? parseInt(match[1]) : 1,
+        msg: e.message,
+        severity: 'error'
+      });
+    }
+  } else if (lang === 'json') {
+    try {
+      JSON.parse(code);
+    } catch (e) {
+      lintErrors.push({ line: 1, msg: e.message, severity: 'error' });
+    }
+  }
+  
+  // Update UI
+  var indicator = document.getElementById('code-error-indicator');
+  indicator.style.display = lintErrors.length ? 'inline' : 'none';
+  
+  // Update line numbers
+  var lineNumbers = document.getElementById('code-line-numbers');
+  var spans = lineNumbers.querySelectorAll('span');
+  lintErrors.forEach(function(err) {
+    if (spans[err.line - 1]) {
+      spans[err.line - 1].classList.add('code-error-gutter');
+    }
+  });
+}
+
+// ─── Problems Tab ─────────────────────────────────────────────────────────────
+function showProblems() {
+  var output = document.getElementById('code-output');
+  if (lintErrors.length === 0) {
+    output.textContent = 'No problems found';
+    output.className = 'code-output-content success';
+  } else {
+    output.textContent = lintErrors.map(function(err) {
+      return (err.severity === 'error' ? 'Error: ' : 'Warning: ') + ' Line ' + err.line + ': ' + err.msg;
+    }).join('\n');
+    output.className = 'code-output-content warning';
+  }
+}
+
+// Update switchOutputTab to include problems
+var _origSwitchOutputTab = switchOutputTab;
+switchOutputTab = function(tab) {
+  currentOutputTab = tab;
+  document.getElementById('tab-output').classList.toggle('active', tab === 'output');
+  document.getElementById('tab-console').classList.toggle('active', tab === 'console');
+  document.getElementById('tab-problems').classList.toggle('active', tab === 'problems');
+  
+  if (tab === 'problems') {
+    showProblems();
+  } else if (tab === 'console' && consoleLogs.length > 0) {
+    document.getElementById('code-output').textContent = consoleLogs.map(function(l) {
+      return l.args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
+    }).join('\n');
+  }
+};
+
+// ─── Enhanced Editor Events ────────────────────────────────────────────────────
+var _origHandleEditorKey = handleEditorKey;
+handleEditorKey = function(e) {
+  var editor = e.target;
+  
+  // Autocomplete navigation
+  if (document.getElementById('code-autocomplete').classList.contains('open')) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateAutocomplete(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); navigateAutocomplete(-1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      acceptAutocomplete(autocompleteIndex);
+      return;
+    }
+    if (e.key === 'Escape') { hideAutocomplete(); return; }
+  }
+  
+  // Command palette
+  if (e.key === 'p' && e.ctrlKey) {
+    e.preventDefault();
+    toggleCommandPalette();
+    return;
+  }
+  
+  _origHandleEditorKey(e);
+  
+  // Trigger autocomplete after typing
+  clearTimeout(autocompleteTimeout);
+  autocompleteTimeout = setTimeout(async function() {
+    var pos = editor.selectionStart;
+    var text = editor.value.substring(0, pos);
+    var wordMatch = text.match(/[\w$]+$/);
+    
+    if (wordMatch && wordMatch[0].length >= 2) {
+      var prefix = wordMatch[0];
+      var items = await fetchAutocomplete(prefix, text);
+      if (items.length > 0) {
+        // Calculate position
+        var lineHeight = 22;
+        var lines = text.split('\n');
+        var lineNum = lines.length;
+        var col = lines[lines.length - 1].length;
+        var x = Math.min(col * 8, 300);
+        var y = (lineNum * lineHeight) - editor.scrollTop + 40;
+        showAutocomplete(items, x, y);
+      }
+    } else {
+      hideAutocomplete();
+    }
+  }, 200);
+  
+  // Update preview
+  if (previewEnabled) {
+    clearTimeout(window.previewTimeout);
+    window.previewTimeout = setTimeout(updatePreview, 500);
+  }
+  
+  // Update minimap
+  updateMinimap();
+  
+  // Lint code
+  clearTimeout(window.lintTimeout);
+  window.lintTimeout = setTimeout(lintCode, 500);
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENHANCED CODE EDITOR - FILE MANAGEMENT & AI GENERATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── File Management ──────────────────────────────────────────────────────────
+var codeFiles = {
+  'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+};
+var currentFile = 'main';
+var fileCounter = 1;
+
+function updateFileList() {
+  var list = document.getElementById('code-file-list');
+  list.innerHTML = '';
+  
+  Object.keys(codeFiles).forEach(function(id) {
+    var file = codeFiles[id];
+    var item = document.createElement('div');
+    item.className = 'code-file-item' + (id === currentFile ? ' active' : '');
+    item.innerHTML = 
+      '<span class="file-icon">' + file.icon + '</span>' +
+      '<span class="file-name">' + file.name + '</span>' +
+      '<div class="file-actions">' +
+        '<button onclick="renameFile(\'' + id + '\')" title="Rename">Rn</button>' +
+        '<button onclick="deleteFile(\'' + id + '\')" title="Delete">Del</button>' +
+      '</div>';
+    item.onclick = function() { switchFile(id); };
+    list.appendChild(item);
+  });
+}
+
+function newFile() {
+  var name = prompt('File name (with extension):');
+  if (!name) return;
+  
+  var ext = name.split('.').pop().toLowerCase();
+  var langMap = {
+    'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
+    'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
+    'md': 'markdown', 'txt': 'text'
+  };
+  var iconMap = {
+    'js': 'JS', 'jsx': 'RX', 'ts': 'TS', 'tsx': 'TX', 'py': 'PY',
+    'html': 'HT', 'css': 'CS', 'json': 'JS', 'md': 'MD', 'txt': 'TX'
+  };
+  
+  var id = 'file' + fileCounter++;
+  codeFiles[id] = {
+    name: name,
+    language: langMap[ext] || 'javascript',
+    content: '',
+    icon: iconMap[ext] || 'TX'
+  };
+  
+  updateFileList();
+  switchFile(id);
+  showToast('Created ' + name);
+}
+
+function renameFile(id) {
+  var file = codeFiles[id];
+  var newName = prompt('New name:', file.name);
+  if (newName && newName !== file.name) {
+    file.name = newName;
+    updateFileList();
+    updateFileTabs();
+    showToast('Renamed to ' + newName);
+  }
+}
+
+function deleteFile(id) {
+  if (Object.keys(codeFiles).length <= 1) {
+    showToast('Cannot delete last file');
+    return;
+  }
+  if (!confirm('Delete ' + codeFiles[id].name + '?')) return;
+  
+  delete codeFiles[id];
+  if (currentFile === id) {
+    currentFile = Object.keys(codeFiles)[0];
+  }
+  updateFileList();
+  updateFileTabs();
+  switchFile(currentFile);
+  showToast('File deleted');
+}
+
+function switchFile(id) {
+  // Save current file content
+  if (codeFiles[currentFile]) {
+    codeFiles[currentFile].content = document.getElementById('code-editor').value;
+  }
+  
+  // Switch to new file
+  currentFile = id;
+  var file = codeFiles[id];
+  
+  document.getElementById('code-editor').value = file.content;
+  document.getElementById('code-lang').value = file.language;
+  
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  changeLanguage();
+  
+  // Update active tab
+  document.querySelectorAll('.code-file-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.file === id);
+  });
+}
+
+function updateFileTabs() {
+  var tabs = document.getElementById('code-file-tabs');
+  var newTabBtn = tabs.querySelector('.code-new-tab');
+  
+  // Remove existing tabs (keep the + button)
+  tabs.innerHTML = '';
+  
+  Object.keys(codeFiles).forEach(function(id) {
+    var file = codeFiles[id];
+    var tab = document.createElement('div');
+    tab.className = 'code-file-tab' + (id === currentFile ? ' active' : '');
+    tab.dataset.file = id;
+    tab.onclick = function() { switchFile(id); };
+    tab.innerHTML = 
+      '<span class="file-icon">' + file.icon + '</span>' +
+      '<span class="file-name">' + file.name + '</span>' +
+      '<span class="close-btn" onclick="event.stopPropagation();closeFile(\'' + id + '\')">×</span>';
+    tabs.appendChild(tab);
+  });
+  
+  tabs.appendChild(newTabBtn);
+}
+
+function closeFile(id) {
+  if (Object.keys(codeFiles).length <= 1) {
+    showToast('Cannot close last file');
+    return;
+  }
+  
+  delete codeFiles[id];
+  if (currentFile === id) {
+    currentFile = Object.keys(codeFiles)[0];
+    switchFile(currentFile);
+  } else {
+    updateFileTabs();
+    updateFileList();
+  }
+}
+
+function clearProject() {
+  if (!confirm('Clear all files? This cannot be undone.')) return;
+  
+  codeFiles = {
+    'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+  };
+  currentFile = 'main';
+  document.getElementById('code-editor').value = '';
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  showToast('Project cleared');
+}
+
+function downloadProject() {
+  var files = Object.keys(codeFiles);
+  if (files.length === 0) {
+    showToast('No files to download');
+    return;
+  }
+  
+  if (files.length === 1) {
+    // Single file - download directly
+    var file = codeFiles[files[0]];
+    var blob = new Blob([file.content || document.getElementById('code-editor').value], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    a.click();
+    showToast('Downloaded ' + file.name);
+  } else {
+    // Multiple files - create zip-like structure (just notify for now)
+    showToast('Multi-file download coming soon!');
+  }
+}
+
+// ─── Template System ──────────────────────────────────────────────────────────
+function showTemplateModal() {
+  document.getElementById('code-template-modal').classList.add('open');
+}
+
+function closeTemplateModal() {
+  document.getElementById('code-template-modal').classList.remove('open');
+}
+
+function loadTemplate(type) {
+  closeTemplateModal();
+  
+  var templates = {
+    vanilla: {
+      'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Project</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello World</h1>\n  <script src="script.js"><\/script>\n</body>\n</html>',
+      'style.css': 'body {\n  font-family: sans-serif;\n  background: #f5f5f5;\n  padding: 20px;\n}',
+      'script.js': 'console.log("Hello, World!");'
+    },
+    react: {
+      'App.jsx': 'import React, { useState } from "react";\n\nfunction App() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div className="App">\n      <h1>React App</h1>\n      <p>Count: {count}</p>\n      <button onClick={() => setCount(c => c + 1)}>\n        Increment\n      </button>\n    </div>\n  );\n}\n\nexport default App;',
+      'index.css': '.App {\n  text-align: center;\n  padding: 20px;\n}',
+      'main.js': 'import React from "react";\nimport ReactDOM from "react-dom/client";\nimport App from "./App";\nimport "./index.css";\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+    },
+    vue: {
+      'App.vue': '<template>\n  <div class="app">\n    <h1>{{ message }}</h1>\n    <button @click="increment">Count: {{ count }}</button>\n  </div>\n</template>\n\n<script setup>\nimport { ref } from "vue";\nconst message = ref("Vue 3 App");\nconst count = ref(0);\nconst increment = () => count.value++;\n<\/script>',
+      'main.js': 'import { createApp } from "vue";\nimport App from "./App.vue";\ncreateApp(App).mount("#app");'
+    },
+    nodejs: {
+      'server.js': 'const express = require("express");\nconst app = express();\nconst PORT = 3000;\n\napp.get("/", (req, res) => {\n  res.json({ message: "Hello from Node.js!" });\n});\n\napp.listen(PORT, () => {\n  console.log(`Server running on port ${PORT}`);\n});',
+      'package.json': '{\n  "name": "my-node-app",\n  "version": "1.0.0",\n  "dependencies": {\n    "express": "^4.18.0"\n  }\n}'
+    },
+    python: {
+      'main.py': '#!/usr/bin/env python3\n\ndef main():\n    print("Hello from Python!")\n    \n    # Your code here\n    pass\n\nif __name__ == "__main__":\n    main()',
+      'requirements.txt': '# Add your dependencies here'
+    },
+    component: {
+      'Button.jsx': 'import React from "react";\n\nexport function Button({ children, onClick, variant = "primary" }) {\n  const styles = {\n    primary: { background: "#8b5cf6", color: "#fff" },\n    secondary: { background: "#27272a", color: "#fff" }\n  };\n\n  return (\n    <button \n      onClick={onClick}\n      style={{\n        padding: "10px 20px",\n        border: "none",\n        borderRadius: "8px",\n        cursor: "pointer",\n        ...styles[variant]\n      }}\n    >\n      {children}\n    </button>\n  );\n}'
+    }
+  };
+  
+  var template = templates[type];
+  if (!template) return;
+  
+  // Clear existing files
+  codeFiles = {};
+  fileCounter = 1;
+  
+  // Create files from template
+  Object.keys(template).forEach(function(filename, index) {
+    var ext = filename.split('.').pop().toLowerCase();
+    var langMap = {
+      'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
+      'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
+      'vue': 'html', 'txt': 'text'
+    };
+    var iconMap = {
+      'js': 'JS', 'jsx': 'RX', 'ts': 'TS', 'tsx': 'TX', 'py': 'PY',
+      'html': 'HT', 'css': 'CS', 'json': 'JS', 'vue': 'VU', 'txt': 'TX'
+    };
+    
+    var id = index === 0 ? 'main' : 'file' + index;
+    codeFiles[id] = {
+      name: filename,
+      language: langMap[ext] || 'javascript',
+      content: template[filename],
+      icon: iconMap[ext] || 'TX'
+    };
+  });
+  
+  currentFile = 'main';
+  document.getElementById('code-editor').value = codeFiles['main'].content;
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  changeLanguage();
+  
+  showToast('Loaded ' + type + ' template');
+}
+
+// ─── AI Panel & Generation ───────────────────────────────────────────────────
+function toggleAIPanel() {
+  var panel = document.getElementById('code-ai-panel');
+  panel.classList.toggle('active');
+}
+
+async function generateCode() {
+  var input = document.getElementById('code-ai-textarea');
+  var prompt = input.value.trim();
+  if (!prompt) {
+    showToast('Enter a description first');
+    return;
+  }
+  
+  var messages = document.getElementById('code-ai-messages');
+  
+  // Add user message
+  var userMsg = document.createElement('div');
+  userMsg.className = 'code-msg user';
+  userMsg.textContent = prompt;
+  messages.appendChild(userMsg);
+  
+  input.value = '';
+  
+  // Add loading indicator
+  var loading = document.createElement('div');
+  loading.className = 'code-msg ai';
+  loading.innerHTML = '<div class="code-ai-loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Generating...</div>';
+  messages.appendChild(loading);
+  messages.scrollTop = messages.scrollHeight;
+  
+  try {
+    var res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: state.provider,
+        model: state.model,
+        messages: [
+          { role: 'system', content: 'You are an expert programmer with years of experience building production software. Generate clean, efficient, well-documented code following industry best practices. Include error handling, input validation, and comments explaining complex logic. Always write code that is maintainable and scalable.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+        userToken: userToken
+      })
+    });
+    
+    if (!res.ok) throw new Error('Failed to generate');
+    
+    var data = await res.json();
+    var code = data.choices[0].message.content;
+    
+    // Extract code from markdown if present
+    var codeMatch = code.match(/```(?:\w+)?\n([\s\S]*?)```/);
+    if (codeMatch) code = codeMatch[1];
+    
+    loading.remove();
+    
+    // Show generated code
+    var aiMsg = document.createElement('div');
+    aiMsg.className = 'code-msg ai';
+    aiMsg.innerHTML = '<p>Generated code:</p><pre style="margin:8px 0;padding:10px;background:#0c0c0f;border-radius:6px;overflow-x:auto;font-size:11px;">' + 
+      code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+    
+    // Add insert button
+    var insertBtn = document.createElement('button');
+    insertBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:var(--accent);border:none;border-radius:4px;color:#fff;cursor:pointer;font-size:11px;';
+    insertBtn.textContent = 'Insert into Editor';
     insertBtn.onclick = function() {
       document.getElementById('code-editor').value = code;
       updateEditor();
@@ -888,7 +3001,7 @@ async function generateFullProject() {
         provider: state.provider,
         model: state.model,
         messages: [
-          { role: 'system', content: 'You are an expert programmer. Generate a complete multi-file project based on the user\'s request. Respond with a JSON object where keys are filenames and values are file contents. Example: {"index.html": "<html>...", "style.css": "body {...}"}' },
+          { role: 'system', content: 'You are an expert software architect with experience designing complete systems. Generate production-ready multi-file projects with proper structure, separation of concerns, and best practices. Include all necessary files including configuration, documentation, and tests where appropriate. Think about the architecture holistically and ensure all components work together seamlessly.' },
           { role: 'user', content: 'Create a complete project: ' + prompt + '. Respond ONLY with the JSON object, no markdown, no explanations.' }
         ],
         max_tokens: 4000,
@@ -926,7 +3039,7 @@ async function generateFullProject() {
         'vue': 'html', 'txt': 'text', 'md': 'markdown'
       };
       var iconMap = {
-        'js': 'JS', 'jsx': 'RE', 'ts': 'TS', 'tsx': 'RE', 'py': 'PY',
+        'js': 'JS', 'jsx': 'RX', 'ts': 'TS', 'tsx': 'TX', 'py': 'PY',
         'html': 'HT', 'css': 'CS', 'json': 'JS', 'vue': 'VU', 'txt': 'TX', 'md': 'MD'
       };
       
@@ -935,7 +3048,7 @@ async function generateFullProject() {
         name: filename,
         language: langMap[ext] || 'javascript',
         content: projectFiles[filename],
-        icon: iconMap[ext] || 'TX'
+        icon: iconMap[ext] || '📄'
       };
     });
     
