@@ -1123,6 +1123,20 @@ You have access to: memory, web search, code execution, and image generation cap
 When the user shares preferences, interests, or personal context, remember it for future conversations. You can say things like "I remember you prefer..." or "Based on our previous discussions..."`;
 }
 
+function getUserPreferencesSummary() {
+  try {
+    var prefs = JSON.parse(localStorage.getItem('nova_user_preferences') || '{}');
+    var parts = [];
+    if (prefs.preferredLanguage) parts.push('prefers ' + prefs.preferredLanguage);
+    if (prefs.preferredFramework) parts.push('uses ' + prefs.preferredFramework);
+    if (prefs.preferredStyle) parts.push('likes ' + prefs.preferredStyle);
+    if (prefs.interests && prefs.interests.length > 0) parts.push('interested in ' + prefs.interests.slice(0,3).join(', '));
+    return parts.join('; ');
+  } catch(e) {
+    return '';
+  }
+}
+
 function getUserToken() {
   var token = localStorage.getItem('nova_user_token');
   if (!token) { token = 'u_' + crypto.randomUUID(); localStorage.setItem('nova_user_token', token); }
