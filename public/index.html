@@ -1921,6 +1921,11 @@ async function sendMessage(p) {
     incrementConversationCount();
     learnFromConversation(text, reply);
     
+    // Check for AI natural language commands (email, sheets, drive, calendar)
+    if (typeof detectAndHandleAICommands === 'function') {
+      detectAndHandleAICommands(text, reply);
+    }
+    
     saveCurrentChat(text);
   } catch(err) {
     removeTyping();

@@ -166,15 +166,32 @@
             <button onclick="GmailIntegration.accessToken=null;localStorage.removeItem('nova_gmail_token');closeGmailModal();openGmailModal();" style="padding: 6px 12px; background: var(--red); border: none; border-radius: var(--radius-sm); color: #fff; font-size: 11px; cursor: pointer;">Disconnect</button>
           </div>
           
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            <input type="email" id="gmail-to" placeholder="recipient@example.com" style="width: 100%; padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);">
-            <input type="text" id="gmail-subject" placeholder="Email subject" style="width: 100%; padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);">
-            <textarea id="gmail-body" placeholder="Message..." style="width: 100%; height: 100px; padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical;"></textarea>
-            <button onclick="sendGmailMessage()" style="padding: 10px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: #000; font-weight: 600; cursor: pointer;">Send Email</button>
+          <!-- Quick Actions -->
+          <div style="margin-bottom: 16px; padding: 12px; background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border);">
+            <h4 style="margin-bottom: 10px; color: var(--text); font-size: 13px;">🤖 AI Commands (say these to NOVA)</h4>
+            <div style="font-size: 12px; color: var(--muted); line-height: 1.6;">
+              • "Send this to email"<br>
+              • "Email this conversation"<br>
+              • "Export chat to Google Sheets"<br>
+              • "Save this to Drive"
+            </div>
           </div>
           
-          <div style="margin-top: 16px; display: flex; gap: 8px;">
-            <button onclick="emailChatSummary()" style="flex: 1; padding: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); cursor: pointer; font-size: 12px;">📧 Email This Chat</button>
+          <!-- Email Compose Section -->
+          <div style="margin-bottom: 16px; padding: 16px; background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border);">
+            <h4 style="margin-bottom: 12px; color: var(--text); font-size: 14px;">📧 Send Email</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <input type="email" id="gmail-to" placeholder="recipient@example.com" style="width: 100%; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);">
+              <input type="text" id="gmail-subject" placeholder="Email subject" style="width: 100%; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);">
+              <textarea id="gmail-body" placeholder="Message..." style="width: 100%; height: 100px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical;"></textarea>
+              <button onclick="sendGmailMessage()" style="padding: 10px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: #000; font-weight: 600; cursor: pointer;">Send Email</button>
+            </div>
+          </div>
+          
+          <!-- Quick Email Actions -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button onclick="emailChatSummary()" style="padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); cursor: pointer; font-size: 12px;">📧 Email This Chat</button>
+            <button onclick="emailLastResponse()" style="padding: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); cursor: pointer; font-size: 12px;">� Email Last Response</button>
           </div>
           `}
         </div>
@@ -228,6 +245,125 @@
     }
   };
   
+  window.emailLastResponse = async function() {
+    const to = document.getElementById('gmail-to')?.value;
+    if (!to) {
+      alert('Please enter recipient email in the field above');
+      return;
+    }
+    
+    // Find last AI response
+    let lastAiMsg = null;
+    for (let i = state.history.length - 1; i >= 0; i--) {
+      if (state.history[i].role === 'ai') {
+        lastAiMsg = state.history[i];
+        break;
+      }
+    }
+    
+    if (!lastAiMsg) {
+      alert('No AI response found to email');
+      return;
+    }
+    
+    try {
+      showToast('Sending last response...');
+      await GmailIntegration.sendEmail(
+        to,
+        'NOVA AI Response',
+        lastAiMsg.content,
+        `<div style="font-family:system-ui,sans-serif;max-width:600px;">
+          <h3 style="color:#6d28d9;">🤖 NOVA AI Response</h3>
+          <div style="background:#f5f5f5;padding:20px;border-radius:8px;white-space:pre-wrap;">
+            ${lastAiMsg.content.replace(/\n/g, '<br>')}
+          </div>
+          <p style="color:#999;font-size:12px;margin-top:20px;">
+            Sent from NOVA AI on ${new Date().toLocaleString()}
+          </p>
+        </div>`
+      );
+      showToast('Last response sent!');
+      closeGmailModal();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+  
+  // AI Natural Language Command Detection
+  window.detectAndHandleAICommands = function(userMessage, aiResponse) {
+    const msg = userMessage.toLowerCase();
+    
+    // Email commands
+    if (msg.includes('send this to email') || msg.includes('email this') || msg.includes('email this conversation') || msg.includes('send to email')) {
+      if (GmailIntegration.accessToken) {
+        // Ask for email if not set
+        const email = prompt('Enter recipient email:');
+        if (email) {
+          GmailIntegration.sendChatViaEmail(email, state.history)
+            .then(() => showToast('Chat sent to ' + email))
+            .catch(err => showToast(err.message, 'error'));
+        }
+        return true; // Command handled
+      } else {
+        showToast('Gmail not connected. Click 📧 Gmail button first.', 'error');
+        return true;
+      }
+    }
+    
+    // Sheets export commands
+    if (msg.includes('export to sheets') || msg.includes('export chat to sheets') || msg.includes('save to sheets') || msg.includes('google sheets')) {
+      if (GoogleIntegration.accessToken) {
+        GoogleIntegration.exportChatToSheets(state.history)
+          .then(result => {
+            showToast('Exported to Sheets!');
+            window.open(result.url, '_blank');
+          })
+          .catch(err => showToast(err.message, 'error'));
+        return true;
+      } else {
+        showToast('Google not connected. Click 🔴 Google button first.', 'error');
+        return true;
+      }
+    }
+    
+    // Drive save commands
+    if (msg.includes('save to drive') || msg.includes('upload to drive') || msg.includes('google drive')) {
+      if (GoogleIntegration.accessToken) {
+        GoogleIntegration.uploadChatAsDoc(state.history)
+          .then(() => showToast('Saved to Google Drive!'))
+          .catch(err => showToast(err.message, 'error'));
+        return true;
+      } else {
+        showToast('Google not connected. Click 🔴 Google button first.', 'error');
+        return true;
+      }
+    }
+    
+    // Calendar commands
+    if (msg.includes('add to calendar') || msg.includes('create event') || msg.includes('schedule this')) {
+      if (GoogleIntegration.accessToken) {
+        const summary = prompt('Event title:', aiResponse.slice(0, 50));
+        if (summary) {
+          const dateInput = prompt('When? (YYYY-MM-DD HH:MM)');
+          if (dateInput) {
+            const startTime = new Date(dateInput).toISOString();
+            const endTime = new Date(new Date(dateInput).getTime() + 60 * 60 * 1000).toISOString();
+            GoogleIntegration.createEvent(summary, aiResponse.slice(0, 500), startTime, endTime)
+              .then(() => showToast('Event added to calendar!'))
+              .catch(err => showToast(err.message, 'error'));
+          }
+        }
+        return true;
+      } else {
+        showToast('Google not connected. Click 🔴 Google button first.', 'error');
+        return true;
+      }
+    }
+    
+    return false; // No command detected
+  };
+  
+  // Email the entire chat conversation
   window.emailChatSummary = async function() {
     const to = document.getElementById('gmail-to')?.value;
     if (!to) {
