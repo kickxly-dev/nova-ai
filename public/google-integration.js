@@ -28,7 +28,7 @@
         return false;
       }
       
-      const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+      const redirectUri = encodeURIComponent('https://nova-ai-yhow.onrender.com/');
       const scope = encodeURIComponent(this.scopes);
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent&state=google_auth`;
