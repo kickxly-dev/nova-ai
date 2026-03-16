@@ -3576,6 +3576,9 @@ function saveAIConfig() {
 }
 
 function checkMaintenanceOverlay() {
+  // Don't show maintenance overlay on admin page
+  if (window.location.pathname === '/admin') return;
+  
   fetch('/admin/status')
     .then(function(res) { return res.json(); })
     .then(function(data) {
