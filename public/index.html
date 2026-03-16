@@ -1840,12 +1840,6 @@ async function sendMessage(p) {
     sys += '\n\n=== USER MEMORY (IMPORTANT: Reference this information when relevant) ===\n' + state.memory + '\n=== END USER MEMORY ===';
   }
   var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
-  
-  // DEBUG: Log image attachment status
-  console.log('DEBUG: attachedImageData present:', !!attachedImageData);
-  console.log('DEBUG: provider:', state.provider);
-  console.log('DEBUG: last message role:', messages[messages.length - 1]?.role);
-  
   appendTyping();
   try {
     var res, data, reply;
