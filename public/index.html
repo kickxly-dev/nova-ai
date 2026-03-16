@@ -1136,6 +1136,16 @@ function checkAuthCallback() {
     // Clear the hash
     history.replaceState(null, '', window.location.pathname);
   }
+  // Check for auth errors
+  var urlParams = new URLSearchParams(window.location.search);
+  var error = urlParams.get('error');
+  if (error === 'google_not_configured') {
+    showToast('Google Sign-In not configured. Continuing as guest.');
+    history.replaceState(null, '', window.location.pathname);
+  } else if (error === 'auth_failed') {
+    showToast('Sign-in failed. Please try again.');
+    history.replaceState(null, '', window.location.pathname);
+  }
 }
 
 function applyAiName() {
@@ -1839,22 +1849,65 @@ function shareChat() {
 }
 
 // ─── Code Execution ──────────────────────────────────────────────────────────
+function runCode() {
+  var editor = document.getElementById('code-editor');
+  var output = document.getElementById('code-output');
+  var timer = document.getElementById('code-output-timer');
+  var code = editor.value;
+  var lang = document.getElementById('code-lang').value;
+  
+  if (!code.trim()) {
+    output.textContent = 'No code to run.';
+    output.className = 'code-output-content warning';
+    return;
+  }
+  
+  var startTime = performance.now();
+  output.innerHTML = '<span style="color:var(--accent)">Running...</span>';
+  output.className = 'code-output-content';
+  
+  setTimeout(function() {
+    executeCode(code, lang, output);
+    var elapsed = (performance.now() - startTime).toFixed(2);
+    timer.textContent = elapsed + 'ms';
+  }, 10);
+}
+
 function executeCode(code, language, outputEl) {
   try {
     var logs = [];
     var originalLog = console.log;
-    console.log = function() { logs.push(Array.from(arguments).map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ')); };
+    console.log = function() { 
+      logs.push(Array.from(arguments).map(function(a) { 
+        return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); 
+      }).join(' ')); 
+    };
+    
     var result;
-    if (language === 'javascript' || language === 'js') { result = eval(code); }
-    else { outputEl.innerHTML = '<span style="color:var(--accent2)">Only JavaScript can run in browser</span>'; return; }
+    if (language === 'javascript' || language === 'json') { 
+      result = eval(code); 
+    }
+    else { 
+      outputEl.innerHTML = '<span style="color:var(--accent2)">Only JavaScript can run in browser. Use the AI to help with ' + language + ' code.</span>'; 
+      return; 
+    }
+    
     console.log = originalLog;
     var output = '';
-    if (logs.length > 0) { output += '<span style="color:var(--muted)">Output:</span>\n' + logs.join('\n'); }
-    if (result !== undefined) { output += '\n<span style="color:var(--accent)">Result:</span> ' + String(result); }
-    if (!output) { output = '<span style="color:var(--green)">Executed successfully (no output)</span>'; }
+    if (logs.length > 0) { 
+      output += '<span style="color:var(--muted)">Output:</span>\n' + logs.join('\n'); 
+    }
+    if (result !== undefined) { 
+      output += '\n<span style="color:var(--accent)">Result:</span> ' + String(result); 
+    }
+    if (!output) { 
+      output = '<span style="color:var(--green)">Executed successfully (no output)</span>'; 
+    }
     outputEl.innerHTML = output;
+    outputEl.className = 'code-output-content success';
   } catch (err) {
     outputEl.innerHTML = '<span style="color:var(--accent2)">Error: ' + err.message + '</span>';
+    outputEl.className = 'code-output-content error';
   }
 }
 
