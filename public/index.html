@@ -1217,11 +1217,15 @@ try {
 
 // Login/Auth functions
 function toggleLogin() {
+  console.log('toggleLogin called, state.user:', state.user);
   if (state.user) {
     var dropdown = document.getElementById('user-dropdown');
+    console.log('Toggling user dropdown');
     dropdown.classList.toggle('open');
   } else {
-    document.getElementById('login-modal').classList.add('open');
+    var modal = document.getElementById('login-modal');
+    console.log('Opening login modal');
+    modal.classList.add('open');
   }
 }
 
@@ -3603,7 +3607,9 @@ if (savedTheme && themes[savedTheme]) { setTheme(savedTheme); }
 init();
 
 // Auto-open admin panel if URL is /admin
+console.log('Current pathname:', window.location.pathname);
 if (window.location.pathname === '/admin') {
+  console.log('Auto-opening admin panel');
   setTimeout(function() {
     toggleAdminPanel();
   }, 500);
