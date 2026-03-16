@@ -305,6 +305,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .d-settings-btn:hover { background: var(--surface2); border-color: var(--border-hover); color: var(--text); }
 .d-export-btn { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; width: 100%; margin-bottom: 8px; }
 .d-export-btn:hover { background: var(--surface2); border-color: var(--border-hover); color: var(--text); }
+.d-plugins-btn { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; width: 100%; margin-bottom: 8px; }
+.d-plugins-btn:hover { background: var(--accent); border-color: var(--accent); color: #000; }
 .d-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .d-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(9,9,11,0.8); backdrop-filter: blur(12px); }
 .d-tools { display: flex; align-items: center; gap: 4px; }
@@ -544,6 +546,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 500; z-index: 999; animation: fadeUp 0.2s ease; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); }
 </style>
 <link rel="stylesheet" href="changelog.css">
+<link rel="stylesheet" href="plugins/plugins.css">
 </head>
 <body>
 
@@ -570,6 +573,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       <button class="d-settings-btn" onclick="openSettings()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         Settings
+      </button>
+      <button class="d-plugins-btn" onclick="NovaPluginManager.open()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Plugins
       </button>
       <button class="d-export-btn" onclick="exportChats()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/></svg>
@@ -942,7 +949,8 @@ Just tell me what you want to build!</div>
       <div class="m-drawer-list" id="m-chat-list"></div>
       <div class="m-drawer-foot">
         <div class="m-drawer-sett" onclick="exportChats();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export All</div>
-        <div class="m-drawer-sett" onclick="openSettings();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 1 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Settings</div>
+        <div class="m-drawer-sett" onclick="NovaPluginManager.open();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Plugins</div>
+        <div class="m-drawer-sett" onclick="openSettings();closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m4.22-10.22l4.24-4.24M6.34 6.34L2.1 2.1m17.8 17.8l-4.24-4.24M6.34 17.66l-4.24 4.24M23 12h-6m-6 0H1m20.24-4.24l-4.24 4.24M6.34 6.34L2.1 2.1"/></svg> Settings</div>
       </div>
     </div>
     <div class="m-navbar">
@@ -3937,5 +3945,9 @@ if (window.location.pathname === '/admin') {
 }
 </script>
 <script src="changelog.js"></script>
+<script src="plugins.js"></script>
+<script src="plugins/builtin.js"></script>
+<script src="plugins/manager.js"></script>
+<script src="plugins/chat-integration.js"></script>
 </body>
 </html>
