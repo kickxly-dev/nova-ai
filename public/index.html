@@ -416,6 +416,56 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .user-dropdown-item.danger { color: var(--red); }
 .user-dropdown-item.danger:hover { background: rgba(239,68,68,0.1); }
 
+/* Admin Panel */
+.admin-panel { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: all 0.3s; }
+.admin-panel.open { opacity: 1; visibility: visible; }
+.admin-panel-content { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 90%; max-width: 600px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+.admin-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.admin-header h2 { font-size: 18px; font-weight: 700; }
+.admin-close-btn { width: 32px; height: 32px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text2); font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.admin-close-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.admin-tabs { display: flex; gap: 4px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.admin-tab { padding: 8px 16px; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; }
+.admin-tab:hover { color: var(--text); }
+.admin-tab.active { background: var(--accent-glow); border-color: rgba(139,92,246,0.2); color: var(--accent-light); }
+.admin-body { flex: 1; overflow-y: auto; padding: 20px; }
+.admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.admin-stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+.admin-stat-card .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+.admin-stat-card .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.maintenance-status { display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--surface2); border-radius: var(--radius); margin-bottom: 16px; }
+.status-indicator { width: 12px; height: 12px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+.status-indicator.maintenance { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+.maintenance-toggle { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.toggle-switch { position: relative; width: 44px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--muted2); border-radius: 12px; transition: 0.3s; }
+.toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+.maintenance-message { margin-top: 16px; }
+.maintenance-message label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.maintenance-message textarea { width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font); font-size: 13px; resize: vertical; min-height: 80px; }
+.admin-btn { padding: 10px 20px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text); margin-top: 12px; }
+.admin-btn:hover { background: var(--surface3); }
+.admin-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.admin-btn.primary:hover { background: #7c3aed; }
+.admin-users-list { max-height: 300px; overflow-y: auto; background: var(--surface2); border-radius: var(--radius); }
+.ai-config-section { margin-bottom: 16px; }
+.ai-config-section label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.ai-config-section input, .ai-config-section textarea { width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font); font-size: 13px; }
+.ai-config-section textarea { resize: vertical; min-height: 80px; }
+.admin-footer { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface2); }
+.admin-footer input { width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; }
+
+/* Maintenance Overlay */
+.maintenance-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: center; z-index: 3000; opacity: 0; visibility: hidden; transition: all 0.3s; }
+.maintenance-overlay.show { opacity: 1; visibility: visible; }
+.maintenance-content { text-align: center; max-width: 400px; padding: 40px; }
+.maintenance-icon { width: 80px; height: 80px; margin: 0 auto 24px; background: var(--accent-glow); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.maintenance-content h2 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+.maintenance-content p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+
 /* MOBILE */
 #mobile-app { display: flex; flex-direction: column; height: 100dvh; background: var(--bg); }
 .m-navbar { display: flex; align-items: center; justify-content: space-between; padding: calc(10px + var(--safe-top)) 14px 10px; background: rgba(9,9,11,0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: relative; z-index: 10; }
