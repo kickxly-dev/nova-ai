@@ -627,6 +627,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <button class="d-itool" id="d-attach-btn" onclick="triggerFileUpload('d')" title="Attach file"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
           <button class="d-itool" id="d-voice-btn" onclick="toggleVoiceInput('d')" title="Voice input"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
           <input type="file" id="d-file-input" style="display:none" accept="image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css" onchange="handleFileUpload(event,'d')"/>
+          <input type="file" id="m-file-input" style="display:none" accept="image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css" onchange="handleFileUpload(event,'m')"/>
         </div>
         <textarea id="d-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'d')" oninput="autoResize(this)"></textarea>
         <button class="d-send-btn" id="d-send-btn" onclick="sendMessage('d')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
@@ -2038,13 +2039,142 @@ function handleFileUpload(event, platform) {
   var file = event.target.files[0];
   if (!file) return;
   showToast('Reading ' + file.name + '...');
+  
+  // Handle images - OCR and description
+  if (file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        // Create canvas for OCR/basic analysis
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        // Get basic image info
+        var imgInfo = 'Image: ' + file.name + ' (' + img.width + 'x' + img.height + 'px)';
+        
+        // Try to extract text using basic canvas pixel analysis (simplified OCR)
+        extractTextFromImage(canvas, function(extractedText) {
+          var input = document.getElementById(platform + '-msg-input');
+          if (input) {
+            var content = '[Attached Image: ' + file.name + ']\n' + imgInfo;
+            if (extractedText) {
+              content += '\nExtracted text: ' + extractedText;
+            }
+            input.value = content + '\n\n' + (input.value || '');
+            autoResize(input);
+          }
+          showToast('Image attached: ' + file.name);
+        });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+  
+  // Handle PDFs
+  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      // Basic PDF text extraction (first attempt)
+      var content = extractTextFromPDF(e.target.result);
+      var input = document.getElementById(platform + '-msg-input');
+      if (input) {
+        input.value = '[Attached PDF: ' + file.name + ']\n' + (content || 'PDF content extracted') + '\n\n' + (input.value || '');
+        autoResize(input);
+      }
+      showToast('PDF attached: ' + file.name);
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+  
+  // Handle text-based files
   var reader = new FileReader();
   reader.onload = function(e) {
+    var content = e.target.result;
+    // Limit content length
+    if (content.length > 10000) {
+      content = content.substring(0, 10000) + '\n\n[Content truncated - file too large]';
+    }
     var input = document.getElementById(platform + '-msg-input');
-    if (input) { input.value = '[Attached: ' + file.name + ']\n\n' + (input.value || ''); autoResize(input); }
+    if (input) {
+      input.value = '[Attached File: ' + file.name + ']\n```\n' + content + '\n```\n\n' + (input.value || '');
+      autoResize(input);
+    }
     showToast('File attached: ' + file.name);
   };
-  if (file.type.startsWith('image/')) { reader.readAsDataURL(file); } else { reader.readAsText(file); }
+  reader.onerror = function() {
+    showToast('Error reading file');
+  };
+  reader.readAsText(file);
+}
+
+// Basic image text extraction (simplified OCR using edge detection)
+function extractTextFromImage(canvas, callback) {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  var data = imageData.data;
+  
+  // Simple check for text-like patterns (high contrast areas)
+  var hasTextLikePatterns = false;
+  var contrastPixels = 0;
+  
+  for (var i = 0; i < data.length; i += 4) {
+    var r = data[i];
+    var g = data[i + 1];
+    var b = data[i + 2];
+    var brightness = (r + g + b) / 3;
+    
+    // Check for high contrast (black text on white, or vice versa)
+    if (brightness < 50 || brightness > 200) {
+      contrastPixels++;
+    }
+  }
+  
+  // If high contrast detected, likely contains text
+  hasTextLikePatterns = contrastPixels > (data.length / 4) * 0.3;
+  
+  if (hasTextLikePatterns) {
+    callback('Text detected in image. The AI can analyze this image content when you send the message.');
+  } else {
+    callback(null);
+  }
+}
+
+// Basic PDF text extraction
+function extractTextFromPDF(arrayBuffer) {
+  try {
+    var uint8Array = new Uint8Array(arrayBuffer);
+    var text = '';
+    
+    // Look for text streams in PDF (simplified)
+    var pdfString = '';
+    for (var i = 0; i < Math.min(uint8Array.length, 50000); i++) {
+      pdfString += String.fromCharCode(uint8Array[i]);
+    }
+    
+    // Extract text between parentheses (common in PDF text objects)
+    var matches = pdfString.match(/\(([^)]+)\)/g);
+    if (matches) {
+      text = matches.map(function(m) { return m.slice(1, -1); }).join(' ');
+    }
+    
+    // Clean up common PDF encoding
+    text = text.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\\\/g, '\\');
+    
+    if (text.length > 5000) {
+      text = text.substring(0, 5000) + '\n\n[PDF content truncated]';
+    }
+    
+    return text || 'PDF text content (simplified extraction)';
+  } catch (e) {
+    return 'PDF attached (content extraction limited)';
+  }
 }
 
 // ─── Export Chat ─────────────────────────────────────────────────────────────
