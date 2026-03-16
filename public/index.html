@@ -983,19 +983,21 @@ function buildKeysUI() {
   if (!list) return;
   list.innerHTML = '';
   var providerNames = {
-    openai: 'OpenAI', groq: 'Groq', mistral: 'Mistral',
-    together: 'Together AI', openrouter: 'OpenRouter',
+    groq: 'Groq', together: 'Together AI', huggingface: 'Hugging Face',
+    cloudflare: 'Cloudflare AI', deepseek: 'DeepSeek', gemini: 'Google Gemini',
+    openai: 'OpenAI', mistral: 'Mistral', openrouter: 'OpenRouter',
     perplexity: 'Perplexity', cohere: 'Cohere', tavily: 'Tavily (Search)'
   };
   Object.entries(providerNames).forEach(function(entry) {
     var id = entry[0], name = entry[1];
+    var isFree = PROVIDERS[id] && PROVIDERS[id].free;
     var hasKey = state.userKeys[id] || (state.availableProviders[id] && state.availableProviders[id].available);
     var hasUserKey = !!state.userKeys[id];
     var row = document.createElement('div');
     row.className = 'key-row';
     row.id = 'key-row-' + id;
     row.innerHTML = '<div class="key-dot ' + (hasKey ? 'on' : 'off') + '"></div>' +
-      '<div class="key-info"><div class="key-name">' + name + '</div>' +
+      '<div class="key-info"><div class="key-name">' + name + (isFree ? ' <span style="color:var(--accent-light);font-size:10px;">FREE</span>' : '') + '</div>' +
       '<div class="key-status">' + (hasUserKey ? 'Your key active' : hasKey ? 'Server key active' : 'No key set') + '</div></div>' +
       '<div class="key-actions"><button class="key-btn" onclick="toggleKeyInput(\'' + id + '\')">' +
       (hasUserKey ? 'Update' : 'Add Key') + '</button>' +
