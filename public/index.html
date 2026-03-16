@@ -232,6 +232,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .code-file-item:hover .file-actions { display: flex; }
 .code-file-item .file-actions button { width: 18px; height: 18px; padding: 0; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 10px; border-radius: 3px; display: flex; align-items: center; justify-content: center; }
 .code-file-item .file-actions button:hover { color: var(--text); background: var(--surface3); }
+
 /* Autocomplete */
 .code-autocomplete { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); display: none; min-width: 220px; }
 .code-autocomplete.open { display: block; }
@@ -256,6 +257,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .code-editor-container:hover .code-quick-actions { opacity: 1; }
 .code-quick-btn { padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--muted); cursor: pointer; font-family: var(--mono); }
 .code-quick-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
 /* Command Palette */
 .code-command-palette { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 400px; max-width: 90vw; box-shadow: var(--shadow-lg); z-index: 200; display: none; }
 .code-command-palette.open { display: block; animation: scaleIn 0.15s ease; }
