@@ -313,7 +313,7 @@ app.post('/api/chat', async (req, res) => {
     try {
       // Check if Ollama is running
       const ollamaModel = model || 'llama3.2';
-      const response = await fetch('http://localhost:11434/api/chat', {
+      const response = await fetch('http://127.0.0.1:11434/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -342,7 +342,7 @@ app.post('/api/chat', async (req, res) => {
       });
     } catch (err) {
       res.status(503).json({
-        error: { message: `Ollama not running. Install: curl -fsSL https://ollama.com/install.sh | sh && ollama pull llama3.2` }
+        error: { message: `Ollama not running at 127.0.0.1:11434. Start it with: ollama serve. Error: ${err.message}` }
       });
     }
     return;

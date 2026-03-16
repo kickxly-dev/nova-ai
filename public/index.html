@@ -1837,14 +1837,37 @@ async function sendMessage(p) {
   var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
   appendTyping();
   try {
-    var res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: state.provider, model: state.model, messages: messages, max_tokens: 1500, temperature: 0.7, userToken: userToken })
-    });
-    if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
-    var data = await res.json();
-    var reply = data.choices[0].message.content;
+    var res, data, reply;
+    
+    // Direct Ollama connection from browser (for deployed sites)
+    if (state.provider === 'ollama') {
+      var ollamaModel = state.model || 'llama3.2';
+      res = await fetch('http://127.0.0.1:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: messages,
+          stream: false
+        })
+      });
+      if (!res.ok) {
+        var errText = await res.text();
+        throw new Error('Ollama not running at 127.0.0.1:11434. Start with: ollama serve');
+      }
+      var ollamaData = await res.json();
+      reply = ollamaData.message?.content || '';
+    } else {
+      // Server-based providers
+      res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: state.provider, model: state.model, messages: messages, max_tokens: 1500, temperature: 0.7, userToken: userToken })
+      });
+      if (!res.ok) { var e = await res.json(); throw new Error((e.error && e.error.message) || ('HTTP ' + res.status)); }
+      data = await res.json();
+      reply = data.choices[0].message.content;
+    }
     removeTyping();
     appendMessage('ai', reply);
     state.history.push({ role: 'user', content: text });
