@@ -2947,6 +2947,9 @@ var currentFile = 'main';
 var currentPath = '/';
 var fileCounter = 1;
 var expandedFolders = { '/': true };
+var codeFiles = {
+  'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+};
 
 // ─── File Tree Rendering ──────────────────────────────────────────────────────
 function renderFileTree() {
@@ -3080,6 +3083,34 @@ function showTemplateModal() {
 
 function closeTemplateModal() {
   document.getElementById('code-template-modal').classList.remove('open');
+}
+
+function newFile() {
+  var name = prompt('Enter file name:', 'untitled.js');
+  if (!name) return;
+  
+  var ext = name.split('.').pop().toLowerCase();
+  var langMap = { 'js': 'javascript', 'jsx': 'javascript', 'ts': 'typescript', 'tsx': 'typescript', 'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown' };
+  var iconMap = { 'js': 'JS', 'jsx': 'RX', 'ts': 'TS', 'tsx': 'TX', 'py': 'PY', 'html': 'HT', 'css': 'CS', 'json': 'JD', 'md': 'MD' };
+  
+  var id = 'file' + (++fileCounter);
+  codeFiles[id] = {
+    name: name,
+    language: langMap[ext] || 'text',
+    content: '',
+    icon: iconMap[ext] || ''
+  };
+  
+  switchFile(id);
+  showToast('Created ' + name);
+}
+
+function newFolder() {
+  showToast('Folder creation coming soon!');
+}
+
+function toggleProjectSearch() {
+  showToast('Project search coming soon!');
 }
 
 function loadTemplate(type) {
