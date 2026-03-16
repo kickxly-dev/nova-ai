@@ -123,6 +123,22 @@ const PROVIDERS = {
     free: true,
     hosted: true,
   },
+  // FREE - Groq (fast inference)
+  groq: {
+    name: 'Groq',
+    baseURL: 'https://api.groq.com/openai/v1',
+    keyEnv: 'GROQ_API_KEY',
+    free: true,
+    freeTier: true,
+  },
+  // FREE - Together AI
+  together: {
+    name: 'Together AI',
+    baseURL: 'https://api.together.xyz/v1',
+    keyEnv: 'TOGETHER_API_KEY',
+    free: true,
+    freeTier: true,
+  },
   // FREE - Hugging Face
   huggingface: {
     name: 'Hugging Face',
@@ -131,16 +147,35 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
+  // FREE - Cloudflare Workers AI
+  cloudflare: {
+    name: 'Cloudflare AI',
+    baseURL: null, // Custom handler
+    keyEnv: 'CLOUDFLARE_API_TOKEN',
+    free: true,
+    freeTier: true,
+  },
+  // FREE - DeepSeek
+  deepseek: {
+    name: 'DeepSeek',
+    baseURL: 'https://api.deepseek.com/v1',
+    keyEnv: 'DEEPSEEK_API_KEY',
+    free: true,
+    freeTier: true,
+  },
+  // FREE - Google Gemini
+  gemini: {
+    name: 'Google Gemini',
+    baseURL: null, // Custom handler
+    keyEnv: 'GOOGLE_API_KEY',
+    free: true,
+    freeTier: true,
+  },
   // PAID providers
   openai: {
     name: 'OpenAI',
     baseURL: 'https://api.openai.com/v1',
     keyEnv: 'OPENAI_API_KEY',
-  },
-  groq: {
-    name: 'Groq',
-    baseURL: 'https://api.groq.com/openai/v1',
-    keyEnv: 'GROQ_API_KEY',
   },
   anthropic_compat: {
     name: 'Anthropic (via OpenRouter)',
@@ -151,12 +186,6 @@ const PROVIDERS = {
     name: 'OpenRouter',
     baseURL: 'https://openrouter.ai/api/v1',
     keyEnv: 'OPENROUTER_API_KEY',
-  },
-  together: {
-    name: 'Together AI',
-    baseURL: 'https://api.together.xyz/v1',
-    keyEnv: 'TOGETHER_API_KEY',
-    freeTier: true,
   },
   mistral: {
     name: 'Mistral',
@@ -387,6 +416,131 @@ app.post('/api/chat', async (req, res) => {
       res.json({
         choices: [{
           message: { role: 'assistant', content: `NOVA Free mode error: ${err.message}\n\nFor unlimited free AI, install Ollama:\n1. curl -fsSL https://ollama.com/install.sh | sh\n2. ollama pull llama3.2\n3. Select "Ollama (Local)" from provider menu` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: Cloudflare Workers AI ─────────────────────────────────────────────
+  if (provider === 'cloudflare') {
+    try {
+      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+      const apiToken = apiKey !== 'free' ? apiKey : null;
+      
+      if (!apiToken || !accountId) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'Cloudflare AI requires an API token. Get one free at: https://dash.cloudflare.com/?to=/:account/workers-ai\n\nAdd your token in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const cfModel = model || '@cf/meta/llama-3.1-8b-instruct';
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${cfModel}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: messages,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Cloudflare AI error: ${data.errors?.[0]?.message || 'Unknown error'}` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: data.result?.response || data.result?.generated_text || '' },
+          finish_reason: 'stop',
+        }],
+        model: cfModel,
+      });
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Cloudflare AI error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: Google Gemini ─────────────────────────────────────────────────────
+  if (provider === 'gemini') {
+    try {
+      const geminiKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!geminiKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'Google Gemini requires an API key. Get one free at: https://aistudio.google.com/app/apikey\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const geminiModel = model || 'gemini-1.5-flash';
+      // Convert messages to Gemini format
+      const contents = messages.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: contents,
+            generationConfig: {
+              maxOutputTokens: max_tokens,
+              temperature: temperature,
+            },
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.error) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Gemini error: ${data.error.message}` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: text },
+          finish_reason: 'stop',
+        }],
+        model: geminiModel,
+      });
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Gemini error: ${err.message}` },
           finish_reason: 'stop',
         }],
       });
