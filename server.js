@@ -131,27 +131,11 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
-  // FREE - Together AI
-  together: {
-    name: 'Together AI',
-    baseURL: 'https://api.together.xyz/v1',
-    keyEnv: 'TOGETHER_API_KEY',
-    free: true,
-    freeTier: true,
-  },
   // FREE - Hugging Face
   huggingface: {
     name: 'Hugging Face',
     baseURL: 'https://api-inference.huggingface.co/models',
     keyEnv: 'HUGGINGFACE_API_KEY',
-    free: true,
-    freeTier: true,
-  },
-  // FREE - Cloudflare Workers AI
-  cloudflare: {
-    name: 'Cloudflare AI',
-    baseURL: null, // Custom handler
-    keyEnv: 'CLOUDFLARE_API_TOKEN',
     free: true,
     freeTier: true,
   },
@@ -163,20 +147,7 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
-  // FREE - Google Gemini
-  gemini: {
-    name: 'Google Gemini',
-    baseURL: null, // Custom handler
-    keyEnv: 'GOOGLE_API_KEY',
-    free: true,
-    freeTier: true,
-  },
   // PAID providers
-  openai: {
-    name: 'OpenAI',
-    baseURL: 'https://api.openai.com/v1',
-    keyEnv: 'OPENAI_API_KEY',
-  },
   anthropic_compat: {
     name: 'Anthropic (via OpenRouter)',
     baseURL: 'https://openrouter.ai/api/v1',
@@ -187,20 +158,10 @@ const PROVIDERS = {
     baseURL: 'https://openrouter.ai/api/v1',
     keyEnv: 'OPENROUTER_API_KEY',
   },
-  mistral: {
-    name: 'Mistral',
-    baseURL: 'https://api.mistral.ai/v1',
-    keyEnv: 'MISTRAL_API_KEY',
-  },
   cohere: {
     name: 'Cohere',
     baseURL: 'https://api.cohere.com/compatibility/v1',
     keyEnv: 'COHERE_API_KEY',
-  },
-  perplexity: {
-    name: 'Perplexity',
-    baseURL: 'https://api.perplexity.ai',
-    keyEnv: 'PERPLEXITY_API_KEY',
   },
   tavily: {
     name: 'Tavily (Search)',
@@ -423,131 +384,6 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  // ─── FREE: Cloudflare Workers AI ─────────────────────────────────────────────
-  if (provider === 'cloudflare') {
-    try {
-      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-      const apiToken = apiKey !== 'free' ? apiKey : null;
-      
-      if (!apiToken || !accountId) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: 'Cloudflare AI requires an API token. Get one free at: https://dash.cloudflare.com/?to=/:account/workers-ai\n\nAdd your token in Settings > API Keys.' },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const cfModel = model || '@cf/meta/llama-3.1-8b-instruct';
-      const response = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${cfModel}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: messages,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: `Cloudflare AI error: ${data.errors?.[0]?.message || 'Unknown error'}` },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: data.result?.response || data.result?.generated_text || '' },
-          finish_reason: 'stop',
-        }],
-        model: cfModel,
-      });
-    } catch (err) {
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: `Cloudflare AI error: ${err.message}` },
-          finish_reason: 'stop',
-        }],
-      });
-    }
-    return;
-  }
-
-  // ─── FREE: Google Gemini ─────────────────────────────────────────────────────
-  if (provider === 'gemini') {
-    try {
-      const geminiKey = apiKey !== 'free' ? apiKey : null;
-      
-      if (!geminiKey) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: 'Google Gemini requires an API key. Get one free at: https://aistudio.google.com/app/apikey\n\nAdd your key in Settings > API Keys.' },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const geminiModel = model || 'gemini-2.0-flash';
-      // Convert messages to Gemini format
-      const contents = messages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: contents,
-            generationConfig: {
-              maxOutputTokens: max_tokens,
-              temperature: temperature,
-            },
-          }),
-        }
-      );
-
-      const data = await response.json();
-      
-      if (data.error) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: `Gemini error: ${data.error.message}` },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: text },
-          finish_reason: 'stop',
-        }],
-        model: geminiModel,
-      });
-    } catch (err) {
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: `Gemini error: ${err.message}` },
-          finish_reason: 'stop',
-        }],
-      });
-    }
-    return;
-  }
-
   // ─── FREE: Hugging Face Inference API ─────────────────────────────────────────
   if (provider === 'huggingface') {
     try {
@@ -616,58 +452,6 @@ app.post('/api/chat', async (req, res) => {
       res.json({
         choices: [{
           message: { role: 'assistant', content: `Hugging Face error: ${err.message}` },
-          finish_reason: 'stop',
-        }],
-      });
-    }
-    return;
-  }
-
-  // ─── FREE: Together AI (OpenAI-compatible) ───────────────────────────────────
-  if (provider === 'together') {
-    try {
-      const togetherKey = apiKey !== 'free' ? apiKey : null;
-      
-      if (!togetherKey) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: 'Together AI requires an API key. Get $1 free credits at: https://api.together.xyz/settings/api-keys\n\nAdd your key in Settings > API Keys.' },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const togetherModel = model || 'meta-llama/Llama-3-8b-chat-hf';
-      const response = await fetch('https://api.together.xyz/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${togetherKey}`,
-        },
-        body: JSON.stringify({
-          model: togetherModel,
-          messages: messages,
-          max_tokens: max_tokens,
-          temperature: temperature,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: `Together AI error: ${response.status} - ${errorText}\n\nCheck your API key or try a different model.` },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const data = await response.json();
-      res.json(data);
-    } catch (err) {
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: `Together AI error: ${err.message}` },
           finish_reason: 'stop',
         }],
       });

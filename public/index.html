@@ -840,15 +840,9 @@ var PROVIDERS = {
   ollama: { name: 'Ollama (Local)', color: 'groq', models: ['llama3.2','llama3.1','mistral','codellama','phi3','gemma2'], badge: 'free', free: true },
   nova: { name: 'NOVA Free', color: 'openrouter', models: ['auto'], badge: 'free', free: true },
   groq: { name: 'Groq', color: 'groq', models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'], badge: 'free', free: true },
-  together: { name: 'Together AI', color: 'together', models: ['meta-llama/Llama-3-70b-chat-hf','mistralai/Mixtral-8x7B-Instruct-v0.1','google/gemma-2-27b-it'], badge: 'free', free: true },
   huggingface: { name: 'Hugging Face', color: 'openrouter', models: ['meta-llama/Llama-3.2-3B-Instruct','mistralai/Mistral-7B-Instruct-v0.3','Qwen/Qwen2.5-72B-Instruct'], badge: 'free', free: true },
-  cloudflare: { name: 'Cloudflare AI', color: 'openrouter', models: ['@cf/meta/llama-3.1-8b-instruct','@cf/mistral/mistral-7b-instruct-v0.2','@cf/meta/llama-2-7b-chat-int8'], badge: 'free', free: true },
   deepseek: { name: 'DeepSeek', color: 'openrouter', models: ['deepseek-chat','deepseek-coder'], badge: 'free', free: true },
-  gemini: { name: 'Google Gemini', color: 'openrouter', models: ['gemini-2.0-flash','gemini-1.5-flash','gemini-pro'], badge: 'free', free: true },
-  openai: { name: 'OpenAI', color: 'openai', models: ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo'], badge: 'smart' },
-  mistral: { name: 'Mistral', color: 'mistral', models: ['mistral-large-latest','mistral-medium-latest','mistral-small-latest','open-mistral-7b'], badge: 'smart' },
   openrouter: { name: 'OpenRouter', color: 'openrouter', models: ['anthropic/claude-3.5-sonnet','google/gemini-pro-1.5','meta-llama/llama-3.1-405b-instruct','mistralai/mistral-large'], badge: 'smart' },
-  perplexity: { name: 'Perplexity', color: 'perplexity', models: ['llama-3.1-sonar-large-128k-online','llama-3.1-sonar-small-128k-online','llama-3.1-sonar-huge-128k-online'], badge: 'smart' },
   cohere: { name: 'Cohere', color: 'cohere', models: ['command-r-plus','command-r','command'], badge: 'smart' },
   tavily: { name: 'Tavily (Search)', color: 'tavily', models: [], badge: 'search' },
 };
@@ -1006,10 +1000,9 @@ function buildKeysUI() {
   if (!list) return;
   list.innerHTML = '';
   var providerNames = {
-    groq: 'Groq', together: 'Together AI', huggingface: 'Hugging Face',
-    cloudflare: 'Cloudflare AI', deepseek: 'DeepSeek', gemini: 'Google Gemini',
-    openai: 'OpenAI', mistral: 'Mistral', openrouter: 'OpenRouter',
-    perplexity: 'Perplexity', cohere: 'Cohere', tavily: 'Tavily (Search)'
+    groq: 'Groq', huggingface: 'Hugging Face',
+    deepseek: 'DeepSeek',
+    openrouter: 'OpenRouter', cohere: 'Cohere', tavily: 'Tavily (Search)'
   };
   Object.entries(providerNames).forEach(function(entry) {
     var id = entry[0], name = entry[1];
