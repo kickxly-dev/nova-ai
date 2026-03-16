@@ -496,7 +496,7 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      const geminiModel = model || 'gemini-1.5-flash-latest';
+      const geminiModel = model || 'gemini-2.0-flash';
       // Convert messages to Gemini format
       const contents = messages.map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
