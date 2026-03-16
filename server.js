@@ -623,6 +623,162 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
+  // ─── FREE: Together AI (OpenAI-compatible) ───────────────────────────────────
+  if (provider === 'together') {
+    try {
+      const togetherKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!togetherKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'Together AI requires an API key. Get $1 free credits at: https://api.together.xyz/settings/api-keys\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const togetherModel = model || 'meta-llama/Llama-3-8b-chat-hf';
+      const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${togetherKey}`,
+        },
+        body: JSON.stringify({
+          model: togetherModel,
+          messages: messages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Together AI error: ${response.status} - ${errorText}\n\nCheck your API key or try a different model.` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Together AI error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: DeepSeek (OpenAI-compatible) ───────────────────────────────────────
+  if (provider === 'deepseek') {
+    try {
+      const deepseekKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!deepseekKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'DeepSeek requires an API key. Get free credits at: https://platform.deepseek.com/api_keys\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const deepseekModel = model || 'deepseek-chat';
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${deepseekKey}`,
+        },
+        body: JSON.stringify({
+          model: deepseekModel,
+          messages: messages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `DeepSeek error: ${response.status} - ${errorText}\n\nCheck your API key or try again.` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `DeepSeek error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: Groq (OpenAI-compatible) ──────────────────────────────────────────
+  if (provider === 'groq') {
+    try {
+      const groqKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!groqKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'Groq requires an API key. Get one free at: https://console.groq.com/keys\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const groqModel = model || 'llama-3.3-70b-versatile';
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: groqModel,
+          messages: messages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Groq error: ${response.status} - ${errorText}\n\nCheck your API key or try again later.` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Groq error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
   // ─── STANDARD: OpenAI-compatible APIs ───────────────────────────────────────
   try {
     const headers = {
