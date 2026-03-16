@@ -562,7 +562,7 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      const hfModel = model || 'microsoft/DialoGPT-large';
+      const hfModel = model || 'meta-llama/Llama-3.2-3B-Instruct';
       const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
       
       const response = await fetch(`https://router.huggingface.co/hf-inference/models/${hfModel}`, {
@@ -580,6 +580,17 @@ app.post('/api/chat', async (req, res) => {
           },
         }),
       });
+
+      // Check if response is OK before parsing JSON
+      if (!response.ok) {
+        const text = await response.text();
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Hugging Face error: ${response.status} - ${text}\n\nThe model may be loading or unavailable. Try a different model like:\n- meta-llama/Llama-3.2-3B-Instruct\n- mistralai/Mistral-7B-Instruct-v0.3` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
 
       const data = await response.json();
       
