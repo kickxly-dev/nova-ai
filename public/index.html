@@ -263,6 +263,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 .d-sett-item:hover { background: var(--surface2); color: var(--text); }
 .d-settings-btn { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; width: 100%; margin-bottom: 8px; }
 .d-settings-btn:hover { background: var(--surface2); border-color: var(--border-hover); color: var(--text); }
+.d-export-btn { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; width: 100%; margin-bottom: 8px; }
+.d-export-btn:hover { background: var(--surface2); border-color: var(--border-hover); color: var(--text); }
 .d-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .d-topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(9,9,11,0.8); backdrop-filter: blur(12px); }
 .d-tools { display: flex; align-items: center; gap: 4px; }
@@ -469,11 +471,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       <button class="d-new-btn" onclick="newChat()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Chat</button>
     </div>
     <div class="d-section">Recent</div>
+    <div class="d-chat-search" style="padding:0 12px 8px;">
+      <input type="text" id="chat-search-input" placeholder="Search chats..." oninput="searchChats(this.value)" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-xs);font-size:12px;color:var(--text);outline:none;"/>
+    </div>
     <div class="d-chat-list" id="d-chat-list"></div>
     <div class="d-sidebar-bot">
       <button class="d-settings-btn" onclick="openSettings()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         Settings
+      </button>
+      <button class="d-export-btn" onclick="exportChats()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 11a2 2 0 012-2h-6l-4-4h6a2 2 0 012 2l-4 4z"/></svg>
+        Export
       </button>
       <div class="login-btn" id="login-btn" onclick="toggleLogin()">
         <div class="avatar" id="login-avatar">?</div>
@@ -1585,6 +1594,34 @@ function exportChat() {
   a.download = 'nova-chat-' + new Date().toISOString().slice(0,10) + '.md';
   a.click();
   showToast('Chat exported!');
+}
+
+function exportChats() {
+  if (!state.chats || state.chats.length === 0) { showToast('No chats to export'); return; }
+  var text = '# NOVA All Chats Export\n# Date: ' + new Date().toISOString() + '\n# Total: ' + state.chats.length + ' chats\n\n';
+  state.chats.forEach(function(chat, i) {
+    text += '---\n\n## Chat ' + (i+1) + ': ' + chat.title + '\n\n';
+    if (chat.history) {
+      chat.history.forEach(function(msg) { text += '**' + (msg.role === 'user' ? 'You' : state.aiName) + ':**\n' + msg.content + '\n\n'; });
+    }
+  });
+  var blob = new Blob([text], { type: 'text/markdown' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nova-all-chats-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  showToast('All chats exported!');
+}
+
+function searchChats(query) {
+  var list = document.getElementById('d-chat-list');
+  if (!list) return;
+  var items = list.querySelectorAll('.d-chat-item');
+  var q = query.toLowerCase();
+  items.forEach(function(item) {
+    var text = item.textContent.toLowerCase();
+    item.style.display = text.indexOf(q) > -1 || !q ? '' : 'none';
+  });
 }
 
 // ─── Themes ─────────────────────────────────────────────────────────────────
