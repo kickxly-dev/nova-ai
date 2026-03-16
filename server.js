@@ -147,6 +147,15 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
+  // FREE - NOVA Custom (wrapper around Groq with custom prompts)
+  nova_custom: {
+    name: 'NOVA Custom',
+    baseURL: 'https://api.groq.com/openai/v1',
+    keyEnv: 'GROQ_API_KEY',
+    free: true,
+    freeTier: true,
+    wrapper: true,
+  },
   // PAID providers
   anthropic_compat: {
     name: 'Anthropic (via OpenRouter)',
@@ -556,6 +565,68 @@ app.post('/api/chat', async (req, res) => {
       res.json({
         choices: [{
           message: { role: 'assistant', content: `Groq error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
+  // ─── FREE: NOVA Custom (wrapper with custom system prompt) ─────────────────────
+  if (provider === 'nova_custom') {
+    try {
+      const groqKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!groqKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'NOVA Custom requires a Groq API key. Get one free at: https://console.groq.com/keys\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      // Add custom NOVA system prompt to messages
+      const novaSystemPrompt = {
+        role: 'system',
+        content: 'You are NOVA, a brilliant AI assistant created by NOVA AI. You are direct, helpful, and give concise high-quality answers. You have a friendly personality and occasionally use emoji. You were custom-built for this platform.'
+      };
+      
+      const enhancedMessages = [novaSystemPrompt, ...messages];
+      const novaModel = model || 'llama-3.3-70b-versatile';
+      
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: novaModel,
+          messages: enhancedMessages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `NOVA Custom error: ${response.status} - ${errorText}\n\nCheck your API key or try again later.` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const data = await response.json();
+      // Override the model name to show NOVA Custom
+      if (data.model) data.model = 'nova-custom';
+      res.json(data);
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `NOVA Custom error: ${err.message}` },
           finish_reason: 'stop',
         }],
       });
