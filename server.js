@@ -548,6 +548,70 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
+  // ─── FREE: Hugging Face Inference API ─────────────────────────────────────────
+  if (provider === 'huggingface') {
+    try {
+      const hfKey = apiKey !== 'free' ? apiKey : null;
+      
+      if (!hfKey) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: 'Hugging Face requires an API key. Get one free at: https://huggingface.co/settings/tokens\n\nAdd your key in Settings > API Keys.' },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const hfModel = model || 'microsoft/DialoGPT-large';
+      const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+      
+      const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${hfKey}`,
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: Math.min(max_tokens, 500),
+            temperature: temperature,
+            return_full_text: false,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        return res.json({
+          choices: [{
+            message: { role: 'assistant', content: `Hugging Face error: ${data.error}\n\nTry a different model or check your API key.` },
+            finish_reason: 'stop',
+          }],
+        });
+      }
+
+      const generatedText = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || 'No response generated.';
+      
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: generatedText },
+          finish_reason: 'stop',
+        }],
+        model: hfModel,
+      });
+    } catch (err) {
+      res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Hugging Face error: ${err.message}` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+    return;
+  }
+
   // ─── STANDARD: OpenAI-compatible APIs ───────────────────────────────────────
   try {
     const headers = {
