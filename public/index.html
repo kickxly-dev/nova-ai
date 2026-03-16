@@ -2993,6 +2993,20 @@ function renderFolder(folder, container, path) {
   }
 }
 
+function updateFileList() {
+  var tree = document.getElementById('code-file-tree');
+  if (!tree) return;
+  tree.innerHTML = '';
+  Object.keys(codeFiles).forEach(function(id) {
+    var file = codeFiles[id];
+    var item = document.createElement('div');
+    item.className = 'file-tree-item' + (id === currentFile ? ' active' : '');
+    item.onclick = function() { switchFile(id); };
+    item.innerHTML = '<span class="file-icon">' + file.icon + '</span><span class="file-name">' + file.name + '</span>';
+    tree.appendChild(item);
+  });
+}
+
 function switchFile(id) {
   // Save current file content
   if (codeFiles[currentFile]) {

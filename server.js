@@ -61,6 +61,13 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// ─── Admin Page Route (MUST BE BEFORE static files and fallback) ─────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Database ────────────────────────────────────────────────────────────────
@@ -920,11 +927,6 @@ app.get('/admin/stats', requireAdmin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-
-// ─── Admin Page Route ────────────────────────────────────────────────────────────────
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ─── Fallback ────────────────────────────────────────────────────────────────────────
