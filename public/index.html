@@ -2481,7 +2481,7 @@ function updatePreview() {
   if (lang === 'html') {
     frame.srcdoc = code;
   } else if (lang === 'javascript') {
-    var html = '<!DOCTYPE html><html><head><style>body{font-family:system-ui;padding:20px;background:#0a0a0c;color:#fafafa;}</style></head><body><pre id="out"></pre><script>try{var logs=[];console.log=function(){logs.push(Array.from(arguments).join(" "));};' + code + ';document.getElementById("out").textContent=logs.join("\\n")||"✓ Ran successfully";}catch(e){document.getElementById("out").textContent="Error: "+e.message;}</script></body></html>';
+    var html = '<!DOCTYPE html><html><head><style>body{font-family:system-ui;padding:20px;background:#0a0a0c;color:#fafafa;}</style></head><body><pre id="out"></pre><scr' + 'ipt>try{var logs=[];console.log=function(){logs.push(Array.from(arguments).join(" "));};' + code + ';document.getElementById("out").textContent=logs.join("\\n")||"Ran successfully";}catch(e){document.getElementById("out").textContent="Error: "+e.message;}</scr' + 'ipt></body></html>';
     frame.srcdoc = html;
   } else if (lang === 'css') {
     frame.srcdoc = '<!DOCTYPE html><html><head><style>' + code + '</style></head><body><h1>Preview</h1><p>This is a paragraph.</p><button>Button</button><div class="box">Box</div></body></html>';
