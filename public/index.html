@@ -555,11 +555,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
     </div>
     <div class="code-actions-bar">
       <button class="code-btn" onclick="toggleCommandPalette()" title="Command Palette (Ctrl+P)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Commands</button>
+      <button class="code-btn" onclick="showTemplateModal()" title="New Project"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Templates</button>
+      <button class="code-btn" onclick="toggleAIPanel()" title="AI Assistant"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z"/><circle cx="12" cy="12" r="3"/></svg> AI</button>
       <button class="code-btn" onclick="togglePreview()" id="preview-btn" title="Live Preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Preview</button>
       <button class="code-btn" onclick="toggleFindBar()" id="find-btn" title="Find & Replace (Ctrl+F)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Find</button>
       <button class="code-btn" onclick="formatCode()" title="Format Code"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg> Format</button>
-      <button class="code-btn" onclick="downloadCode()" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save</button>
-      <button class="code-btn danger" onclick="clearCode()" title="Clear"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+      <button class="code-btn" onclick="downloadProject()" title="Download Project"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+      <button class="code-btn danger" onclick="clearProject()" title="Clear All"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
       <button class="code-btn primary" onclick="runCode()" id="run-btn" title="Run (Ctrl+Enter)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>
     </div>
   </div>
@@ -580,6 +582,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
     <span class="code-find-count" id="code-find-count"></span>
   </div>
   <div class="code-main">
+    <!-- File Explorer -->
+    <div class="code-file-explorer" id="code-file-explorer">
+      <div class="code-file-explorer-header">
+        <span>Files</span>
+        <button onclick="newFile()" title="New File">+</button>
+      </div>
+      <div class="code-file-list" id="code-file-list"></div>
+    </div>
+    
     <div class="code-editor-panel">
       <div class="code-editor-header">
         <div class="code-editor-header-left">
@@ -589,6 +600,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
             <option value="html">HTML</option>
             <option value="css">CSS</option>
             <option value="json">JSON</option>
+            <option value="typescript">TypeScript</option>
+            <option value="jsx">JSX</option>
+            <option value="tsx">TSX</option>
           </select>
           <button class="code-snippets-btn" onclick="toggleSnippets()" id="snippets-btn">Snippets</button>
         </div>
@@ -652,17 +666,29 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       </div>
       <div class="code-output-content" id="code-output">Click Run or press Ctrl+Enter to execute your code...</div>
     </div>
-    <div class="code-resizer" id="chat-resizer"></div>
-    <div class="code-chat-panel" id="code-chat-panel">
-      <div class="code-chat-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> AI Assistant</div>
-      <div class="code-chat-messages" id="code-chat-messages">
-        <div class="code-msg ai">Hi! I'm your coding assistant. Ask me to write, debug, explain, or optimize code. I can see your current code and help improve it!</div>
+    
+    <!-- AI Panel -->
+    <div class="code-ai-panel" id="code-ai-panel">
+      <div class="code-ai-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z"/><circle cx="12" cy="12" r="3"/></svg> NOVA AI Coder</div>
+      <div class="code-ai-messages" id="code-ai-messages">
+        <div class="code-msg ai">I'm your AI coding assistant! I can:
+• Generate complete files
+• Write code for you
+• Create entire projects
+• Explain and optimize code
+• Debug issues
+
+Just tell me what you want to build!</div>
       </div>
-      <div class="code-chat-input">
-        <textarea id="code-chat-input" placeholder="Ask for help with your code..." rows="1" onkeydown="handleCodeChatKey(event)"></textarea>
-        <button onclick="sendCodeChat()">Ask</button>
+      <div class="code-ai-input">
+        <textarea id="code-ai-textarea" placeholder="e.g., Create a React todo app with styling..." rows="3"></textarea>
+        <div class="code-ai-actions">
+          <button onclick="generateCode()">✨ Generate</button>
+          <button class="secondary" onclick="generateFullProject()">📁 Full Project</button>
+        </div>
       </div>
     </div>
+    
     <div class="code-preview-panel" id="code-preview-panel">
       <div class="code-preview-header">
         <span>Live Preview</span>
@@ -670,6 +696,46 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       </div>
       <iframe class="code-preview-frame" id="code-preview-frame"></iframe>
     </div>
+  </div>
+</div>
+
+<!-- Template Modal -->
+<div class="code-template-modal" id="code-template-modal">
+  <div class="code-template-box">
+    <h3>🚀 Start New Project</h3>
+    <div class="code-template-grid">
+      <div class="code-template-item" onclick="loadTemplate('vanilla')">
+        <div class="template-icon">🌐</div>
+        <div class="template-name">HTML/CSS/JS</div>
+        <div class="template-desc">Basic web project</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('react')">
+        <div class="template-icon">⚛️</div>
+        <div class="template-name">React</div>
+        <div class="template-desc">React app with hooks</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('vue')">
+        <div class="template-icon">💚</div>
+        <div class="template-name">Vue</div>
+        <div class="template-desc">Vue 3 composition</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('nodejs')">
+        <div class="template-icon">🟢</div>
+        <div class="template-name">Node.js</div>
+        <div class="template-desc">Express server API</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('python')">
+        <div class="template-icon">🐍</div>
+        <div class="template-name">Python</div>
+        <div class="template-desc">Python script/app</div>
+      </div>
+      <div class="code-template-item" onclick="loadTemplate('component')">
+        <div class="template-icon">📦</div>
+        <div class="template-name">Component</div>
+        <div class="template-desc">Reusable UI component</div>
+      </div>
+    </div>
+    <button onclick="closeTemplateModal()" style="margin-top:20px;padding:10px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;">Cancel</button>
   </div>
 </div>
 
@@ -2816,6 +2882,474 @@ handleEditorKey = function(e) {
   clearTimeout(window.lintTimeout);
   window.lintTimeout = setTimeout(lintCode, 500);
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENHANCED CODE EDITOR - FILE MANAGEMENT & AI GENERATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── File Management ──────────────────────────────────────────────────────────
+var codeFiles = {
+  'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+};
+var currentFile = 'main';
+var fileCounter = 1;
+
+function updateFileList() {
+  var list = document.getElementById('code-file-list');
+  list.innerHTML = '';
+  
+  Object.keys(codeFiles).forEach(function(id) {
+    var file = codeFiles[id];
+    var item = document.createElement('div');
+    item.className = 'code-file-item' + (id === currentFile ? ' active' : '');
+    item.innerHTML = 
+      '<span class="file-icon">' + file.icon + '</span>' +
+      '<span class="file-name">' + file.name + '</span>' +
+      '<div class="file-actions">' +
+        '<button onclick="renameFile(\'' + id + '\')" title="Rename">✏️</button>' +
+        '<button onclick="deleteFile(\'' + id + '\')" title="Delete">🗑️</button>' +
+      '</div>';
+    item.onclick = function() { switchFile(id); };
+    list.appendChild(item);
+  });
+}
+
+function newFile() {
+  var name = prompt('File name (with extension):');
+  if (!name) return;
+  
+  var ext = name.split('.').pop().toLowerCase();
+  var langMap = {
+    'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
+    'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
+    'md': 'markdown', 'txt': 'text'
+  };
+  var iconMap = {
+    'js': 'JS', 'jsx': '⚛️', 'ts': 'TS', 'tsx': '⚛️', 'py': '🐍',
+    'html': '🌐', 'css': '🎨', 'json': '📋', 'md': '📝', 'txt': '📄'
+  };
+  
+  var id = 'file' + fileCounter++;
+  codeFiles[id] = {
+    name: name,
+    language: langMap[ext] || 'javascript',
+    content: '',
+    icon: iconMap[ext] || '📄'
+  };
+  
+  updateFileList();
+  switchFile(id);
+  showToast('Created ' + name);
+}
+
+function renameFile(id) {
+  var file = codeFiles[id];
+  var newName = prompt('New name:', file.name);
+  if (newName && newName !== file.name) {
+    file.name = newName;
+    updateFileList();
+    updateFileTabs();
+    showToast('Renamed to ' + newName);
+  }
+}
+
+function deleteFile(id) {
+  if (Object.keys(codeFiles).length <= 1) {
+    showToast('Cannot delete last file');
+    return;
+  }
+  if (!confirm('Delete ' + codeFiles[id].name + '?')) return;
+  
+  delete codeFiles[id];
+  if (currentFile === id) {
+    currentFile = Object.keys(codeFiles)[0];
+  }
+  updateFileList();
+  updateFileTabs();
+  switchFile(currentFile);
+  showToast('File deleted');
+}
+
+function switchFile(id) {
+  // Save current file content
+  if (codeFiles[currentFile]) {
+    codeFiles[currentFile].content = document.getElementById('code-editor').value;
+  }
+  
+  // Switch to new file
+  currentFile = id;
+  var file = codeFiles[id];
+  
+  document.getElementById('code-editor').value = file.content;
+  document.getElementById('code-lang').value = file.language;
+  
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  changeLanguage();
+  
+  // Update active tab
+  document.querySelectorAll('.code-file-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.file === id);
+  });
+}
+
+function updateFileTabs() {
+  var tabs = document.getElementById('code-file-tabs');
+  var newTabBtn = tabs.querySelector('.code-new-tab');
+  
+  // Remove existing tabs (keep the + button)
+  tabs.innerHTML = '';
+  
+  Object.keys(codeFiles).forEach(function(id) {
+    var file = codeFiles[id];
+    var tab = document.createElement('div');
+    tab.className = 'code-file-tab' + (id === currentFile ? ' active' : '');
+    tab.dataset.file = id;
+    tab.onclick = function() { switchFile(id); };
+    tab.innerHTML = 
+      '<span class="file-icon">' + file.icon + '</span>' +
+      '<span class="file-name">' + file.name + '</span>' +
+      '<span class="close-btn" onclick="event.stopPropagation();closeFile(\'' + id + '\')">×</span>';
+    tabs.appendChild(tab);
+  });
+  
+  tabs.appendChild(newTabBtn);
+}
+
+function closeFile(id) {
+  if (Object.keys(codeFiles).length <= 1) {
+    showToast('Cannot close last file');
+    return;
+  }
+  
+  delete codeFiles[id];
+  if (currentFile === id) {
+    currentFile = Object.keys(codeFiles)[0];
+    switchFile(currentFile);
+  } else {
+    updateFileTabs();
+    updateFileList();
+  }
+}
+
+function clearProject() {
+  if (!confirm('Clear all files? This cannot be undone.')) return;
+  
+  codeFiles = {
+    'main': { name: 'main.js', language: 'javascript', content: '', icon: 'JS' }
+  };
+  currentFile = 'main';
+  document.getElementById('code-editor').value = '';
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  showToast('Project cleared');
+}
+
+function downloadProject() {
+  var files = Object.keys(codeFiles);
+  if (files.length === 0) {
+    showToast('No files to download');
+    return;
+  }
+  
+  if (files.length === 1) {
+    // Single file - download directly
+    var file = codeFiles[files[0]];
+    var blob = new Blob([file.content || document.getElementById('code-editor').value], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    a.click();
+    showToast('Downloaded ' + file.name);
+  } else {
+    // Multiple files - create zip-like structure (just notify for now)
+    showToast('Multi-file download coming soon!');
+  }
+}
+
+// ─── Template System ──────────────────────────────────────────────────────────
+function showTemplateModal() {
+  document.getElementById('code-template-modal').classList.add('open');
+}
+
+function closeTemplateModal() {
+  document.getElementById('code-template-modal').classList.remove('open');
+}
+
+function loadTemplate(type) {
+  closeTemplateModal();
+  
+  var templates = {
+    vanilla: {
+      'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Project</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Hello World</h1>\n  <script src="script.js"><\/script>\n</body>\n</html>',
+      'style.css': 'body {\n  font-family: sans-serif;\n  background: #f5f5f5;\n  padding: 20px;\n}',
+      'script.js': 'console.log("Hello, World!");'
+    },
+    react: {
+      'App.jsx': 'import React, { useState } from "react";\n\nfunction App() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div className="App">\n      <h1>React App</h1>\n      <p>Count: {count}</p>\n      <button onClick={() => setCount(c => c + 1)}>\n        Increment\n      </button>\n    </div>\n  );\n}\n\nexport default App;',
+      'index.css': '.App {\n  text-align: center;\n  padding: 20px;\n}',
+      'main.js': 'import React from "react";\nimport ReactDOM from "react-dom/client";\nimport App from "./App";\nimport "./index.css";\n\nReactDOM.createRoot(document.getElementById("root")).render(<App />);'
+    },
+    vue: {
+      'App.vue': '<template>\n  <div class="app">\n    <h1>{{ message }}</h1>\n    <button @click="increment">Count: {{ count }}</button>\n  </div>\n</template>\n\n<script setup>\nimport { ref } from "vue";\nconst message = ref("Vue 3 App");\nconst count = ref(0);\nconst increment = () => count.value++;\n<\/script>',
+      'main.js': 'import { createApp } from "vue";\nimport App from "./App.vue";\ncreateApp(App).mount("#app");'
+    },
+    nodejs: {
+      'server.js': 'const express = require("express");\nconst app = express();\nconst PORT = 3000;\n\napp.get("/", (req, res) => {\n  res.json({ message: "Hello from Node.js!" });\n});\n\napp.listen(PORT, () => {\n  console.log(`Server running on port ${PORT}`);\n});',
+      'package.json': '{\n  "name": "my-node-app",\n  "version": "1.0.0",\n  "dependencies": {\n    "express": "^4.18.0"\n  }\n}'
+    },
+    python: {
+      'main.py': '#!/usr/bin/env python3\n\ndef main():\n    print("Hello from Python!")\n    \n    # Your code here\n    pass\n\nif __name__ == "__main__":\n    main()',
+      'requirements.txt': '# Add your dependencies here'
+    },
+    component: {
+      'Button.jsx': 'import React from "react";\n\nexport function Button({ children, onClick, variant = "primary" }) {\n  const styles = {\n    primary: { background: "#8b5cf6", color: "#fff" },\n    secondary: { background: "#27272a", color: "#fff" }\n  };\n\n  return (\n    <button \n      onClick={onClick}\n      style={{\n        padding: "10px 20px",\n        border: "none",\n        borderRadius: "8px",\n        cursor: "pointer",\n        ...styles[variant]\n      }}\n    >\n      {children}\n    </button>\n  );\n}'
+    }
+  };
+  
+  var template = templates[type];
+  if (!template) return;
+  
+  // Clear existing files
+  codeFiles = {};
+  fileCounter = 1;
+  
+  // Create files from template
+  Object.keys(template).forEach(function(filename, index) {
+    var ext = filename.split('.').pop().toLowerCase();
+    var langMap = {
+      'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
+      'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
+      'vue': 'html', 'txt': 'text'
+    };
+    var iconMap = {
+      'js': 'JS', 'jsx': '⚛️', 'ts': 'TS', 'tsx': '⚛️', 'py': '🐍',
+      'html': '🌐', 'css': '🎨', 'json': '📋', 'vue': '💚', 'txt': '📄'
+    };
+    
+    var id = index === 0 ? 'main' : 'file' + index;
+    codeFiles[id] = {
+      name: filename,
+      language: langMap[ext] || 'javascript',
+      content: template[filename],
+      icon: iconMap[ext] || '📄'
+    };
+  });
+  
+  currentFile = 'main';
+  document.getElementById('code-editor').value = codeFiles['main'].content;
+  updateEditor();
+  updateFileList();
+  updateFileTabs();
+  changeLanguage();
+  
+  showToast('Loaded ' + type + ' template');
+}
+
+// ─── AI Panel & Generation ───────────────────────────────────────────────────
+function toggleAIPanel() {
+  var panel = document.getElementById('code-ai-panel');
+  panel.classList.toggle('active');
+}
+
+async function generateCode() {
+  var input = document.getElementById('code-ai-textarea');
+  var prompt = input.value.trim();
+  if (!prompt) {
+    showToast('Enter a description first');
+    return;
+  }
+  
+  var messages = document.getElementById('code-ai-messages');
+  
+  // Add user message
+  var userMsg = document.createElement('div');
+  userMsg.className = 'code-msg user';
+  userMsg.textContent = prompt;
+  messages.appendChild(userMsg);
+  
+  input.value = '';
+  
+  // Add loading indicator
+  var loading = document.createElement('div');
+  loading.className = 'code-msg ai';
+  loading.innerHTML = '<div class="code-ai-loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Generating...</div>';
+  messages.appendChild(loading);
+  messages.scrollTop = messages.scrollHeight;
+  
+  try {
+    var res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: state.provider,
+        model: state.model,
+        messages: [
+          { role: 'system', content: 'You are an expert programmer. Generate clean, well-commented code based on the user\'s request. Only provide the code, no explanations unless specifically asked.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+        userToken: userToken
+      })
+    });
+    
+    if (!res.ok) throw new Error('Failed to generate');
+    
+    var data = await res.json();
+    var code = data.choices[0].message.content;
+    
+    // Extract code from markdown if present
+    var codeMatch = code.match(/```(?:\w+)?\n([\s\S]*?)```/);
+    if (codeMatch) code = codeMatch[1];
+    
+    loading.remove();
+    
+    // Show generated code
+    var aiMsg = document.createElement('div');
+    aiMsg.className = 'code-msg ai';
+    aiMsg.innerHTML = '<p>✨ Generated code:</p><pre style="margin:8px 0;padding:10px;background:#0c0c0f;border-radius:6px;overflow-x:auto;font-size:11px;">' + 
+      code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+    
+    // Add insert button
+    var insertBtn = document.createElement('button');
+    insertBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:var(--accent);border:none;border-radius:4px;color:#fff;cursor:pointer;font-size:11px;';
+    insertBtn.textContent = 'Insert into Editor';
+    insertBtn.onclick = function() {
+      document.getElementById('code-editor').value = code;
+      updateEditor();
+      showToast('Code inserted!');
+    };
+    aiMsg.appendChild(insertBtn);
+    
+    messages.appendChild(aiMsg);
+    messages.scrollTop = messages.scrollHeight;
+    
+  } catch (err) {
+    loading.remove();
+    var errMsg = document.createElement('div');
+    errMsg.className = 'code-msg ai';
+    errMsg.innerHTML = '<span style="color:var(--accent2)">❌ Error: ' + err.message + '</span>';
+    messages.appendChild(errMsg);
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
+async function generateFullProject() {
+  var input = document.getElementById('code-ai-textarea');
+  var prompt = input.value.trim();
+  if (!prompt) {
+    showToast('Enter a project description first');
+    return;
+  }
+  
+  var messages = document.getElementById('code-ai-messages');
+  
+  // Add user message
+  var userMsg = document.createElement('div');
+  userMsg.className = 'code-msg user';
+  userMsg.textContent = '📁 Project: ' + prompt;
+  messages.appendChild(userMsg);
+  
+  input.value = '';
+  
+  // Add loading indicator
+  var loading = document.createElement('div');
+  loading.className = 'code-msg ai';
+  loading.innerHTML = '<div class="code-ai-loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Generating project...</div>';
+  messages.appendChild(loading);
+  messages.scrollTop = messages.scrollHeight;
+  
+  try {
+    var res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: state.provider,
+        model: state.model,
+        messages: [
+          { role: 'system', content: 'You are an expert programmer. Generate a complete multi-file project based on the user\'s request. Respond with a JSON object where keys are filenames and values are file contents. Example: {"index.html": "<html>...", "style.css": "body {...}"}' },
+          { role: 'user', content: 'Create a complete project: ' + prompt + '. Respond ONLY with the JSON object, no markdown, no explanations.' }
+        ],
+        max_tokens: 4000,
+        temperature: 0.3,
+        userToken: userToken
+      })
+    });
+    
+    if (!res.ok) throw new Error('Failed to generate');
+    
+    var data = await res.json();
+    var content = data.choices[0].message.content;
+    
+    // Try to parse JSON response
+    var projectFiles;
+    try {
+      // Extract JSON if wrapped in markdown
+      var jsonMatch = content.match(/```json\n([\s\S]*?)```/) || content.match(/```\n([\s\S]*?)```/);
+      var jsonStr = jsonMatch ? jsonMatch[1] : content;
+      projectFiles = JSON.parse(jsonStr);
+    } catch (e) {
+      // If not valid JSON, create a single file
+      projectFiles = { 'generated.js': content };
+    }
+    
+    // Clear and create new files
+    codeFiles = {};
+    fileCounter = 1;
+    
+    Object.keys(projectFiles).forEach(function(filename, index) {
+      var ext = filename.split('.').pop().toLowerCase();
+      var langMap = {
+        'js': 'javascript', 'jsx': 'jsx', 'ts': 'typescript', 'tsx': 'tsx',
+        'py': 'python', 'html': 'html', 'css': 'css', 'json': 'json',
+        'vue': 'html', 'txt': 'text', 'md': 'markdown'
+      };
+      var iconMap = {
+        'js': 'JS', 'jsx': '⚛️', 'ts': 'TS', 'tsx': '⚛️', 'py': '🐍',
+        'html': '🌐', 'css': '🎨', 'json': '📋', 'vue': '💚', 'txt': '📄', 'md': '📝'
+      };
+      
+      var id = index === 0 ? 'main' : 'file' + index;
+      codeFiles[id] = {
+        name: filename,
+        language: langMap[ext] || 'javascript',
+        content: projectFiles[filename],
+        icon: iconMap[ext] || '📄'
+      };
+    });
+    
+    currentFile = 'main';
+    document.getElementById('code-editor').value = codeFiles['main'].content;
+    updateEditor();
+    updateFileList();
+    updateFileTabs();
+    changeLanguage();
+    
+    loading.remove();
+    
+    var aiMsg = document.createElement('div');
+    aiMsg.className = 'code-msg ai';
+    aiMsg.innerHTML = '✅ Generated ' + Object.keys(projectFiles).length + ' files!<br><small>' + Object.keys(projectFiles).join(', ') + '</small>';
+    messages.appendChild(aiMsg);
+    messages.scrollTop = messages.scrollHeight;
+    
+    showToast('Project generated!');
+    
+  } catch (err) {
+    loading.remove();
+    var errMsg = document.createElement('div');
+    errMsg.className = 'code-msg ai';
+    errMsg.innerHTML = '<span style="color:var(--accent2)">❌ Error: ' + err.message + '</span>';
+    messages.appendChild(errMsg);
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
+// Initialize enhanced editor
+updateFileList();
 
 // ─── Init Theme ──────────────────────────────────────────────────────────────
 var savedTheme = localStorage.getItem('nova_theme');
