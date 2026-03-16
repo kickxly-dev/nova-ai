@@ -622,6 +622,11 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
       </div>
     </div>
     <div class="d-input-area">
+      <div id="d-image-attachment" class="image-attachment" style="display:none; margin-bottom:8px; max-width:800px; margin-left:auto; margin-right:auto;">
+        <img id="d-attachment-thumb" src="" alt="Attached image">
+        <span>Image attached</span>
+        <button class="remove-btn" onclick="clearImageAttachment()">×</button>
+      </div>
       <div class="d-input-wrap">
         <div class="d-input-tools">
           <button class="d-itool" id="d-attach-btn" onclick="triggerFileUpload('d')" title="Attach file"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
@@ -1895,6 +1900,8 @@ async function sendMessage(p) {
     
     // Clear attached image after sending
     attachedImageData = null;
+    var attachmentEl = document.getElementById('d-image-attachment');
+    if (attachmentEl) attachmentEl.style.display = 'none';
     removeTyping();
     appendMessage('ai', reply);
     state.history.push({ role: 'user', content: text });
@@ -2111,6 +2118,14 @@ function handleFileUpload(event, platform) {
         // Store base64 image data for AI vision
         attachedImageData = e.target.result; // data:image/jpeg;base64,...
         
+        // Show image preview
+        var attachmentEl = document.getElementById('d-image-attachment');
+        var thumbEl = document.getElementById('d-attachment-thumb');
+        if (attachmentEl && thumbEl) {
+          thumbEl.src = e.target.result;
+          attachmentEl.style.display = 'flex';
+        }
+        
         // Try to extract text using basic canvas pixel analysis (simplified OCR)
         extractTextFromImage(canvas, function(extractedText) {
           var input = document.getElementById(platform + '-msg-input');
@@ -2167,6 +2182,13 @@ function handleFileUpload(event, platform) {
     showToast('Error reading file');
   };
   reader.readAsText(file);
+}
+
+function clearImageAttachment() {
+  attachedImageData = null;
+  var attachmentEl = document.getElementById('d-image-attachment');
+  if (attachmentEl) attachmentEl.style.display = 'none';
+  showToast('Image removed');
 }
 
 // Basic image text extraction (simplified OCR using edge detection)
