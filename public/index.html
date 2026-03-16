@@ -1137,6 +1137,38 @@ function getUserPreferencesSummary() {
   }
 }
 
+function incrementConversationCount() {
+  var count = parseInt(localStorage.getItem('nova_conversation_count') || '0') + 1;
+  localStorage.setItem('nova_conversation_count', count.toString());
+}
+
+function learnFromConversation(userMsg, aiMsg) {
+  try {
+    var prefs = JSON.parse(localStorage.getItem('nova_user_preferences') || '{}');
+    
+    // Detect preferred programming language
+    var langPatterns = /\b(python|javascript|typescript|java|c\+\+|rust|go|ruby|php|swift|kotlin)\b/i;
+    var langMatch = userMsg.match(langPatterns);
+    if (langMatch) prefs.preferredLanguage = langMatch[1].toLowerCase();
+    
+    // Detect preferred frameworks
+    var frameworkPatterns = /\b(react|vue|angular|next\.?js|express|django|flask|fastapi|spring)\b/i;
+    var fwMatch = userMsg.match(frameworkPatterns);
+    if (fwMatch) prefs.preferredFramework = fwMatch[1].toLowerCase();
+    
+    // Detect interests
+    if (!prefs.interests) prefs.interests = [];
+    var interestPatterns = /\b(ai|machine learning|web development|mobile|devops|security|blockchain|gaming|data science)\b/i;
+    var intMatch = userMsg.match(interestPatterns);
+    if (intMatch && !prefs.interests.includes(intMatch[1].toLowerCase())) {
+      prefs.interests.push(intMatch[1].toLowerCase());
+      if (prefs.interests.length > 10) prefs.interests = prefs.interests.slice(-10);
+    }
+    
+    localStorage.setItem('nova_user_preferences', JSON.stringify(prefs));
+  } catch(e) {}
+}
+
 function getUserToken() {
   var token = localStorage.getItem('nova_user_token');
   if (!token) { token = 'u_' + crypto.randomUUID(); localStorage.setItem('nova_user_token', token); }
