@@ -565,6 +565,15 @@ app.post('/api/chat', async (req, res) => {
 
   // ─── STANDARD: OpenAI-compatible APIs ───────────────────────────────────────
   try {
+    if (!cfg || !cfg.baseURL) {
+      return res.json({
+        choices: [{
+          message: { role: 'assistant', content: `Provider "${provider}" is not configured. Please select a different provider.` },
+          finish_reason: 'stop',
+        }],
+      });
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
@@ -584,12 +593,23 @@ app.post('/api/chat', async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      const errorMsg = data.error?.message || data.error || JSON.stringify(data);
+      return res.json({
+        choices: [{
+          message: { role: 'assistant', content: `${provider} error (${response.status}): ${errorMsg}\n\nCheck your API key or try a different provider.` },
+          finish_reason: 'stop',
+        }],
+      });
     }
 
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: { message: err.message } });
+    res.json({
+      choices: [{
+        message: { role: 'assistant', content: `${provider} error: ${err.message}\n\nCheck your network connection or try again.` },
+        finish_reason: 'stop',
+      }],
+    });
   }
 });
 
