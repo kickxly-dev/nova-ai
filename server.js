@@ -9,12 +9,15 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 
+// Trust proxy for secure cookies behind Render's load balancer
+app.set('trust proxy', 1);
+
 // Session configuration for OAuth
 app.use(session({
   secret: process.env.SESSION_SECRET || 'nova-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: { secure: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' } // 7 days
 }));
 
 app.use(passport.initialize());
