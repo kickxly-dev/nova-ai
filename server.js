@@ -378,7 +378,7 @@ app.post('/api/chat', async (req, res) => {
       const hfModel = 'microsoft/DialoGPT-large';
       const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
       
-      const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${hfModel}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -565,7 +565,7 @@ app.post('/api/chat', async (req, res) => {
       const hfModel = model || 'microsoft/DialoGPT-large';
       const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
       
-      const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${hfModel}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
