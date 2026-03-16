@@ -3485,10 +3485,21 @@ function checkMaintenanceOverlay() {
     .catch(function() {});
 }
 
-// Keyboard shortcut for admin panel (Shift+Alt+A)
+// Keyboard shortcut for admin panel - type "admin" to open
+var adminKeyBuffer = '';
 document.addEventListener('keydown', function(e) {
-  if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'a') {
+  // Only listen if not typing in an input field
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  
+  adminKeyBuffer += e.key.toLowerCase();
+  // Keep only last 5 characters
+  if (adminKeyBuffer.length > 5) {
+    adminKeyBuffer = adminKeyBuffer.slice(-5);
+  }
+  
+  if (adminKeyBuffer === 'admin') {
     e.preventDefault();
+    adminKeyBuffer = '';
     toggleAdminPanel();
   }
 });
