@@ -177,7 +177,7 @@ const PROVIDERS = {
   // FREE - NVIDIA Build (OpenAI-compatible)
   nvidia: {
     name: 'NVIDIA Build',
-    baseURL: 'https://api.nvidia.com/v1',
+    baseURL: 'https://integrate.api.nvidia.com/v1',
     keyEnv: 'NVIDIA_API_KEY',
     free: true,
     freeTier: true,
@@ -570,7 +570,8 @@ app.post('/api/chat', async (req, res) => {
       }
 
       const nvidiaModel = model || 'meta/llama-3.1-8b-instruct';
-      const response = await fetch(`${cfg.baseURL}/chat/completions`, {
+      // NVIDIA uses a different endpoint structure
+      const response = await fetch(`https://api.nvidia.com/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
