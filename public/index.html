@@ -1497,6 +1497,14 @@ function openSettings() { document.getElementById('settings-modal').classList.ad
 function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
 function closeSettingsOutside(e) { if (e.target.id === 'settings-modal') closeSettings(); }
 
+function switchTab(tabId) {
+  document.querySelectorAll('.tabs .tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+  if (tabId === 'keys') buildKeysUI();
+}
+
 function saveSettings() {
   state.aiName = document.getElementById('ai-name-input').value.trim() || 'NOVA';
   state.systemPrompt = document.getElementById('system-prompt-input').value.trim();
@@ -3798,6 +3806,23 @@ checkMaintenanceOverlay();
 // ─── Init Theme ──────────────────────────────────────────────────────────────
 var savedTheme = localStorage.getItem('nova_theme');
 if (savedTheme && themes[savedTheme]) { setTheme(savedTheme); }
+
+function init() {
+  // Load provider status on startup
+  refreshProviders();
+  
+  // Fill settings inputs
+  var aiNameInput = document.getElementById('ai-name-input');
+  var sysPromptInput = document.getElementById('system-prompt-input');
+  var memoryInput = document.getElementById('memory-input');
+  
+  if (aiNameInput) aiNameInput.value = localStorage.getItem('nova_name') || '';
+  if (sysPromptInput) sysPromptInput.value = localStorage.getItem('nova_system') || '';
+  if (memoryInput) memoryInput.value = localStorage.getItem('nova_memory') || '';
+  
+  // Apply AI name to UI
+  applyAiName();
+}
 
 init();
 
