@@ -166,14 +166,6 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
-  // FREE - DeepSeek
-  deepseek: {
-    name: 'DeepSeek',
-    baseURL: 'https://api.deepseek.com/v1',
-    keyEnv: 'DEEPSEEK_API_KEY',
-    free: true,
-    freeTier: true,
-  },
   // FREE - NOVA Custom (wrapper around Groq with custom prompts)
   nova_custom: {
     name: 'NOVA Custom',
@@ -488,58 +480,6 @@ app.post('/api/chat', async (req, res) => {
       res.json({
         choices: [{
           message: { role: 'assistant', content: `Hugging Face error: ${err.message}` },
-          finish_reason: 'stop',
-        }],
-      });
-    }
-    return;
-  }
-
-  // ─── FREE: DeepSeek (OpenAI-compatible) ───────────────────────────────────────
-  if (provider === 'deepseek') {
-    try {
-      const deepseekKey = apiKey !== 'free' ? apiKey : null;
-      
-      if (!deepseekKey) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: 'DeepSeek requires an API key. Get free credits at: https://platform.deepseek.com/api_keys\n\nAdd your key in Settings > API Keys.' },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const deepseekModel = model || 'deepseek-chat';
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepseekKey}`,
-        },
-        body: JSON.stringify({
-          model: deepseekModel,
-          messages: messages,
-          max_tokens: max_tokens,
-          temperature: temperature,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: `DeepSeek error: ${response.status} - ${errorText}\n\nCheck your API key or try again.` },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const data = await response.json();
-      res.json(data);
-    } catch (err) {
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: `DeepSeek error: ${err.message}` },
           finish_reason: 'stop',
         }],
       });

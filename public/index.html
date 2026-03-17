@@ -1292,7 +1292,6 @@ var PROVIDERS = {
   nova_custom: { name: 'NOVA Custom', color: 'openrouter', models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768'], badge: 'custom', free: true },
   groq: { name: 'Groq', color: 'groq', models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'], badge: 'free', free: true },
   huggingface: { name: 'Hugging Face', color: 'openrouter', models: ['meta-llama/Llama-3.2-3B-Instruct','mistralai/Mistral-7B-Instruct-v0.3','Qwen/Qwen2.5-72B-Instruct'], badge: 'free', free: true },
-  deepseek: { name: 'DeepSeek', color: 'openrouter', models: ['deepseek-chat','deepseek-coder'], badge: 'free', free: true },
   openrouter: { name: 'OpenRouter', color: 'openrouter', models: ['anthropic/claude-3.5-sonnet','google/gemini-pro-1.5','meta-llama/llama-3.1-405b-instruct','mistralai/mistral-large'], badge: 'smart' },
   cohere: { name: 'Cohere', color: 'cohere', models: ['c4ai-aya-expanse-32b','c4ai-aya-expanse-8b','c4ai-aya-vision-32b','c4ai-aya-vision-8b','command-a-03-2025','command-r-08-2024','command-r-plus-08-2024','command-r7b-12-2024','command-r7b-arabic-02-2025'], badge: 'smart' },
   tavily: { name: 'Tavily (Search)', color: 'tavily', models: [], badge: 'search' },
@@ -1315,161 +1314,6 @@ var state = {
   user: null,
 };
 
-// Load user from localStorage safely
-try {
-  var savedUser = localStorage.getItem('nova_user');
-  if (savedUser && savedUser !== 'null' && savedUser !== 'undefined') {
-    state.user = JSON.parse(savedUser);
-  }
-} catch(e) {
-  state.user = null;
-}
-
-// Login/Auth functions
-function toggleLogin() {
-  console.log('toggleLogin called, state.user:', state.user);
-  if (state.user) {
-    var dropdown = document.getElementById('user-dropdown');
-    console.log('Toggling user dropdown');
-    dropdown.classList.toggle('open');
-  } else {
-    var modal = document.getElementById('login-modal');
-    console.log('Opening login modal');
-    modal.classList.add('open');
-  }
-}
-
-function closeLogin() {
-  document.getElementById('login-modal').classList.remove('open');
-}
-
-function closeLoginOutside(e) {
-  if (e.target.id === 'login-modal') closeLogin();
-}
-
-function loginWithGoogle() {
-  // Redirect to Google OAuth endpoint on backend
-  window.location.href = '/auth/google';
-}
-
-function handleAuthCallback(token, user) {
-  if (token) {
-    localStorage.setItem('nova_user_token', token);
-    userToken = token;
-  }
-  if (user) {
-    state.user = user;
-    localStorage.setItem('nova_user', JSON.stringify(user));
-    updateUserUI();
-  }
-  closeLogin();
-}
-
-function updateUserUI() {
-  var btn = document.getElementById('login-btn');
-  var avatar = document.getElementById('login-avatar');
-  var name = document.getElementById('login-name');
-  var dropdownName = document.getElementById('dropdown-name');
-  var dropdownEmail = document.getElementById('dropdown-email');
-  
-  if (state.user) {
-    btn.classList.add('logged-in');
-    if (state.user.picture) {
-      avatar.innerHTML = '<img src="' + state.user.picture + '" alt="' + state.user.name + '">';
-    } else {
-      avatar.textContent = state.user.name ? state.user.name[0].toUpperCase() : '?';
-    }
-    name.textContent = state.user.name || 'User';
-    dropdownName.textContent = state.user.name || 'User';
-    dropdownEmail.textContent = state.user.email || '';
-  } else {
-    btn.classList.remove('logged-in');
-    avatar.textContent = '?';
-    name.textContent = 'Sign In';
-    dropdownName.textContent = 'Guest';
-    dropdownEmail.textContent = 'Not signed in';
-  }
-}
-
-function logout() {
-  state.user = null;
-  localStorage.removeItem('nova_user');
-  localStorage.removeItem('nova_user_token');
-  userToken = getUserToken();
-  updateUserUI();
-  document.getElementById('user-dropdown').classList.remove('open');
-  showToast('Signed out successfully');
-}
-
-async function init() {
-  // Check for OAuth callback in URL hash
-  checkAuthCallback();
-  
-  // Update user UI if logged in
-  updateUserUI();
-  
-  document.getElementById('ai-name-input').value = state.aiName;
-  document.getElementById('system-prompt-input').value = state.systemPrompt;
-  document.getElementById('memory-input').value = state.memory;
-  applyAiName();
-  renderChatList();
-  try {
-    var results = await Promise.all([
-      fetch('/api/providers?userToken=' + encodeURIComponent(userToken)),
-      fetch('/api/keys/' + encodeURIComponent(userToken)),
-    ]);
-    state.availableProviders = await results[0].json();
-    state.userKeys = await results[1].json();
-  } catch(e) {
-    Object.keys(PROVIDERS).forEach(function(id) { state.availableProviders[id] = { available: false, name: PROVIDERS[id].name }; });
-  }
-  buildProviderUI();
-  buildKeysUI();
-}
-
-function checkAuthCallback() {
-  var hash = window.location.hash;
-  if (hash.startsWith('#auth=')) {
-    try {
-      var data = JSON.parse(decodeURIComponent(hash.slice(6)));
-      if (data.token && data.user) {
-        handleAuthCallback(data.token, data.user);
-        showToast('Welcome, ' + data.user.name + '!');
-      }
-    } catch(e) {}
-    // Clear the hash
-    history.replaceState(null, '', window.location.pathname);
-  }
-  // Check for auth errors
-  var urlParams = new URLSearchParams(window.location.search);
-  var error = urlParams.get('error');
-  if (error === 'google_not_configured') {
-    showToast('Google Sign-In not configured. Continuing as guest.');
-    history.replaceState(null, '', window.location.pathname);
-  } else if (error === 'auth_failed') {
-    showToast('Sign-in failed. Please try again.');
-    history.replaceState(null, '', window.location.pathname);
-  }
-}
-
-function applyAiName() {
-  var n = state.aiName;
-  var mark = n[0].toUpperCase();
-  [['d-logo-mark',mark],['d-logo-text',n],['d-welcome-icon',mark],['m-logo-mark',mark],['m-title',n],['m-welcome-icon',mark]].forEach(function(pair) {
-    var el = document.getElementById(pair[0]); if (el) el.textContent = pair[1];
-  });
-}
-
-function switchTab(tabName) {
-  document.querySelectorAll('.tab').forEach(function(t, i) {
-    var names = ['general', 'keys', 'memory-tab', 'theme-tab'];
-    t.classList.toggle('active', names[i] === tabName);
-  });
-  document.querySelectorAll('.tab-content').forEach(function(tc) {
-    tc.classList.toggle('active', tc.id === 'tab-' + tabName);
-  });
-}
-
 function buildKeysUI() {
   var list = document.getElementById('keys-list');
   if (!list) return;
@@ -1477,7 +1321,6 @@ function buildKeysUI() {
   var providerNames = {
     nova_custom: 'NOVA Custom (uses Groq key)',
     groq: 'Groq', huggingface: 'Hugging Face',
-    deepseek: 'DeepSeek',
     openrouter: 'OpenRouter', cohere: 'Cohere', tavily: 'Tavily (Search)'
   };
   Object.entries(providerNames).forEach(function(entry) {
