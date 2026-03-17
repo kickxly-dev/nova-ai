@@ -1698,11 +1698,28 @@ async function sendMessage(p) {
     }
   }
   
+  // Check for URLs to browse
+  var browseContext = '';
+  var urlRegex = /https?:\/\/[^\s]+/g;
+  var urls = text.match(urlRegex);
+  if (urls && urls.length > 0 && typeof window.WebBrowser !== 'undefined') {
+    showToast('Browsing ' + urls.length + ' URL(s)...');
+    for (var i = 0; i < Math.min(urls.length, 3); i++) {
+      try {
+        var result = await window.WebBrowser.browseUrl(urls[i]);
+        browseContext += window.WebBrowser.formatForAI(result);
+      } catch (e) {
+        browseContext += '\n\n[Error browsing ' + urls[i] + ': ' + e.message + ']';
+      }
+    }
+  }
+  
   inputEl.value = '';
   inputEl.style.height = 'auto';
   state.isTyping = true;
   ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = true; });
   appendMessage('user', text);
+  
 
   if (state.imageMode) {
     await generateImage(text);
@@ -1723,6 +1740,9 @@ async function sendMessage(p) {
   var userContent = text;
   if (attachmentContext) {
     userContent = text + attachmentContext;
+  }
+  if (browseContext) {
+    userContent = userContent + browseContext;
   }
   
   var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: userContent }]);
@@ -3849,6 +3869,7 @@ if (window.location.pathname === '/admin') {
 <script src="folders.js"></script>
 <script src="file-upload-enhanced.js"></script>
 <script src="file-attachments.js"></script>
+<script src="web-browsing.js"></script>
 <script src="websearch-v2.js"></script>
 <script src="vision.js"></script>
 <script src="chat-sharing.js"></script>

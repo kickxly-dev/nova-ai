@@ -716,6 +716,95 @@ app.post('/api/search', async (req, res) => {
   }
 });
 
+// ─── API: Web Browsing ─────────────────────────────────────────────────────────
+app.post('/api/browse', async (req, res) => {
+  const { url } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  // Validate URL
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Only HTTP/HTTPS URLs allowed' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL format' });
+  }
+  
+  try {
+    // Fetch the page with browser-like headers
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+      },
+      timeout: 15000, // 15 second timeout
+    });
+    
+    if (!response.ok) {
+      return res.status(502).json({ 
+        error: `Failed to fetch URL: ${response.status} ${response.statusText}` 
+      });
+    }
+    
+    const html = await response.text();
+    
+    // Simple HTML parsing to extract content
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
+    
+    // Remove script and style tags
+    let cleanHtml = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+    
+    // Extract text content
+    const textContent = cleanHtml
+      .replace(/<[^>]+>/g, ' ')  // Remove HTML tags
+      .replace(/\s+/g, ' ')      // Normalize whitespace
+      .replace(/\n{3,}/g, '\n\n') // Limit newlines
+      .trim()
+      .slice(0, 8000);          // Limit content length
+    
+    // Extract links
+    const links = [];
+    const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>([^<]*)<\/a>/gi;
+    let match;
+    while ((match = linkRegex.exec(html)) !== null && links.length < 10) {
+      const href = match[1];
+      const text = match[2].trim();
+      if (href.startsWith('http') && text) {
+        links.push({ text: text.slice(0, 100), href });
+      }
+    }
+    
+    res.json({
+      success: true,
+      url,
+      title,
+      content: textContent,
+      links,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (err) {
+    console.error('Browse error:', err.message);
+    res.status(500).json({ 
+      error: 'Failed to browse URL: ' + (err.message || 'Unknown error')
+    });
+  }
+});
+
 // ─── API: Python Execution ────────────────────────────────────────────────────
 const { spawn } = require('child_process');
 
