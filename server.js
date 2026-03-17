@@ -360,51 +360,109 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  // ─── FREE: NOVA Hosted (using free inference APIs) ───────────────────────────
+  // ─── FREE: NOVA Hosted (using multiple free inference APIs) ───────────────────────────
   if (provider === 'nova') {
+    // Try multiple free APIs in order
+    const tryHuggingFace = async () => {
+      // Try Hugging Face free tier (no key needed for some models)
+      const models = [
+        'HuggingFaceH4/zephyr-7b-beta',
+        'microsoft/DialoGPT-large',
+        'facebook/blenderbot-400M-distill'
+      ];
+      
+      for (const hfModel of models) {
+        try {
+          const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+          const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inputs: prompt,
+              parameters: {
+                max_new_tokens: Math.min(max_tokens, 500),
+                temperature: temperature,
+                return_full_text: false,
+              },
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const generatedText = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
+            if (generatedText && generatedText.length > 10) {
+              return generatedText;
+            }
+          }
+        } catch (e) {
+          // Continue to next model
+        }
+      }
+      return null;
+    };
+    
+    const tryPollinations = async () => {
+      // Use Pollinations text generation (free, no key)
+      try {
+        const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+        const response = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'You are NOVA, a helpful AI assistant.' },
+              ...messages
+            ],
+            model: 'openai',
+            seed: Math.floor(Math.random() * 1000)
+          }),
+        });
+        
+        if (response.ok) {
+          const text = await response.text();
+          if (text && text.length > 10) return text;
+        }
+      } catch (e) {
+        // Failed
+      }
+      return null;
+    };
+    
     try {
-      // Use free Hugging Face inference as fallback
-      const hfModel = 'microsoft/DialoGPT-large';
-      const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+      let result = await tryHuggingFace();
       
-      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${hfModel}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: Math.min(max_tokens, 500),
-            temperature: temperature,
-            return_full_text: false,
-          },
-        }),
-      });
-
-      const data = await response.json();
+      if (!result) {
+        result = await tryPollinations();
+      }
       
-      if (data.error) {
-        // Fallback to a simple response
-        return res.json({
+      if (result) {
+        res.json({
           choices: [{
-            message: { role: 'assistant', content: `NOVA Free mode: The hosted model is loading. Try again in 30 seconds, or use Ollama for unlimited local AI!\n\nTo use Ollama:\n1. Install: curl -fsSL https://ollama.com/install.sh | sh\n2. Run: ollama pull llama3.2\n3. Select "Ollama (Local)" from the provider menu` },
+            message: { role: 'assistant', content: result },
+            finish_reason: 'stop',
+          }],
+          model: 'nova-free',
+        });
+      } else {
+        // All fallbacks failed
+        res.json({
+          choices: [{
+            message: { role: 'assistant', content: `NOVA Free mode is temporarily unavailable. The free AI services are experiencing high demand.
+
+**Options to continue:**
+1. **Add a Groq API key** (free): https://console.groq.com/keys - Fastest responses
+2. **Use Ollama locally**: Install from ollama.com - Unlimited free AI
+3. **Try again in a few minutes** - Free services rotate availability` },
             finish_reason: 'stop',
           }],
         });
       }
-
-      const generatedText = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || 'Sorry, I could not generate a response. Try Ollama for local AI!';
-      
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: generatedText },
-          finish_reason: 'stop',
-        }],
-        model: 'nova-free',
-      });
     } catch (err) {
       res.json({
         choices: [{
-          message: { role: 'assistant', content: `NOVA Free mode error: ${err.message}\n\nFor unlimited free AI, install Ollama:\n1. curl -fsSL https://ollama.com/install.sh | sh\n2. ollama pull llama3.2\n3. Select "Ollama (Local)" from provider menu` },
+          message: { role: 'assistant', content: `NOVA Free mode error: ${err.message}
+
+Try adding a Groq API key for reliable free AI at https://console.groq.com/keys` },
           finish_reason: 'stop',
         }],
       });
@@ -651,13 +709,130 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// ─── API: Image Generation (Coming Soon) ───────────────────────────────
+// ─── API: Streaming Chat (for instant responses) ──────────────────────────────
+app.post('/api/chat/stream', async (req, res) => {
+  const { provider = 'openai', model, messages, max_tokens = 1500, temperature = 0.7, userToken } = req.body;
+
+  const cfg = PROVIDERS[provider];
+  if (!cfg) {
+    return res.status(400).json({ error: { message: `Unknown provider: ${provider}` } });
+  }
+
+  const apiKey = await getApiKey(provider, userToken);
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: `No API key found for ${cfg.name}. Add your key in Settings.` }
+    });
+  }
+
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Groq streaming
+  if (provider === 'groq' || provider === 'nova_custom') {
+    try {
+      const groqKey = apiKey !== 'free' ? apiKey : null;
+      if (!groqKey) {
+        res.write(`data: ${JSON.stringify({ error: 'Groq API key required' })}\n\n`);
+        res.end();
+        return;
+      }
+
+      const groqModel = model || 'llama-3.3-70b-versatile';
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: groqModel,
+          messages: messages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        res.write(`data: ${JSON.stringify({ error })}\n\n`);
+        res.end();
+        return;
+      }
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              res.write('data: [DONE]\n\n');
+              res.end();
+              return;
+            }
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                res.write(`data: ${JSON.stringify({ content })}\n\n`);
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+      
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      res.end();
+    }
+    return;
+  }
+
+  // Fallback for non-streaming providers
+  res.write(`data: ${JSON.stringify({ error: 'Streaming not supported for this provider yet' })}\n\n`);
+  res.end();
+});
 app.post('/api/image', async (req, res) => {
-  res.status(503).json({ 
-    error: { 
-      message: 'Image generation coming soon! We\'re working on integrating a free AI image API. Check back later.' 
-    } 
-  });
+  const { prompt } = req.body;
+  
+  if (!prompt) {
+    return res.status(400).json({ error: { message: 'Prompt is required' } });
+  }
+
+  try {
+    // Use Pollinations.AI - free, no API key needed
+    const encodedPrompt = encodeURIComponent(prompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+    
+    // Pollinations returns direct image URL
+    res.json({
+      data: [{
+        url: imageUrl,
+        revised_prompt: prompt
+      }]
+    });
+  } catch (err) {
+    console.error('Image generation error:', err);
+    res.status(500).json({ 
+      error: { message: 'Image generation failed: ' + err.message } 
+    });
+  }
 });
 
 // ─── API: Web Search (Tavily) ────────────────────────────────────────────────

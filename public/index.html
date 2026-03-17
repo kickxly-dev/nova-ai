@@ -1743,6 +1743,12 @@ async function sendMessage(p) {
         }
       }
       
+      // Use streaming for Groq providers
+      if (state.provider === 'groq' || state.provider === 'nova_custom') {
+        await streamMessage(text, finalMessages, p);
+        return;
+      }
+      
       res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
