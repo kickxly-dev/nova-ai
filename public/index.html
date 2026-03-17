@@ -1827,22 +1827,31 @@ async function sendMessage(p) {
   if (!text || state.isTyping) return;
   
   // Check for AI natural language commands BEFORE sending to AI
-  if (typeof detectAndHandleAICommands === 'function') {
-    var handled = detectAndHandleAICommands(text, null);
+  if (typeof window.detectAndHandleAICommands === 'function') {
+    var handled = window.detectAndHandleAICommands(text, null);
     if (handled) {
       inputEl.value = '';
       inputEl.style.height = 'auto';
-      return; // Command handled, don't send to AI
+      return;
     }
   }
+  
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  state.isTyping = true;
+  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = true; });
+  appendMessage('user', text);
 
-  // Handle web search queries
+  if (state.imageMode) {
+    await generateImage(text);
+    return;
+  }
+
   if (state.tools.search && /search|look up|what's new|what is happening|current|latest|recent|news/i.test(text)) {
     await performWebSearch(text);
     return;
   }
 
-  // Regular chat
   var sys = state.systemPrompt;
   if (state.tools.memory && state.memory) {
     sys += '\n\n=== USER MEMORY (IMPORTANT: Reference this information when relevant) ===\n' + state.memory + '\n=== END USER MEMORY ===';
@@ -1852,16 +1861,13 @@ async function sendMessage(p) {
   try {
     var res, data, reply;
     
-    // Direct Ollama connection from browser (for deployed sites)
     if (state.provider === 'ollama') {
       var ollamaModel = state.model || 'llama3.2';
       var ollamaMessages = messages.map(function(m) { return { role: m.role, content: m.content }; });
       
-      // Add image to last user message if present
       if (attachedImageData && ollamaMessages.length > 0) {
         var lastMsg = ollamaMessages[ollamaMessages.length - 1];
         if (lastMsg.role === 'user') {
-          // Extract base64 data (remove data:image/xxx;base64, prefix)
           var base64Data = attachedImageData.split(',')[1];
           lastMsg.images = [base64Data];
         }
@@ -1883,12 +1889,10 @@ async function sendMessage(p) {
       var ollamaData = await res.json();
       reply = ollamaData.message?.content || '';
     } else {
-      // Server-based providers - include image in messages if present
       var finalMessages = messages;
       if (attachedImageData && finalMessages.length > 0) {
         var lastUserMsg = finalMessages[finalMessages.length - 1];
         if (lastUserMsg.role === 'user') {
-          // Convert to vision format (OpenAI style)
           lastUserMsg.content = [
             { type: 'text', text: lastUserMsg.content },
             { type: 'image_url', image_url: { url: attachedImageData } }
@@ -1906,7 +1910,6 @@ async function sendMessage(p) {
       reply = data.choices[0].message.content;
     }
     
-    // Clear attached image after sending
     attachedImageData = null;
     var attachmentEl = document.getElementById('d-image-attachment');
     if (attachmentEl) attachmentEl.style.display = 'none';
@@ -1916,11 +1919,9 @@ async function sendMessage(p) {
     state.history.push({ role: 'assistant', content: reply });
     if (state.history.length > 40) state.history = state.history.slice(-40);
     
-    // Track conversation and learn preferences
     incrementConversationCount();
     learnFromConversation(text, reply);
     
-    // Check for AI natural language commands (email, sheets, drive, calendar)
     if (typeof detectAndHandleAICommands === 'function') {
       detectAndHandleAICommands(text, reply);
     }
