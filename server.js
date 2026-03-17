@@ -177,7 +177,7 @@ const PROVIDERS = {
   // FREE - NVIDIA Build (OpenAI-compatible)
   nvidia: {
     name: 'NVIDIA Build',
-    baseURL: 'https://integrate.api.nvidia.com/v1',
+    baseURL: 'https://api.nvidia.com/v1',
     keyEnv: 'NVIDIA_API_KEY',
     free: true,
     freeTier: true,
@@ -569,8 +569,8 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      const nvidiaModel = model || 'deepseek-ai/deepseek-r1';
-      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      const nvidiaModel = model || 'meta/llama-3.1-8b-instruct';
+      const response = await fetch(`${cfg.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -588,7 +588,7 @@ app.post('/api/chat', async (req, res) => {
         const errorText = await response.text();
         return res.json({
           choices: [{
-            message: { role: 'assistant', content: `NVIDIA Build error: ${response.status} - ${errorText}\n\nCheck your API key or try again.` },
+            message: { role: 'assistant', content: `NVIDIA Build error: ${response.status} - ${errorText}\n\nCheck your API key or try a different model.` },
             finish_reason: 'stop',
           }],
         });
