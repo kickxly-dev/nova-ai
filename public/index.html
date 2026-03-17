@@ -1630,11 +1630,6 @@ function appendMessage(role, content, animate) {
     msg.innerHTML = '<div class="' + avCls + ' ' + (role === 'ai' ? 'ai' : 'user') + '">' + (role === 'ai' ? state.aiName[0] : 'U') + '</div><div class="' + bubCls + ' bubble">' + inner + '</div>';
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
-    
-    // Speak AI responses if TTS is enabled
-    if (role === 'ai' && ttsEnabled) {
-      speakText(c);
-    }
   });
 }
 
@@ -1684,6 +1679,17 @@ async function sendMessage(p) {
     }
   }
   
+  // Add file attachment context if available
+  var attachmentContext = '';
+  if (typeof window.FileAttachments !== 'undefined') {
+    var platform = p === 'd' ? 'desktop' : 'mobile';
+    var attachments = FileAttachments.getAttachmentsForPlatform(platform);
+    if (attachments.length > 0) {
+      attachmentContext = FileAttachments.buildAttachmentContext(attachments);
+      FileAttachments.clearAttachments(platform);
+    }
+  }
+  
   inputEl.value = '';
   inputEl.style.height = 'auto';
   state.isTyping = true;
@@ -1704,11 +1710,18 @@ async function sendMessage(p) {
   if (state.tools.memory && state.memory) {
     sys += '\n\n=== USER MEMORY (IMPORTANT: Reference this information when relevant) ===\n' + state.memory + '\n=== END USER MEMORY ===';
   }
-  var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: text }]);
+  
+  // Build user message with attachment context
+  var userContent = text;
+  if (attachmentContext) {
+    userContent = text + attachmentContext;
+  }
+  
+  var messages = [{ role: 'system', content: sys }].concat(state.history).concat([{ role: 'user', content: userContent }]);
   appendTyping();
+  
+  var res, data, reply;
   try {
-    var res, data, reply;
-    
     if (state.provider === 'ollama') {
       var ollamaModel = state.model || 'llama3.2';
       var ollamaMessages = messages.map(function(m) { return { role: m.role, content: m.content }; });
@@ -1746,12 +1759,6 @@ async function sendMessage(p) {
             { type: 'image_url', image_url: { url: attachedImageData } }
           ];
         }
-      }
-      
-      // Use streaming for Groq providers
-      if (state.provider === 'groq' || state.provider === 'nova_custom') {
-        await streamMessage(text, finalMessages, p);
-        return;
       }
       
       res = await fetch('/api/chat', {
@@ -1912,112 +1919,6 @@ function appendSearchMessage(query, searchData) {
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
   });
-}
-
-// ─── TTS - AI Speaks Responses ──────────────────────────────────────────────
-var ttsEnabled = localStorage.getItem('nova_tts_enabled') === 'true';
-var ttsVoice = null;
-var ttsQueue = [];
-var isSpeaking = false;
-
-// Initialize TTS voices
-function initTTS() {
-  if (!window.speechSynthesis) return;
-  
-  // Get voices (may need to wait for them to load)
-  var voices = window.speechSynthesis.getVoices();
-  if (voices.length === 0) {
-    window.speechSynthesis.onvoiceschanged = function() {
-      voices = window.speechSynthesis.getVoices();
-      selectBestVoice(voices);
-    };
-  } else {
-    selectBestVoice(voices);
-  }
-}
-
-function selectBestVoice(voices) {
-  // Prefer natural-sounding voices
-  var preferred = voices.find(function(v) { 
-    return v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha'); 
-  });
-  if (!preferred) preferred = voices.find(function(v) { return v.lang.startsWith('en'); });
-  if (!preferred) preferred = voices[0];
-  ttsVoice = preferred;
-}
-
-function toggleTTS() {
-  ttsEnabled = !ttsEnabled;
-  localStorage.setItem('nova_tts_enabled', ttsEnabled);
-  showToast(ttsEnabled ? 'TTS enabled - AI will speak' : 'TTS disabled');
-  
-  // Stop any current speech if disabling
-  if (!ttsEnabled && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    isSpeaking = false;
-    ttsQueue = [];
-  }
-}
-
-function speakText(text) {
-  if (!ttsEnabled || !window.speechSynthesis || !ttsVoice) return;
-  
-  // Don't speak code blocks or technical content
-  if (text.includes('```') || text.includes('function') || text.includes('class')) {
-    text = text.replace(/```[\s\S]*?```/g, ' [code] ');
-  }
-  
-  // Clean up markdown
-  text = text.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '');
-  
-  // Limit length
-  if (text.length > 500) {
-    text = text.substring(0, 500) + '... (message continues in chat)';
-  }
-  
-  // Add to queue and process
-  ttsQueue.push(text);
-  processTTSQueue();
-}
-
-function processTTSQueue() {
-  if (isSpeaking || ttsQueue.length === 0) return;
-  
-  isSpeaking = true;
-  var text = ttsQueue.shift();
-  
-  var utterance = new SpeechSynthesisUtterance(text);
-  utterance.voice = ttsVoice;
-  utterance.rate = 1.1; // Slightly faster
-  utterance.pitch = 1.0;
-  utterance.volume = 1.0;
-  
-  utterance.onend = function() {
-    isSpeaking = false;
-    processTTSQueue();
-  };
-  
-  utterance.onerror = function() {
-    isSpeaking = false;
-    processTTSQueue();
-  };
-  
-  window.speechSynthesis.speak(utterance);
-}
-
-function stopSpeaking() {
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    isSpeaking = false;
-    ttsQueue = [];
-  }
-}
-
-// Initialize TTS on load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initTTS);
-} else {
-  initTTS();
 }
 
 // ─── Voice Input ─────────────────────────────────────────────────────────────
@@ -3908,215 +3809,7 @@ if (window.location.pathname === '/admin') {
     toggleAdminPanel();
   }, 500);
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MOBILE ENHANCEMENTS - Swipe Gestures & Native Feel
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── Swipe Detection ───────────────────────────────────────────────────────────
-var touchStartX = 0;
-var touchStartY = 0;
-var touchEndX = 0;
-var touchEndY = 0;
-var minSwipeDistance = 80;
-
-function initMobileGestures() {
-  var mobileApp = document.getElementById('mobile-app');
-  if (!mobileApp) return;
-  
-  // Touch start
-  mobileApp.addEventListener('touchstart', function(e) {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-  }, { passive: true });
-  
-  // Touch end
-  mobileApp.addEventListener('touchend', function(e) {
-    touchEndX = e.changedTouches[0].screenX;
-    touchEndY = e.changedTouches[0].screenY;
-    handleSwipe();
-  }, { passive: true });
-}
-
-function handleSwipe() {
-  var deltaX = touchEndX - touchStartX;
-  var deltaY = touchEndY - touchStartY;
-  var drawer = document.getElementById('m-drawer');
-  
-  // Only handle horizontal swipes
-  if (Math.abs(deltaX) > Math.abs(deltaY)) {
-    // Right swipe - open drawer
-    if (deltaX > minSwipeDistance && touchStartX < 50) {
-      openDrawer();
-    }
-    // Left swipe - close drawer
-    if (deltaX < -minSwipeDistance && drawer && drawer.classList.contains('open')) {
-      closeDrawer();
-    }
-  }
-}
-
-// ─── Bottom Sheet for Provider Selection ────────────────────────────────────
-function showMobileBottomSheet() {
-  // Create bottom sheet if not exists
-  var existing = document.getElementById('m-bottom-sheet');
-  if (existing) existing.remove();
-  
-  var sheet = document.createElement('div');
-  sheet.id = 'm-bottom-sheet';
-  sheet.className = 'm-bottom-sheet';
-  sheet.innerHTML = `
-    <div class="m-bottom-sheet-header">
-      <div class="m-bottom-sheet-handle"></div>
-      <h3>Select AI Provider</h3>
-    </div>
-    <div class="m-bottom-sheet-content">
-      ${Object.entries(PROVIDERS).map(function([id, cfg]) {
-        var avail = state.availableProviders[id] && state.availableProviders[id].available;
-        return '<div class="m-bottom-sheet-item' + (!avail ? ' unavailable' : '') + '" onclick="selectProvider(\'' + id + '\');closeMobileBottomSheet();">' +
-          '<div class="provider-dot ' + cfg.color + (!avail ? ' offline' : '') + '"></div>' +
-          '<div class="m-bottom-sheet-item-info">' +
-            '<div class="m-bottom-sheet-item-name">' + cfg.name + '</div>' +
-            '<div class="m-bottom-sheet-item-model">' + cfg.models[0] + '</div>' +
-          '</div>' +
-          '<div class="m-bottom-sheet-item-badge ' + cfg.badge + '">' + cfg.badge + '</div>' +
-        '</div>';
-      }).join('')}
-    </div>
-  `;
-  
-  document.body.appendChild(sheet);
-  
-  // Show with animation
-  requestAnimationFrame(function() {
-    sheet.classList.add('open');
-  });
-  
-  // Close on overlay click
-  sheet.addEventListener('click', function(e) {
-    if (e.target === sheet) closeMobileBottomSheet();
-  });
-  
-  // Close on handle drag down (simplified)
-  var handle = sheet.querySelector('.m-bottom-sheet-handle');
-  var startY = 0;
-  handle.addEventListener('touchstart', function(e) {
-    startY = e.touches[0].clientY;
-  }, { passive: true });
-  
-  handle.addEventListener('touchend', function(e) {
-    var deltaY = e.changedTouches[0].clientY - startY;
-    if (deltaY > 100) closeMobileBottomSheet();
-  }, { passive: true });
-}
-
-function closeMobileBottomSheet() {
-  var sheet = document.getElementById('m-bottom-sheet');
-  if (sheet) {
-    sheet.classList.remove('open');
-    setTimeout(function() { sheet.remove(); }, 300);
-  }
-}
-
-// ─── Haptic Feedback ──────────────────────────────────────────────────────────
-function hapticFeedback(type) {
-  if (!window.navigator.vibrate) return;
-  
-  var patterns = {
-    light: [10],
-    medium: [20],
-    heavy: [30],
-    success: [10, 50, 10],
-    error: [40, 50, 40]
-  };
-  
-  window.navigator.vibrate(patterns[type] || patterns.light);
-}
-
-// ─── Pull to Refresh ────────────────────────────────────────────────────────
-var pullStartY = 0;
-var pullThreshold = 150;
-
-function initPullToRefresh() {
-  var chatArea = document.getElementById('m-chat-area');
-  if (!chatArea) return;
-  
-  chatArea.addEventListener('touchstart', function(e) {
-    if (chatArea.scrollTop === 0) {
-      pullStartY = e.touches[0].clientY;
-    }
-  }, { passive: true });
-  
-  chatArea.addEventListener('touchmove', function(e) {
-    if (pullStartY && chatArea.scrollTop === 0) {
-      var pullDistance = e.touches[0].clientY - pullStartY;
-      if (pullDistance > 0 && pullDistance < pullThreshold) {
-        chatArea.style.transform = 'translateY(' + (pullDistance / 2) + 'px)';
-      }
-    }
-  }, { passive: true });
-  
-  chatArea.addEventListener('touchend', function(e) {
-    if (pullStartY) {
-      var pullDistance = e.changedTouches[0].clientY - pullStartY;
-      chatArea.style.transform = '';
-      
-      if (pullDistance > pullThreshold) {
-        showToast('Refreshing...');
-        hapticFeedback('success');
-        refreshProviders();
-      }
-      pullStartY = 0;
-    }
-  });
-}
-
-// ─── Quick Actions Menu ─────────────────────────────────────────────────────
-function showQuickActions() {
-  var menu = document.createElement('div');
-  menu.className = 'm-quick-actions';
-  menu.innerHTML = `
-    <div class="m-quick-actions-overlay" onclick="this.parentElement.remove()"></div>
-    <div class="m-quick-actions-sheet">
-      <div class="m-quick-actions-item" onclick="newChat();this.parentElement.parentElement.remove()">
-        <span>✨</span> New Chat
-      </div>
-      <div class="m-quick-actions-item" onclick="toggleImageMode();this.parentElement.parentElement.remove()">
-        <span>🎨</span> Image Mode
-      </div>
-      <div class="m-quick-actions-item" onclick="toggleTTS();this.parentElement.parentElement.remove()">
-        <span>🔊</span> ${ttsEnabled ? 'Disable Voice' : 'Enable Voice'}
-      </div>
-      <div class="m-quick-actions-item" onclick="showMobileBottomSheet();this.parentElement.parentElement.remove()">
-        <span>🤖</span> Change Provider
-      </div>
-      <div class="m-quick-actions-item" onclick="openSettings();this.parentElement.parentElement.remove()">
-        <span>⚙️</span> Settings
-      </div>
-      <div class="m-quick-actions-cancel" onclick="this.parentElement.parentElement.remove()">Cancel</div>
-    </div>
-  `;
-  document.body.appendChild(menu);
-  hapticFeedback('medium');
-}
-
-// Initialize mobile enhancements
-if (isMobile) {
-  initMobileGestures();
-  initPullToRefresh();
-}
-
-init();
-
-// Auto-open admin panel if URL is /admin
-console.log('Current pathname:', window.location.pathname);
-if (window.location.pathname === '/admin') {
-  console.log('Auto-opening admin panel');
-  setTimeout(function() {
-    toggleAdminPanel();
-  }, 500);
-}
-
+</script>
 <script src="changelog.js"></script>
 <script src="plugins.js"></script>
 <script src="plugins/builtin.js"></script>
@@ -4130,6 +3823,7 @@ if (window.location.pathname === '/admin') {
 <script src="themes-personalities.js"></script>
 <script src="folders.js"></script>
 <script src="file-upload-enhanced.js"></script>
+<script src="file-attachments.js"></script>
 <script src="websearch-v2.js"></script>
 <script src="vision.js"></script>
 <script src="chat-sharing.js"></script>
