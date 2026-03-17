@@ -291,28 +291,31 @@
   
   // AI Natural Language Command Detection
   window.detectAndHandleAICommands = function(userMessage, aiResponse) {
-    const msg = userMessage.toLowerCase();
+    const msg = userMessage.toLowerCase().trim();
+    console.log('[Command Detection] Checking message:', msg);
     
     // Email commands
     if (msg.includes('send this to email') || msg.includes('email this') || msg.includes('email this conversation') || msg.includes('send to email')) {
+      console.log('[Command Detection] Email command matched');
       if (GmailIntegration.accessToken) {
-        // Ask for email if not set
         const email = prompt('Enter recipient email:');
         if (email) {
           GmailIntegration.sendChatViaEmail(email, state.history)
             .then(() => showToast('Chat sent to ' + email))
             .catch(err => showToast(err.message, 'error'));
         }
-        return true; // Command handled
+        return true;
       } else {
         showToast('Gmail not connected. Click 📧 Gmail button first.', 'error');
         return true;
       }
     }
     
-    // Sheets export commands
-    if (msg.includes('export to sheets') || msg.includes('export chat to sheets') || msg.includes('save to sheets') || msg.includes('google sheets')) {
+    // Sheets export commands - more flexible matching
+    if (msg.match(/export.*sheet|sheet.*export|save.*sheet|google.sheet/i)) {
+      console.log('[Command Detection] Sheets command matched');
       if (GoogleIntegration.accessToken) {
+        showToast('Exporting to Google Sheets...');
         GoogleIntegration.exportChatToSheets(state.history)
           .then(result => {
             showToast('Exported to Sheets!');
@@ -327,8 +330,10 @@
     }
     
     // Drive save commands
-    if (msg.includes('save to drive') || msg.includes('upload to drive') || msg.includes('google drive')) {
+    if (msg.match(/save.*drive|drive.*save|upload.*drive/i)) {
+      console.log('[Command Detection] Drive command matched');
       if (GoogleIntegration.accessToken) {
+        showToast('Saving to Google Drive...');
         GoogleIntegration.uploadChatAsDoc(state.history)
           .then(() => showToast('Saved to Google Drive!'))
           .catch(err => showToast(err.message, 'error'));
@@ -340,15 +345,16 @@
     }
     
     // Calendar commands
-    if (msg.includes('add to calendar') || msg.includes('create event') || msg.includes('schedule this')) {
+    if (msg.match(/add.*calendar|calendar.*add|create.*event|schedule/i)) {
+      console.log('[Command Detection] Calendar command matched');
       if (GoogleIntegration.accessToken) {
-        const summary = prompt('Event title:', aiResponse.slice(0, 50));
+        const summary = prompt('Event title:', aiResponse ? aiResponse.slice(0, 50) : 'New Event');
         if (summary) {
           const dateInput = prompt('When? (YYYY-MM-DD HH:MM)');
           if (dateInput) {
             const startTime = new Date(dateInput).toISOString();
             const endTime = new Date(new Date(dateInput).getTime() + 60 * 60 * 1000).toISOString();
-            GoogleIntegration.createEvent(summary, aiResponse.slice(0, 500), startTime, endTime)
+            GoogleIntegration.createEvent(summary, aiResponse ? aiResponse.slice(0, 500) : '', startTime, endTime)
               .then(() => showToast('Event added to calendar!'))
               .catch(err => showToast(err.message, 'error'));
           }
@@ -360,7 +366,8 @@
       }
     }
     
-    return false; // No command detected
+    console.log('[Command Detection] No command matched');
+    return false;
   };
   
   // Email the entire chat conversation
