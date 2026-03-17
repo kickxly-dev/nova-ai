@@ -14,7 +14,7 @@ app.set('trust proxy', 1);
 
 // Session configuration for OAuth (production only)
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'nova-secret-change-in-production',
+  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
   cookie: { secure: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'none' } // 7 days
@@ -69,6 +69,21 @@ app.get('/admin', (req, res) => {
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── Maintenance Mode State ──────────────────────────────────────────────────
+let maintenanceMode = false;
+let maintenanceMessage = 'NOVA is currently under maintenance. Please check back soon.';
+
+// Maintenance mode middleware (must be before API routes to actually block them)
+app.use((req, res, next) => {
+  if (maintenanceMode && !req.path.startsWith('/admin') && !req.path.startsWith('/auth') && !req.path.startsWith('/api/providers')) {
+    return res.status(503).json({ 
+      maintenance: true, 
+      message: maintenanceMessage 
+    });
+  }
+  next();
+});
 
 // ─── Database ────────────────────────────────────────────────────────────────
 const pool = process.env.DATABASE_URL
@@ -952,14 +967,6 @@ app.post('/api/chats', async (req, res) => {
     await pool.query('DELETE FROM chat_messages WHERE chat_id = $1', [chatId]);
     
     if (history && history.length > 0) {
-      const values = history.map((msg, i) => 
-        `($1, $2, $3, NOW() + INTERVAL '${i} milliseconds')`
-      ).join(',');
-      const params = [chatId];
-      history.forEach(msg => {
-        params.push(msg.role, msg.content);
-      });
-      
       // Build parameterized query
       let paramIndex = 1;
       const queryValues = history.map(msg => {
@@ -1000,29 +1007,16 @@ app.delete('/api/chats/:userToken/:chatId', async (req, res) => {
   }
 });
 
-// ─── Admin & Maintenance Mode ───────────────────────────────────────────────
-let maintenanceMode = false;
-let maintenanceMessage = 'NOVA is currently under maintenance. Please check back soon.';
+// ─── Admin Routes ────────────────────────────────────────────────────────────
 
 // Admin middleware - check for admin token
 const requireAdmin = (req, res, next) => {
   const adminToken = req.headers['x-admin-token'] || req.body?.adminToken;
-  if (adminToken === process.env.ADMIN_TOKEN || adminToken === 'nova-admin-2024') {
+  if (process.env.ADMIN_TOKEN && adminToken === process.env.ADMIN_TOKEN) {
     return next();
   }
   res.status(403).json({ error: 'Admin access required' });
 };
-
-// Maintenance mode middleware (applied before fallback)
-app.use((req, res, next) => {
-  if (maintenanceMode && !req.path.startsWith('/admin') && !req.path.startsWith('/auth')) {
-    return res.status(503).json({ 
-      maintenance: true, 
-      message: maintenanceMessage 
-    });
-  }
-  next();
-});
 
 // Admin routes
 app.get('/admin/status', (req, res) => {

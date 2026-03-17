@@ -544,7 +544,49 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
 @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 500; z-index: 999; animation: fadeUp 0.2s ease; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); }
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 500; z-index: 999; animation: fadeUp 0.2s ease; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); display: flex; align-items: center; gap: 8px; }
+.toast.toast-success { border-color: var(--green, #22c55e); }
+.toast.toast-error { border-color: var(--red, #ef4444); }
+.toast.toast-warning { border-color: #f59e0b; }
+.toast-icon { font-size: 15px; flex-shrink: 0; }
+
+/* Message timestamps */
+.msg-time { font-size: 10px; color: var(--muted); margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
+.d-msg:hover .msg-time, .m-msg:hover .msg-time { opacity: 1; }
+
+/* Copy button on AI messages */
+.msg-copy-btn { position: absolute; top: 6px; right: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s, color 0.15s; font-size: 13px; }
+.d-msg:hover .msg-copy-btn, .m-msg:hover .msg-copy-btn { opacity: 1; }
+.msg-copy-btn:hover { color: var(--text); background: var(--surface); }
+.bubble { position: relative; }
+
+/* Scroll to bottom button */
+.scroll-bottom-btn { position: absolute; bottom: 90px; right: 24px; width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--text); cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: var(--shadow); z-index: 10; transition: background 0.15s; font-size: 16px; }
+.scroll-bottom-btn:hover { background: var(--surface2); }
+.scroll-bottom-btn.visible { display: flex; }
+
+/* Character counter */
+.char-counter { font-size: 10px; color: var(--muted); position: absolute; bottom: 4px; right: 52px; pointer-events: none; transition: color 0.15s; }
+.char-counter.warn { color: #f59e0b; }
+.char-counter.over { color: var(--red, #ef4444); }
+
+/* Markdown list styles */
+.msg-list { margin: 6px 0; padding-left: 20px; }
+.msg-list li { margin: 2px 0; line-height: 1.5; }
+.msg-list.ordered { list-style: decimal; }
+.msg-list.unordered { list-style: disc; }
+
+/* Delete confirmation dialog */
+.confirm-dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeUp 0.15s ease; }
+.confirm-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 360px; width: 90%; box-shadow: var(--shadow); }
+.confirm-dialog h3 { margin: 0 0 8px; font-size: 16px; color: var(--text); }
+.confirm-dialog p { margin: 0 0 20px; font-size: 13px; color: var(--text2); }
+.confirm-dialog-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-dialog-btns button { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); }
+.confirm-cancel { background: var(--surface2); color: var(--text); }
+.confirm-cancel:hover { background: var(--surface); }
+.confirm-danger { background: var(--red, #ef4444); color: #fff; border-color: transparent; }
+.confirm-danger:hover { opacity: 0.9; }
 
 /* Folders */
 .folder-section { padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -656,10 +698,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Search</strong><span>What's happening in AI this week?</span></div>
           <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Generate</strong><span>Create an image of a neon city at night</span></div>
           <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Brainstorm</strong><span>5 startup ideas in the AI space</span></div>
-          <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Memory</strong><span>What do you remember about me?</span></div>
+          <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Explain</strong><span>How does quantum computing work?</span></div>
+          <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Write</strong><span>Draft a professional email to my team</span></div>
+          <div class="d-sug-card" onclick="useSuggestion(this,'d')"><strong>Code</strong><span>Write a Python script to sort a CSV file</span></div>
         </div>
       </div>
     </div>
+    <button class="scroll-bottom-btn" id="d-scroll-bottom" onclick="scrollToBottom('d')" title="Scroll to bottom">&#x2193;</button>
     <div class="d-input-area">
       <div id="d-image-attachment" class="image-attachment" style="display:none; margin-bottom:8px; max-width:800px; margin-left:auto; margin-right:auto;">
         <img id="d-attachment-thumb" src="" alt="Attached image">
@@ -673,7 +718,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); heig
           <input type="file" id="d-file-input" style="display:none" accept="image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css" onchange="handleFileUpload(event,'d')"/>
           <input type="file" id="m-file-input" style="display:none" accept="image/*,.pdf,.txt,.md,.json,.csv,.js,.py,.html,.css" onchange="handleFileUpload(event,'m')"/>
         </div>
-        <textarea id="d-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'d')" oninput="autoResize(this)"></textarea>
+        <textarea id="d-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'d')" oninput="autoResize(this); updateCharCounter('d')"></textarea>
+        <span class="char-counter" id="d-char-counter"></span>
         <button class="d-send-btn" id="d-send-btn" onclick="sendMessage('d')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
       <div class="d-hint">Enter to send &middot; Shift+Enter for new line</div>
@@ -1004,11 +1050,12 @@ Just tell me what you want to build!</div>
         <div class="m-sug-grid">
           <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Search</strong>What's new in AI?</div>
           <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Generate</strong>Neon city at night</div>
-          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Brainstorm</strong>5 AI startup ideas</div>
-          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Memory</strong>What do you know about me?</div>
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Explain</strong>How does quantum computing work?</div>
+          <div class="m-sug-card" onclick="useSuggestion(this,'m')"><strong>Write</strong>Draft a professional email</div>
         </div>
       </div>
     </div>
+    <button class="scroll-bottom-btn" id="m-scroll-bottom" onclick="scrollToBottom('m')" title="Scroll to bottom">&#x2193;</button>
     <div class="m-input-area">
       <div class="m-tools-row">
         <div class="m-tool-chip active" id="m-pill-memory" onclick="toggleTool('memory')">Memory</div>
@@ -1019,7 +1066,8 @@ Just tell me what you want to build!</div>
       <div class="m-input-row">
         <div class="m-input-wrap">
           <button class="m-img-btn" id="m-attach-btn" onclick="triggerFileUpload('m')" title="Attach file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
-          <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this)"></textarea>
+          <textarea id="m-msg-input" placeholder="Message NOVA..." rows="1" onkeydown="handleKey(event,'m')" oninput="autoResize(this); updateCharCounter('m')"></textarea>
+          <span class="char-counter" id="m-char-counter"></span>
           <button class="m-img-btn" id="m-voice-btn" onclick="toggleVoiceInput('m')" title="Voice input"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
         </div>
         <button class="m-send-btn" id="m-send-btn" onclick="sendMessage('m')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
@@ -1551,12 +1599,21 @@ function saveSettings() {
   showToast('Settings saved');
 }
 
-function showToast(msg) {
+function showToast(msg, type) {
   var t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
+  t.className = 'toast' + (type ? ' toast-' + type : '');
+  var icons = { success: '\u2713', error: '\u2717', warning: '\u26A0' };
+  if (type && icons[type]) {
+    var icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = icons[type];
+    t.appendChild(icon);
+  }
+  var span = document.createElement('span');
+  span.textContent = msg;
+  t.appendChild(span);
   document.body.appendChild(t);
-  setTimeout(function() { t.remove(); }, 2200);
+  setTimeout(function() { t.remove(); }, 2500);
 }
 
 function openDrawer() { document.getElementById('m-drawer').classList.add('open'); document.getElementById('m-drawer-overlay').classList.add('open'); }
@@ -1586,9 +1643,9 @@ function createWelcome(p) {
   w.id = p + '-welcome';
   var n = state.aiName;
   if (p === 'd') {
-    w.innerHTML = '<div class="d-welcome-icon">' + n[0] + '</div><h1>What can I help with?</h1><p>Memory, web search, tools, and image generation built in. Pick your provider and start chatting.</p><div class="d-sug-grid"><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Search</strong><span>What\'s happening in AI this week?</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Generate</strong><span>Create an image of a neon city at night</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Brainstorm</strong><span>5 startup ideas in the AI space</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Memory</strong><span>What do you remember about me?</span></div></div>';
+    w.innerHTML = '<div class="d-welcome-icon">' + n[0] + '</div><h1>What can I help with?</h1><p>Memory, web search, tools, and image generation built in. Pick your provider and start chatting.</p><div class="d-sug-grid"><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Search</strong><span>What\'s happening in AI this week?</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Generate</strong><span>Create an image of a neon city at night</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Brainstorm</strong><span>5 startup ideas in the AI space</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Explain</strong><span>How does quantum computing work?</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Write</strong><span>Draft a professional email to my team</span></div><div class="d-sug-card" onclick="useSuggestion(this,\'d\')"><strong>Code</strong><span>Write a Python script to sort a CSV file</span></div></div>';
   } else {
-    w.innerHTML = '<div class="m-welcome-icon">' + n[0] + '</div><h2>Hey, I\'m ' + n + '</h2><p>Your AI with memory, search, tools, and image generation.</p><div class="m-sug-grid"><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Search</strong>What\'s new in AI?</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Generate</strong>Neon city at night</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Brainstorm</strong>5 AI startup ideas</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Memory</strong>What do you know about me?</div></div>';
+    w.innerHTML = '<div class="m-welcome-icon">' + n[0] + '</div><h2>Hey, I\'m ' + n + '</h2><p>Your AI with memory, search, tools, and image generation.</p><div class="m-sug-grid"><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Search</strong>What\'s new in AI?</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Generate</strong>Neon city at night</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Explain</strong>How does quantum computing work?</div><div class="m-sug-card" onclick="useSuggestion(this,\'m\')"><strong>Write</strong>Draft a professional email</div></div>';
   }
   return w;
 }
@@ -1647,8 +1704,25 @@ function handleKey(e, p) {
 }
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, isMobile ? 100 : 140) + 'px'; }
 
+function updateCharCounter(p) {
+  var input = document.getElementById(p + '-msg-input');
+  var counter = document.getElementById(p + '-char-counter');
+  if (!input || !counter) return;
+  var len = input.value.length;
+  if (len === 0) { counter.textContent = ''; return; }
+  counter.textContent = len.toLocaleString();
+  counter.className = 'char-counter' + (len > 4000 ? ' over' : len > 3000 ? ' warn' : '');
+}
+
+function scrollToBottom(p) {
+  var area = document.getElementById(p + '-chat-area');
+  if (area) area.scrollTop = area.scrollHeight;
+}
+
 function appendMessage(role, content, animate) {
   if (animate === undefined) animate = true;
+  var now = new Date();
+  var timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
   [['d','d-msg','d-avatar','d-bubble'],['m','m-msg','m-avatar','m-bubble']].forEach(function(cfg) {
     var p = cfg[0], msgCls = cfg[1], avCls = cfg[2], bubCls = cfg[3];
     var area = document.getElementById(p + '-chat-area');
@@ -1669,9 +1743,25 @@ function appendMessage(role, content, animate) {
       c = content.slice(end + 1).trim();
     }
     inner += formatContent(c);
-    msg.innerHTML = '<div class="' + avCls + ' ' + (role === 'ai' ? 'ai' : 'user') + '">' + (role === 'ai' ? state.aiName[0] : 'U') + '</div><div class="' + bubCls + ' bubble">' + inner + '</div>';
+    var copyBtn = role === 'ai' ? '<button class="msg-copy-btn" title="Copy" onclick="copyMsgContent(this)">&#x2398;</button>' : '';
+    msg.innerHTML = '<div class="' + avCls + ' ' + (role === 'ai' ? 'ai' : 'user') + '">' + (role === 'ai' ? state.aiName[0] : 'U') + '</div><div class="' + bubCls + ' bubble">' + copyBtn + inner + '<div class="msg-time">' + timeStr + '</div></div>';
     area.appendChild(msg);
     area.scrollTop = area.scrollHeight;
+  });
+}
+
+function copyMsgContent(btn) {
+  var bubble = btn.parentElement;
+  var clone = bubble.cloneNode(true);
+  var copyEl = clone.querySelector('.msg-copy-btn');
+  if (copyEl) copyEl.remove();
+  var timeEl = clone.querySelector('.msg-time');
+  if (timeEl) timeEl.remove();
+  var text = clone.textContent.trim();
+  navigator.clipboard.writeText(text).then(function() {
+    showToast('Copied to clipboard', 'success');
+  }).catch(function() {
+    showToast('Failed to copy', 'error');
   });
 }
 
@@ -1700,6 +1790,21 @@ function formatContent(text) {
   text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, function(_, l, c) { return '<pre><code class="language-' + (l || '') + '">' + escHtml(c.trim()) + '</code></pre>'; });
   text = text.replace(/`([^`]+)`/g, function(_, c) { return '<code>' + escHtml(c) + '</code>'; });
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // Ordered lists
+  text = text.replace(/((?:^|\n)\d+\..+(?:\n\d+\..+)*)/g, function(block) {
+    var items = block.trim().split('\n').map(function(line) {
+      return '<li>' + line.replace(/^\d+\.\s*/, '') + '</li>';
+    }).join('');
+    return '<ol class="msg-list ordered">' + items + '</ol>';
+  });
+  // Unordered lists
+  text = text.replace(/((?:^|\n)[\-\*]\s.+(?:\n[\-\*]\s.+)*)/g, function(block) {
+    var items = block.trim().split('\n').map(function(line) {
+      return '<li>' + line.replace(/^[\-\*]\s/, '') + '</li>';
+    }).join('');
+    return '<ul class="msg-list unordered">' + items + '</ul>';
+  });
   text = text.replace(/\n/g, '<br>');
   return text;
 }
@@ -2642,13 +2747,6 @@ function formatCode() {
   }
 }
 
-function toggleImageMode() {
-  state.imageMode = !state.imageMode;
-  ['d-img-btn','m-img-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.classList.toggle('active', state.imageMode); });
-  var ph = state.imageMode ? 'Describe an image to generate...' : 'Message ' + state.aiName + '...';
-  ['d-msg-input','m-msg-input'].forEach(function(id) { var el = document.getElementById(id); if (el) el.placeholder = ph; });
-}
-
 function toggleVoiceInput() {
   var btn = document.getElementById('m-voice-btn');
   if (btn.classList.contains('active')) {
@@ -3023,22 +3121,6 @@ function filterCommands() {
 function executeCommand(index) {
   commands[index].action();
   toggleCommandPalette();
-}
-
-// ─── Minimap ────────────────────────────────────────────────────────────────
-function updateMinimap() {
-  var code = document.getElementById('code-editor').value;
-  var minimap = document.getElementById('code-minimap-content');
-  minimap.textContent = code;
-  
-  // Update viewport indicator
-  var editor = document.getElementById('code-editor');
-  var viewport = document.getElementById('code-minimap-viewport');
-  var ratio = editor.clientHeight / editor.scrollHeight;
-  var top = (editor.scrollTop / editor.scrollHeight) * 100;
-  
-  viewport.style.height = (ratio * 100) + '%';
-  viewport.style.top = top + '%';
 }
 
 // ─── Error Linting ──────────────────────────────────────────────────────────
@@ -3869,6 +3951,28 @@ checkMaintenanceOverlay();
 var savedTheme = localStorage.getItem('nova_theme');
 if (savedTheme && themes[savedTheme]) { setTheme(savedTheme); }
 
+function confirmAction(title, message, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.className = 'confirm-dialog-overlay';
+  overlay.innerHTML = '<div class="confirm-dialog"><h3>' + escHtml(title) + '</h3><p>' + escHtml(message) + '</p><div class="confirm-dialog-btns"><button class="confirm-cancel" id="confirm-cancel">Cancel</button><button class="confirm-danger" id="confirm-ok">Delete</button></div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#confirm-cancel').onclick = function() { overlay.remove(); };
+  overlay.querySelector('#confirm-ok').onclick = function() { overlay.remove(); onConfirm(); };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
+
+function setupScrollListeners() {
+  ['d', 'm'].forEach(function(p) {
+    var area = document.getElementById(p + '-chat-area');
+    var btn = document.getElementById(p + '-scroll-bottom');
+    if (!area || !btn) return;
+    area.addEventListener('scroll', function() {
+      var isNearBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 120;
+      btn.classList.toggle('visible', !isNearBottom);
+    });
+  });
+}
+
 function init() {
   // Load provider status on startup
   refreshProviders();
@@ -3884,6 +3988,9 @@ function init() {
   
   // Apply AI name to UI
   applyAiName();
+  
+  // Setup scroll-to-bottom listeners
+  setupScrollListeners();
 }
 
 init();
