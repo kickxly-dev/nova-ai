@@ -1825,16 +1825,15 @@ async function sendMessage(p) {
   if (!inputEl) return;
   var text = inputEl.value.trim();
   if (!text || state.isTyping) return;
-  inputEl.value = '';
-  inputEl.style.height = 'auto';
-  state.isTyping = true;
-  ['d-send-btn','m-send-btn'].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = true; });
-  appendMessage('user', text);
-
-  // Handle image generation mode
-  if (state.imageMode) {
-    await generateImage(text);
-    return;
+  
+  // Check for AI natural language commands BEFORE sending to AI
+  if (typeof detectAndHandleAICommands === 'function') {
+    var handled = detectAndHandleAICommands(text, null);
+    if (handled) {
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+      return; // Command handled, don't send to AI
+    }
   }
 
   // Handle web search queries
