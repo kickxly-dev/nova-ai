@@ -174,14 +174,6 @@ const PROVIDERS = {
     free: true,
     freeTier: true,
   },
-  // FREE - NVIDIA Build (OpenAI-compatible)
-  nvidia: {
-    name: 'NVIDIA Build',
-    baseURL: 'https://integrate.api.nvidia.com/v1',
-    keyEnv: 'NVIDIA_API_KEY',
-    free: true,
-    freeTier: true,
-  },
   // FREE - NOVA Custom (wrapper around Groq with custom prompts)
   nova_custom: {
     name: 'NOVA Custom',
@@ -548,59 +540,6 @@ app.post('/api/chat', async (req, res) => {
       res.json({
         choices: [{
           message: { role: 'assistant', content: `DeepSeek error: ${err.message}` },
-          finish_reason: 'stop',
-        }],
-      });
-    }
-    return;
-  }
-
-  // ─── FREE: NVIDIA Build (OpenAI-compatible) ─────────────────────────────────────
-  if (provider === 'nvidia') {
-    try {
-      const nvidiaKey = apiKey !== 'free' ? apiKey : null;
-      
-      if (!nvidiaKey) {
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: 'NVIDIA Build requires an API key. Get a free key at: https://build.nvidia.com/explore/discover\n\nAdd your key in Settings > API Keys.' },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const nvidiaModel = model || 'meta/llama-3.1-8b-instruct';
-      // NVIDIA uses a different endpoint structure
-      const response = await fetch(`https://api.nvidia.com/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${nvidiaKey}`,
-        },
-        body: JSON.stringify({
-          model: nvidiaModel,
-          messages: messages,
-          max_tokens: max_tokens,
-          temperature: temperature,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.json({
-          choices: [{
-            message: { role: 'assistant', content: `NVIDIA Build error: ${response.status} - ${errorText}\n\nCheck your API key or try a different model.` },
-            finish_reason: 'stop',
-          }],
-        });
-      }
-
-      const data = await response.json();
-      res.json(data);
-    } catch (err) {
-      res.json({
-        choices: [{
-          message: { role: 'assistant', content: `NVIDIA Build error: ${err.message}` },
           finish_reason: 'stop',
         }],
       });
