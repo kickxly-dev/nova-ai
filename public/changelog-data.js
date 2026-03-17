@@ -7,10 +7,86 @@
   'use strict';
   
   window.NOVA_CHANGELOG = {
-    currentVersion: '2.0.0',
-    lastUpdated: '2025-01-20',
+    currentVersion: '3.0.0',
+    lastUpdated: '2025-03-16',
     
     versions: [
+      {
+        version: '3.0.0',
+        date: '2025-03-16',
+        title: 'The Everything Update - 37 New Features',
+        features: [
+          {
+            category: 'API Integrations',
+            items: [
+              'GitHub Integration - Analyze repos, create PRs, manage issues',
+              'Gmail Integration - Read and send emails via AI',
+              'Google Calendar - Schedule events, view agenda',
+              'Slack/Discord Notifications - Webhook integrations',
+              'Web Browsing - AI can click links and read page content'
+            ]
+          },
+          {
+            category: 'Document Analysis',
+            items: [
+              'PDF Analysis - Extract text and Q&A from PDFs',
+              'Spreadsheet Analysis - CSV/Excel data parsing and insights',
+              'Repository Analysis - ZIP upload code analysis',
+              'Image OCR - Extract text from images',
+              'Audio Transcription - Speech-to-text support',
+              'Video Analysis - Extract frames and analyze content'
+            ]
+          },
+          {
+            category: 'Memory & Sync',
+            items: [
+              'Knowledge Graph - Advanced entity and relationship tracking',
+              'Auto-Summarize - Compress old conversations automatically',
+              'Cloud Sync - Persist across devices with backup/restore',
+              'Chat Folders - Organize conversations into categories',
+              'Chat Ratings - Favorite and rate conversations'
+            ]
+          },
+          {
+            category: 'Plugins & Tools',
+            items: [
+              'Plugin Marketplace - 8 built-in plugins (Weather, News, Calculator, etc)',
+              'Custom Tools - Create your own AI tools',
+              'Prompt Templates - 12 built-in templates for common tasks',
+              'Community Prompts - Share and discover prompts',
+              'Webhook System - Trigger actions on events'
+            ]
+          },
+          {
+            category: 'UI/UX',
+            items: [
+              'Custom Themes - User-defined color schemes',
+              'PWA Support - Offline mode with service worker',
+              'Touch Gestures - Swipe to delete, pull to refresh',
+              '3-Second Loading Screen - Clean animated splash',
+              'Real-time Collaboration - Share chat links and edit together'
+            ]
+          },
+          {
+            category: 'Enterprise',
+            items: [
+              'Team Workspaces - Collaborative workspace management',
+              'SSO/SAML - Enterprise authentication',
+              'Audit Logs - Track all user actions',
+              'Custom Branding - White-label options',
+              'Public Chat Sharing - Read-only shared conversations'
+            ]
+          },
+          {
+            category: 'Import/Export',
+            items: [
+              'Import ChatGPT Exports - Migrate conversations',
+              'Import Claude Exports - Anthropic migration support',
+              'Enhanced Export - JSON, Markdown, Text formats'
+            ]
+          }
+        ]
+      },
       {
         version: '2.0.0',
         date: '2025-01-20',
