@@ -2,13 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.set('trust proxy', 1);
 app.use(session({
@@ -37,6 +42,7 @@ if (process.env.GOOGLE_CLIENT_ID) {
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
+const agentTaskRuns = new Map();
 
 async function initDB() {
   if (!pool) { console.log('No DATABASE_URL — running without database'); return; }
@@ -46,6 +52,7 @@ async function initDB() {
     await pool.query(`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, chat_id VARCHAR(64) UNIQUE NOT NULL, user_token VARCHAR(64) NOT NULL, title VARCHAR(256), provider VARCHAR(32), model VARCHAR(128), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS chat_messages (id SERIAL PRIMARY KEY, chat_id VARCHAR(64) REFERENCES chats(chat_id) ON DELETE CASCADE, role VARCHAR(16) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS memories (id SERIAL PRIMARY KEY, user_token VARCHAR(64) UNIQUE NOT NULL, content TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS memory_history (id SERIAL PRIMARY KEY, user_token VARCHAR(64) NOT NULL, content TEXT NOT NULL, source VARCHAR(32) DEFAULT 'manual', note VARCHAR(256), created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS api_keys (id SERIAL PRIMARY KEY, provider VARCHAR(32) UNIQUE NOT NULL, api_key TEXT NOT NULL, label VARCHAR(128), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS changelog (id SERIAL PRIMARY KEY, version VARCHAR(32) NOT NULL, title VARCHAR(256) NOT NULL, body TEXT NOT NULL, type VARCHAR(32) DEFAULT 'update', published BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_chats (id SERIAL PRIMARY KEY, share_code VARCHAR(16) UNIQUE NOT NULL, title VARCHAR(256), creator_token VARCHAR(64) NOT NULL, provider VARCHAR(32), model VARCHAR(128), is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
@@ -84,6 +91,19 @@ async function initDB() {
       id SERIAL PRIMARY KEY, chat_id VARCHAR(64) REFERENCES chats(chat_id) ON DELETE CASCADE,
       user_token VARCHAR(64) NOT NULL, role VARCHAR(16), content TEXT NOT NULL,
       note VARCHAR(256), created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS agent_tasks (
+      id SERIAL PRIMARY KEY, task_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, title VARCHAR(256),
+      status VARCHAR(24) DEFAULT 'queued', steps_json TEXT DEFAULT '[]',
+      result TEXT, error TEXT, created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(), completed_at TIMESTAMP
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_files (
+      id SERIAL PRIMARY KEY, file_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, name VARCHAR(256) NOT NULL,
+      mime_type VARCHAR(128), size_bytes INT DEFAULT 0,
+      extracted_text TEXT DEFAULT '', created_at TIMESTAMP DEFAULT NOW()
     )`);
     console.log('DB ready');
   } catch(e) { console.error('DB init:',e.message); }
@@ -133,6 +153,50 @@ function requireUserAccess(req,res,next) {
     return res.status(403).json({ error:'Forbidden' });
   }
   next();
+}
+
+function createId(prefix) {
+  return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
+}
+
+async function recordMemorySnapshot(userToken, content, source='manual', note='') {
+  if (!pool || !userToken || !content?.trim()) return;
+  try {
+    await pool.query(
+      'INSERT INTO memory_history (user_token,content,source,note) VALUES ($1,$2,$3,$4)',
+      [userToken, content.slice(0, 5000), source, (note || '').slice(0, 256)]
+    );
+  } catch {}
+}
+
+async function extractFileText(file) {
+  if (!file?.buffer) return '';
+  if (file.mimetype === 'application/pdf') {
+    const parsed = await pdfParse(file.buffer);
+    return (parsed.text || '').replace(/\s+\n/g, '\n').trim().slice(0, 50000);
+  }
+  return file.buffer.toString('utf8').replace(/\u0000/g, ' ').trim().slice(0, 50000);
+}
+
+async function getUserFiles(userToken, fileIds=[]) {
+  if (!pool || !userToken || !fileIds.length) return [];
+  try {
+    const r = await pool.query(
+      'SELECT file_id,name,mime_type,size_bytes,extracted_text,created_at FROM user_files WHERE user_token=$1 AND file_id = ANY($2::varchar[]) ORDER BY created_at DESC',
+      [userToken, fileIds]
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
+function buildFileContext(files) {
+  if (!files.length) return '';
+  return files.map((file, index) => {
+    const snippet = (file.extracted_text || '').slice(0, 4000) || '[No extractable text found]';
+    return `File ${index + 1}: ${file.name}\nType: ${file.mime_type || 'unknown'}\nContent:\n${snippet}`;
+  }).join('\n\n');
 }
 
 app.post('/api/admin/verify', (req,res) => {
@@ -288,6 +352,68 @@ const AGENT_TOOLS=[
   // FIX: Removed create_file — was a stub that did nothing and had no UI to display results
 ];
 
+async function runAgentTask({ task, userToken, timezone='UTC', onStep=()=>{} }) {
+  const key=await getKey('groq');
+  if (!key) throw new Error('No AI provider available');
+  const steps=[];
+  const messages=[
+    {role:'system',content:'You are NOVA Agent — an autonomous AI that completes tasks step by step using tools. Use web_search for current info. Use save_memory/get_memory for user context. Be concise and complete the task fully.'},
+    {role:'user',content:task}
+  ];
+  const maxSteps=8;
+  for (let i=0;i<maxSteps;i++) {
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:AGENT_TOOLS,tool_choice:'auto',max_tokens:1500}),
+      signal:AbortSignal.timeout(30000)
+    });
+    if (!r.ok) throw new Error(`Groq error: ${r.status}`);
+    const data=await r.json();
+    const msg=data.choices?.[0]?.message;
+    if (!msg) throw new Error('No response from AI');
+    messages.push(msg);
+    if (!msg.tool_calls?.length && msg.content) {
+      const completeStep={step:i+1,type:'complete',content:msg.content};
+      steps.push(completeStep);
+      onStep([...steps]);
+      break;
+    }
+    if (msg.tool_calls) {
+      for (const call of msg.tool_calls) {
+        let args;
+        try{args=JSON.parse(call.function.arguments);}catch{args={};}
+        let result='';
+        steps.push({step:i+1,type:'tool',tool:call.function.name,args});
+        if (call.function.name==='web_search') {
+          try{const d=await performSearch(args.query||'',timezone);result=d.results?.map(item=>item.content||item.snippet).filter(Boolean).join('\n')||d.warning||'No results';}
+          catch(e){result='Search failed: '+e.message;}
+        } else if (call.function.name==='save_memory') {
+          if (pool&&userToken){
+            try{
+              const memoryChunk=(args.content||'').slice(0,1000);
+              await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=memories.content||E'\n'||$2,updated_at=NOW()`,[userToken,memoryChunk]);
+              const memoryRes=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);
+              await recordMemorySnapshot(userToken,memoryRes.rows[0]?.content||memoryChunk,'agent','Agent saved memory');
+              result='Saved to memory';
+            }catch{result='Memory save failed';}
+          } else {
+            result='Memory not available';
+          }
+        } else if (call.function.name==='get_memory') {
+          if (pool&&userToken){try{const m=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);result=m.rows[0]?.content||'No memories yet';}catch{result='Memory fetch failed';}}
+          else{result='Memory not available';}
+        }
+        messages.push({role:'tool',tool_call_id:call.id,content:result});
+        steps[steps.length-1].result=result;
+        onStep([...steps]);
+      }
+    }
+  }
+  const lastStep=steps[steps.length-1];
+  return { steps, result:lastStep?.content||'Task completed' };
+}
+
 app.post('/api/agent', async (req,res) => {
   const ip=req.ip||'unknown';
   // FIX: Strict separate rate limit — each agent call can cost up to 8 Groq API calls
@@ -296,70 +422,102 @@ app.post('/api/agent', async (req,res) => {
   if (!task) return res.status(400).json({error:'Task required'});
   // FIX: Cap task size to prevent prompt injection via huge inputs
   if (task.length>2000) return res.status(400).json({error:'Task too long (max 2000 chars)'});
-  const key=await getKey('groq');
-  if (!key) return res.status(400).json({error:'No AI provider available'});
-  const steps=[];
-  const messages=[
-    {role:'system',content:'You are NOVA Agent — an autonomous AI that completes tasks step by step using tools. Use web_search for current info. Use save_memory/get_memory for user context. Be concise and complete the task fully.'},
-    {role:'user',content:task}
-  ];
-  const maxSteps=8; // FIX: Reduced from 10 to limit runaway API costs
   try {
-    for (let i=0;i<maxSteps;i++) {
-      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-        body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:AGENT_TOOLS,tool_choice:'auto',max_tokens:1500}),
-        signal:AbortSignal.timeout(30000) // FIX: Per-step timeout to prevent hung requests
-      });
-      if (!r.ok) throw new Error(`Groq error: ${r.status}`);
-      const data=await r.json();
-      const msg=data.choices?.[0]?.message;
-      if (!msg) throw new Error('No response from AI');
-      messages.push(msg);
-      if (!msg.tool_calls?.length&&msg.content){steps.push({step:i+1,type:'complete',content:msg.content});break;}
-      if (msg.tool_calls) {
-        for (const call of msg.tool_calls) {
-          // FIX: JSON.parse was unwrapped — malformed args from AI would crash entire request
-          let args;
-          try{args=JSON.parse(call.function.arguments);}catch{args={};}
-          let result='';
-          steps.push({step:i+1,type:'tool',tool:call.function.name,args});
-          if (call.function.name==='web_search') {
-            try{const d=await performSearch(args.query||'',timezone);result=d.results?.map(r=>r.content||r.snippet).filter(Boolean).join('\n')||d.warning||'No results';}
-            catch(e){result='Search failed: '+e.message;}
-          } else if (call.function.name==='save_memory') {
-            if (pool&&userToken){try{await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=memories.content||E'\n'||$2,updated_at=NOW()`,[userToken,(args.content||'').slice(0,1000)]);result='Saved to memory';}catch{result='Memory save failed';}}
-            else{result='Memory not available';}
-          } else if (call.function.name==='get_memory') {
-            if (pool&&userToken){try{const m=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);result=m.rows[0]?.content||'No memories yet';}catch{result='Memory fetch failed';}}
-            else{result='Memory not available';}
+    const run=await runAgentTask({ task, userToken, timezone });
+    res.json({success:true,steps:run.steps,result:run.result});
+  } catch(e){res.status(500).json({error:e.message,steps:[]});}
+});
+
+app.post('/api/agent/tasks', requireUserAccess, async (req,res) => {
+  const { task, userToken, timezone } = req.body;
+  if (!task) return res.status(400).json({error:'Task required'});
+  if (task.length>2000) return res.status(400).json({error:'Task too long (max 2000 chars)'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  const taskId=createId('task');
+  const title=task.split('\n')[0].slice(0,120);
+  try{
+    await pool.query(
+      `INSERT INTO agent_tasks (task_id,user_token,title,status,steps_json)
+       VALUES ($1,$2,$3,'queued','[]')`,
+      [taskId,userToken,title]
+    );
+    agentTaskRuns.set(taskId, true);
+    (async () => {
+      try{
+        await pool.query('UPDATE agent_tasks SET status=$2,updated_at=NOW() WHERE task_id=$1',[taskId,'running']);
+        const run=await runAgentTask({
+          task,
+          userToken,
+          timezone,
+          onStep: async (steps) => {
+            try{
+              await pool.query('UPDATE agent_tasks SET steps_json=$2,updated_at=NOW() WHERE task_id=$1',[taskId,JSON.stringify(steps)]);
+            } catch {}
           }
-          messages.push({role:'tool',tool_call_id:call.id,content:result});
-          steps[steps.length-1].result=result;
-        }
+        });
+        await pool.query(
+          `UPDATE agent_tasks
+           SET status='completed', steps_json=$2, result=$3, updated_at=NOW(), completed_at=NOW()
+           WHERE task_id=$1`,
+          [taskId,JSON.stringify(run.steps),run.result]
+        );
+      } catch (error) {
+        await pool.query(
+          `UPDATE agent_tasks
+           SET status='failed', error=$2, updated_at=NOW(), completed_at=NOW()
+           WHERE task_id=$1`,
+          [taskId,error.message]
+        ).catch(()=>{});
+      } finally {
+        agentTaskRuns.delete(taskId);
       }
-    }
-    const lastStep=steps[steps.length-1];
-    // FIX: NEVER send full messages array to client — it contains system prompt + all internal state
-    res.json({success:true,steps,result:lastStep?.content||'Task completed'});
-  } catch(e){res.status(500).json({error:e.message,steps});}
+    })();
+    res.json({ok:true,taskId});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/agent/tasks/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({tasks:[]});
+  try{
+    const r=await pool.query('SELECT task_id,title,status,steps_json,result,error,created_at,updated_at,completed_at FROM agent_tasks WHERE user_token=$1 ORDER BY created_at DESC LIMIT 20',[req.params.userToken]);
+    res.json({tasks:r.rows.map(row=>({...row,steps:JSON.parse(row.steps_json||'[]')}))});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/agent/tasks/:userToken/:taskId', requireUserAccess, async (req,res) => {
+  if (!pool) return res.status(404).json({error:'Not found'});
+  try{
+    const r=await pool.query('SELECT task_id,title,status,steps_json,result,error,created_at,updated_at,completed_at FROM agent_tasks WHERE user_token=$1 AND task_id=$2',[req.params.userToken,req.params.taskId]);
+    const row=r.rows[0];
+    if (!row) return res.status(404).json({error:'Not found'});
+    res.json({task:{...row,steps:JSON.parse(row.steps_json||'[]')}});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 app.post('/api/chat', async (req,res) => {
   const ip=req.ip||'unknown';
   if (rateLimit(ip)) return res.status(429).json({error:{message:'Rate limit exceeded.'}});
-  const {provider='groq',model,messages,max_tokens=2000,temperature=0.7,stream=false}=req.body;
+  const {provider='groq',model,messages,max_tokens=2000,temperature=0.7,stream=false,userToken,fileIds=[]}=req.body;
   if (!messages||!Array.isArray(messages)||!messages.length) return res.status(400).json({error:{message:'messages required'}});
   const cfg=PROVIDERS[provider]; if (!cfg) return res.status(400).json({error:{message:`Unknown provider: ${provider}`}});
+  let enrichedMessages=messages;
+  if (Array.isArray(fileIds) && fileIds.length && req.user?.token && req.user.token===userToken) {
+    const files=await getUserFiles(userToken,fileIds.slice(0,5));
+    const fileContext=buildFileContext(files);
+    if (fileContext) {
+      enrichedMessages=[
+        ...messages.slice(0,1),
+        {role:'system',content:`The user attached files for this request. Use them as source material when relevant.\n\n${fileContext}`},
+        ...messages.slice(1)
+      ];
+    }
+  }
   if (provider==='ollama'){
-    try{const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3.2',messages,stream:false})});if(!r.ok)return res.status(503).json({error:{message:'Ollama not running. Run: ollama serve'}});const d=await r.json();return res.json({choices:[{message:{role:'assistant',content:d.message?.content||''},finish_reason:'stop'}]});}
+    try{const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3.2',messages:enrichedMessages,stream:false})});if(!r.ok)return res.status(503).json({error:{message:'Ollama not running. Run: ollama serve'}});const d=await r.json();return res.json({choices:[{message:{role:'assistant',content:d.message?.content||''},finish_reason:'stop'}]});}
     catch{return res.status(503).json({error:{message:'Ollama not reachable at localhost:11434'}});}
   }
   const apiKey=await getKey(provider);
   if (!apiKey) return res.status(500).json({error:{message:`${cfg.name} API key not configured. Add it in Admin Panel → API Keys.`}});
-  const reqBody=JSON.stringify({model:model||cfg.models[0],messages,max_tokens,temperature,stream});
+  const reqBody=JSON.stringify({model:model||cfg.models[0],messages:enrichedMessages,max_tokens,temperature,stream});
   if (stream) {
     res.setHeader('Content-Type','text/event-stream');res.setHeader('Cache-Control','no-cache');res.setHeader('Connection','keep-alive');
     try{
@@ -381,11 +539,23 @@ app.get('/api/memory/:userToken', requireUserAccess, async (req,res) => {
   try{const r=await pool.query('SELECT content FROM memories WHERE user_token=$1',[req.params.userToken]);res.json({memory:r.rows[0]?.content||''});}
   catch(e){res.status(500).json({error:e.message});}
 });
+app.get('/api/memory/:userToken/history', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({history:[]});
+  try{
+    const r=await pool.query('SELECT id,content,source,note,created_at FROM memory_history WHERE user_token=$1 ORDER BY created_at DESC LIMIT 20',[req.params.userToken]);
+    res.json({history:r.rows});
+  } catch(e){res.status(500).json({error:e.message});}
+});
 app.post('/api/memory', requireUserAccess, async (req,res) => {
   const {userToken,content}=req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.json({ok:true});
-  try{await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,(content||'').slice(0,5000)]);res.json({ok:true});}
+  try{
+    const nextContent=(content||'').slice(0,5000);
+    await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,nextContent]);
+    await recordMemorySnapshot(userToken,nextContent,'manual','Manual update');
+    res.json({ok:true});
+  }
   catch(e){res.status(500).json({error:e.message});}
 });
 app.post('/api/memory/learn', requireUserAccess, async (req,res) => {
@@ -405,8 +575,54 @@ app.post('/api/memory/learn', requireUserAccess, async (req,res) => {
     const d=await r.json();
     const newMemory=d.choices?.[0]?.message?.content||existingMemory;
     await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,newMemory.slice(0,5000)]);
+    await recordMemorySnapshot(userToken,newMemory,'learn','Auto-learn from recent conversation');
     res.json({ok:true,memory:newMemory});
   }catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/memory/:userToken/revert', requireUserAccess, async (req,res) => {
+  const { historyId } = req.body;
+  if (!historyId) return res.status(400).json({error:'historyId required'});
+  if (!pool) return res.json({ok:true});
+  try{
+    const entry=await pool.query('SELECT content FROM memory_history WHERE id=$1 AND user_token=$2',[historyId,req.params.userToken]);
+    const content=entry.rows[0]?.content;
+    if (!content) return res.status(404).json({error:'History entry not found'});
+    await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[req.params.userToken,content]);
+    await recordMemorySnapshot(req.params.userToken,content,'revert',`Reverted to snapshot ${historyId}`);
+    res.json({ok:true,memory:content});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+
+// ─── Files ────────────────────────────────────────────────────────────────────
+app.get('/api/files/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({files:[]});
+  try{
+    const r=await pool.query('SELECT file_id,name,mime_type,size_bytes,created_at FROM user_files WHERE user_token=$1 ORDER BY created_at DESC LIMIT 30',[req.params.userToken]);
+    res.json({files:r.rows});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/files/upload', upload.single('file'), requireUserAccess, async (req,res) => {
+  const userToken=req.body?.userToken;
+  const file=req.file;
+  if (!userToken || !file) return res.status(400).json({error:'userToken and file are required'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    const extractedText=await extractFileText(file);
+    const fileId=createId('file');
+    await pool.query(
+      `INSERT INTO user_files (file_id,user_token,name,mime_type,size_bytes,extracted_text)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [fileId,userToken,file.originalname.slice(0,256),file.mimetype,file.size||0,extractedText]
+    );
+    res.json({ok:true,file:{file_id:fileId,name:file.originalname,mime_type:file.mimetype,size_bytes:file.size||0,excerpt:extractedText.slice(0,400)}});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.delete('/api/files/:userToken/:fileId', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({ok:true});
+  try{
+    await pool.query('DELETE FROM user_files WHERE user_token=$1 AND file_id=$2',[req.params.userToken,req.params.fileId]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 
 // ─── Chats ────────────────────────────────────────────────────────────────────

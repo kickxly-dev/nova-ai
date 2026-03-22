@@ -1558,7 +1558,7 @@ Guidelines:
   let fullReply='';
   try{
     if(G.stream){
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:G.provider,model:G.model||undefined,messages,max_tokens:2000,temperature:0.7,stream:true})});
+      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:G.provider,model:G.model||undefined,messages,max_tokens:2000,temperature:0.7,stream:true,userToken:G.user?.token,fileIds:(G.attachedFiles||[]).map(f=>f.file_id)})});
       if(!r.ok){const d=await r.json();throw new Error(d?.error?.message||`Error ${r.status}`);}
       document.getElementById('welcome')?.remove();
       const area=document.getElementById('chat');
@@ -1576,13 +1576,14 @@ Guidelines:
       }
       sbub.id='';sbub.innerHTML=(G.memory?'<div class="mem-pill">🧠 Memory</div>':'')+fmt(raw);
       addPreCopies(wrap);
+      G.pendingTrustMeta = null;
       const acts=document.createElement('div');acts.className='mactions';
       const cb=document.createElement('button');cb.className='mact';cb.title='Copy';cb.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
       cb.onclick=()=>{navigator.clipboard.writeText(fullReply);cb.classList.add('ok');setTimeout(()=>cb.classList.remove('ok'),1400);};
       acts.appendChild(cb);wrap.querySelector('.mwrap').appendChild(acts);
     }else{
       addTyping();
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:G.provider,model:G.model||undefined,messages,max_tokens:2000,temperature:0.7})});
+      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:G.provider,model:G.model||undefined,messages,max_tokens:2000,temperature:0.7,userToken:G.user?.token,fileIds:(G.attachedFiles||[]).map(f=>f.file_id)})});
       if(!r.ok){const d=await r.json();throw new Error(d?.error?.message||`Error ${r.status}`);}
       const d=await r.json();fullReply=d.choices?.[0]?.message?.content||'No response.';
       rmTyping();addMsg('ai',fullReply);
@@ -2160,6 +2161,11 @@ G.searchMode = false;
 G.ttsMode = false;
 G.userSettings = {};
 G.ctxMenu = null;
+G.memoryHistory = [];
+G.fileLibrary = [];
+G.attachedFiles = [];
+G.agentTasks = [];
+G.pendingTrustMeta = null;
 
 // ── Settings tabs ────────────────────────────────────
 function settTab(tab, btn) {
@@ -2188,6 +2194,27 @@ function syncTTSUI() {
 function syncVoiceUI() {
   document.getElementById('voice-btn')?.classList.toggle('on', !!G.voiceMode);
   document.getElementById('voicebtn')?.classList.toggle('on', !!G.voiceMode);
+}
+
+function trustPillsHTML(meta) {
+  if (!meta) return '';
+  const pills = [];
+  if (meta.memory) pills.push('<div class="mem-pill">Memory</div>');
+  if (meta.files) pills.push('<div class="search-pill">Files</div>');
+  if (meta.search) pills.push('<div class="search-pill">Search</div>');
+  return pills.join('');
+}
+
+function renderAttachedFiles() {
+  const host = document.getElementById('attached-files');
+  if (!host) return;
+  if (!G.attachedFiles.length) { host.innerHTML=''; host.style.display='none'; return; }
+  host.style.display='flex';
+  host.style.flexWrap='wrap';
+  host.style.gap='6px';
+  host.style.margin='8px auto 0';
+  host.style.maxWidth='840px';
+  host.innerHTML = G.attachedFiles.map(file => `<button class="mchip active" style="display:inline-flex;align-items:center;gap:6px" onclick="detachFile('${file.file_id}')">${esc(file.name)} <span style="font-size:11px">x</span></button>`).join('');
 }
 
 // ── BYOK + AI settings ──────────────────────────────
@@ -2401,6 +2428,142 @@ function buildProvChart(stats) {
   if (!Object.keys(totals).length) el.innerHTML='<div style="color:var(--mu);font-size:13px">No usage data yet.</div>';
 }
 
+async function loadMemoryHistory() {
+  const host = document.getElementById('memory-history');
+  if (!host) return;
+  if (!G.user?.token) {
+    host.innerHTML = '<div style="color:var(--mu);font-size:12px">Sign in to see memory history.</div>';
+    return;
+  }
+  host.innerHTML = '<div style="color:var(--mu);font-size:12px">Loading history...</div>';
+  try {
+    const r = await fetch(`/api/memory/${G.user.token}/history`);
+    const d = await r.json();
+    G.memoryHistory = d.history || [];
+    host.innerHTML = G.memoryHistory.length
+      ? G.memoryHistory.map(item => `<div class="prompt-item" style="cursor:default"><div style="flex:1;min-width:0"><div class="prompt-title">${esc(item.source || 'memory')}</div><div class="prompt-cat">${new Date(item.created_at).toLocaleString()}</div><div class="prompt-prev" style="white-space:normal">${esc((item.note || item.content || '').slice(0,180))}</div></div><button class="btn btn-g btn-sm" onclick="revertMemory(${item.id})">Revert</button></div>`).join('')
+      : '<div style="color:var(--mu);font-size:12px">No history yet.</div>';
+  } catch {
+    host.innerHTML = '<div style="color:var(--re);font-size:12px">Failed to load memory history.</div>';
+  }
+}
+
+async function revertMemory(historyId) {
+  if (!G.user?.token) return;
+  try {
+    const r = await fetch(`/api/memory/${G.user.token}/revert`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({userToken:G.user.token, historyId})
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Revert failed');
+    G.memory = d.memory || G.memory;
+    document.getElementById('mem-txt').value = G.memory;
+    await loadMemoryHistory();
+    toast('Memory reverted');
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function loadFiles() {
+  if (!G.user?.token) { G.fileLibrary = []; return []; }
+  const r = await fetch(`/api/files/${G.user.token}`);
+  const d = await r.json();
+  G.fileLibrary = d.files || [];
+  return G.fileLibrary;
+}
+
+function renderFilesModal() {
+  const host = document.getElementById('files-list');
+  if (!host) return;
+  if (!G.user?.token) {
+    host.innerHTML = '<div style="color:var(--mu);font-size:13px">Sign in to manage files.</div>';
+    return;
+  }
+  host.innerHTML = G.fileLibrary.length
+    ? G.fileLibrary.map(file => {
+        const attached = G.attachedFiles.some(item => item.file_id === file.file_id);
+        return `<div class="prompt-item"><div style="flex:1;min-width:0"><div class="prompt-title">${esc(file.name)}</div><div class="prompt-cat">${esc(file.mime_type || 'file')} • ${new Date(file.created_at).toLocaleString()}</div></div><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" onclick="${attached ? `detachFile('${file.file_id}')` : `attachExistingFile('${file.file_id}')`}">${attached ? 'Detach' : 'Attach'}</button><button class="btn btn-d btn-sm" onclick="deleteUserFile('${file.file_id}')">Delete</button></div></div>`;
+      }).join('')
+    : '<div style="color:var(--mu);font-size:13px">No files yet. Upload one to use it in chat.</div>';
+}
+
+async function openFilesModal() {
+  document.getElementById('files-ov')?.classList.add('open');
+  try { await loadFiles(); } catch {}
+  renderFilesModal();
+}
+
+function attachExistingFile(fileId) {
+  const file = G.fileLibrary.find(item => item.file_id === fileId);
+  if (!file || G.attachedFiles.some(item => item.file_id === fileId)) return;
+  G.attachedFiles.push(file);
+  renderAttachedFiles();
+  renderFilesModal();
+  toast('File attached to chat');
+}
+
+function detachFile(fileId) {
+  G.attachedFiles = G.attachedFiles.filter(item => item.file_id !== fileId);
+  renderAttachedFiles();
+  renderFilesModal();
+}
+
+async function deleteUserFile(fileId) {
+  if (!G.user?.token) return;
+  try {
+    await fetch(`/api/files/${G.user.token}/${fileId}`, { method:'DELETE' });
+    G.fileLibrary = G.fileLibrary.filter(item => item.file_id !== fileId);
+    detachFile(fileId);
+    renderFilesModal();
+  } catch {}
+}
+
+async function handleFileUpload(ev) {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length || !G.user?.token) { ev.target.value=''; return; }
+  for (const file of files) {
+    const form = new FormData();
+    form.append('userToken', G.user.token);
+    form.append('file', file);
+    try {
+      const r = await fetch('/api/files/upload', { method:'POST', body:form });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Upload failed');
+      G.fileLibrary.unshift(d.file);
+      G.attachedFiles.push(d.file);
+    } catch (e) { toast('Upload failed: ' + e.message); }
+  }
+  ev.target.value='';
+  renderAttachedFiles();
+  renderFilesModal();
+}
+
+async function loadAgentTasks() {
+  const host = document.getElementById('tasks-list');
+  if (!host) return;
+  if (!G.user?.token) {
+    host.innerHTML = '<div style="color:var(--mu);font-size:13px">Sign in to use agent tasks.</div>';
+    return;
+  }
+  host.innerHTML = '<div style="color:var(--mu);font-size:13px">Loading tasks...</div>';
+  try {
+    const r = await fetch(`/api/agent/tasks/${G.user.token}`);
+    const d = await r.json();
+    G.agentTasks = d.tasks || [];
+    host.innerHTML = G.agentTasks.length
+      ? G.agentTasks.map(task => `<div class="prompt-item" style="cursor:default"><div style="flex:1;min-width:0"><div class="prompt-title">${esc(task.title || task.task_id)}</div><div class="prompt-cat">${esc(task.status)} • ${new Date(task.updated_at || task.created_at).toLocaleString()}</div><div class="prompt-prev">${esc(task.result || task.error || `${(task.steps || []).length} steps`)}</div></div></div>`).join('')
+      : '<div style="color:var(--mu);font-size:13px">No agent tasks yet.</div>';
+  } catch {
+    host.innerHTML = '<div style="color:var(--re);font-size:13px">Failed to load tasks.</div>';
+  }
+}
+
+function openTasksModal() {
+  document.getElementById('tasks-ov')?.classList.add('open');
+  loadAgentTasks();
+}
+
 // ── Override: switchView (add dash + nav highlighting) ──
 const _origSwitchView = switchView;
 switchView = function(v) {
@@ -2425,6 +2588,9 @@ loadUserData = async function() {
   if (!G.user?.token) return;
   try { const r=await fetch(`/api/folders/${G.user.token}`); const d=await r.json(); G.folders=d.folders||[]; renderChatList(); } catch {}
   try { const r=await fetch(`/api/prompts/${G.user.token}`); const d=await r.json(); G.prompts=d.prompts||[]; updatePromptBadge(); } catch {}
+  try { await loadFiles(); } catch {}
+  try { await loadMemoryHistory(); } catch {}
+  try { await loadAgentTasks(); } catch {}
   try {
     const r=await fetch(`/api/settings/${G.user.token}`); const d=await r.json(); G.userSettings=d.settings||{};
     if (G.userSettings.search_enabled) { G.searchMode=true; document.getElementById('sett-search')?.classList.add('on'); syncSearchUI(); }
@@ -2436,12 +2602,23 @@ loadUserData = async function() {
   } catch {}
 };
 
+const _origOpenMemory = openMemory;
+openMemory = async function() {
+  _origOpenMemory();
+  await loadMemoryHistory();
+};
+
 // ── Override: addMsg (TTS + pin buttons + artifacts) ──
 const _origAddMsg = addMsg;
 addMsg = function(role, content, animate=true) {
   const wrap = _origAddMsg(role, content, animate);
   if (!wrap) return wrap;
   if (role === 'ai') {
+    const bubble = wrap.querySelector('.bubble');
+    if (bubble && G.pendingTrustMeta) {
+      bubble.insertAdjacentHTML('afterbegin', trustPillsHTML(G.pendingTrustMeta));
+      G.pendingTrustMeta = null;
+    }
     const acts = wrap.querySelector('.mactions');
     if (acts) {
       const ttsBtn = document.createElement('button'); ttsBtn.className='mact'; ttsBtn.title='Read aloud';
@@ -2497,6 +2674,56 @@ function makeChatItem(c) {
 }
 function loadChatById(id) { return loadChat(id); }
 
+const _origRunAgent = runAgent;
+runAgent = async function(task) {
+  if (!G.user?.token) return _origRunAgent(task);
+  const area=document.getElementById('chat');
+  const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const wrap=document.createElement('div');
+  wrap.className='msg ai';
+  wrap.innerHTML=`<div class="mav ai"><img src="nova-icon.svg" alt="NOVA" style="width:14px;height:14px"/></div><div class="mwrap"><div class="bubble agent-progress"><div class="agent-header">Agent Task Running</div><div class="agent-steps"></div><div class="agent-result" style="display:none"></div></div></div>`;
+  area.appendChild(wrap);
+  area.scrollTop=area.scrollHeight;
+  const stepsDiv=wrap.querySelector('.agent-steps');
+  const resultDiv=wrap.querySelector('.agent-result');
+  try {
+    const createRes = await fetch('/api/agent/tasks', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task,userToken:G.user.token,timezone})
+    });
+    const created = await createRes.json();
+    if (!createRes.ok) throw new Error(created.error || 'Task creation failed');
+    const taskId = created.taskId;
+    let done = false;
+    while (!done) {
+      const r = await fetch(`/api/agent/tasks/${G.user.token}/${taskId}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Task fetch failed');
+      const taskData = d.task;
+      stepsDiv.innerHTML = (taskData.steps || []).map((step, index) => `<div class="agent-step"><span class="step-num">${index + 1}</span>${esc(step.tool || step.type || 'step')}</div>`).join('') || '<div class="agent-step">Queued…</div>';
+      if (taskData.status === 'completed') {
+        done = true;
+        resultDiv.style.display='block';
+        resultDiv.innerHTML = fmt(taskData.result || 'Task completed');
+        G.history.push({role:'user',content:task});
+        G.history.push({role:'assistant',content:taskData.result || 'Task completed'});
+        await saveChat(task);
+      } else if (taskData.status === 'failed') {
+        done = true;
+        resultDiv.style.display='block';
+        resultDiv.innerHTML = `<span style="color:var(--re)">Error: ${esc(taskData.error || 'Task failed')}</span>`;
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+    await loadAgentTasks();
+  } catch (e) {
+    resultDiv.style.display='block';
+    resultDiv.innerHTML = `<span style="color:var(--re)">Error: ${esc(e.message)}</span>`;
+  }
+};
+
 // ── Override: saveChat (track usage) ────────────────
 const _origSaveChat = saveChat;
 saveChat = async function(firstMsg) {
@@ -2507,7 +2734,11 @@ saveChat = async function(firstMsg) {
 // ── Override: go() (web search support) ─────────────
 const _origGo = go;
 go = async function() {
-  if (!G.searchMode) { await _origGo(); return; }
+  if (!G.searchMode) {
+    G.pendingTrustMeta = { memory: !!G.memory, files: !!(G.attachedFiles || []).length, search: false };
+    await _origGo();
+    return;
+  }
   const inp=document.getElementById('mi'); const text=inp.value.trim(); if (!text||G.busy) return;
   inp.value=''; resize(inp); G.busy=true; document.getElementById('send').disabled=true;
   addMsg('user',text); addTyping();
@@ -2517,6 +2748,7 @@ go = async function() {
   const wasSearchMode = G.searchMode;
   G.searchMode = false;
   syncSearchUI();
+  G.pendingTrustMeta = { memory: !!G.memory, files: !!(G.attachedFiles || []).length, search: true };
   inp.value=`${text}${ctx}`;
   await _origGo();
   G.searchMode = wasSearchMode;
@@ -2554,6 +2786,80 @@ document.addEventListener('DOMContentLoaded', () => {
   // init settings tabs — show appearance by default
   const st=document.getElementById('st-appearance'); if(st){st.style.display='block';}
   ['st-ai','st-keys','st-account'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+
+  const inputArea = document.querySelector('.input-area');
+  if (inputArea && !document.getElementById('attached-files')) {
+    const attached = document.createElement('div');
+    attached.id = 'attached-files';
+    attached.style.display = 'none';
+    inputArea.appendChild(attached);
+  }
+
+  const ibtns = document.querySelector('.ibtns');
+  if (ibtns && !document.getElementById('filebtn')) {
+    const fileBtn = document.createElement('button');
+    fileBtn.className = 'ibtn';
+    fileBtn.id = 'filebtn';
+    fileBtn.title = 'Attach files';
+    fileBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-8.49 8.49a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 114.24 4.24l-9.2 9.19a1 1 0 01-1.41-1.41l8.49-8.48"/></svg>';
+    fileBtn.onclick = () => document.getElementById('file-picker')?.click();
+    ibtns.insertBefore(fileBtn, document.getElementById('imgbtn'));
+  }
+
+  if (!document.getElementById('file-picker')) {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.id = 'file-picker';
+    picker.multiple = true;
+    picker.style.display = 'none';
+    picker.onchange = handleFileUpload;
+    document.body.appendChild(picker);
+  }
+
+  const sbBot = document.querySelector('.sb-bot');
+  if (sbBot && !document.getElementById('files-btn')) {
+    const filesBtn = document.createElement('button');
+    filesBtn.className = 'sb-btn';
+    filesBtn.id = 'files-btn';
+    filesBtn.onclick = openFilesModal;
+    filesBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Files';
+    sbBot.insertBefore(filesBtn, sbBot.firstChild);
+  }
+  if (sbBot && !document.getElementById('tasks-btn')) {
+    const tasksBtn = document.createElement('button');
+    tasksBtn.className = 'sb-btn';
+    tasksBtn.id = 'tasks-btn';
+    tasksBtn.onclick = openTasksModal;
+    tasksBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Tasks';
+    sbBot.insertBefore(tasksBtn, sbBot.firstChild);
+  }
+
+  const memoryBody = document.querySelector('#mov .mbody');
+  if (memoryBody && !document.getElementById('memory-history')) {
+    const historyWrap = document.createElement('div');
+    historyWrap.innerHTML = '<div class="field"><label>Memory Timeline</label><div class="fhint">See what NOVA learned and roll back bad memory updates.</div><div id="memory-history" style="display:flex;flex-direction:column;gap:7px"></div></div>';
+    memoryBody.appendChild(historyWrap);
+  }
+
+  if (!document.getElementById('files-ov')) {
+    const filesModal = document.createElement('div');
+    filesModal.className = 'ov';
+    filesModal.id = 'files-ov';
+    filesModal.onclick = e => closeOv(e,'files-ov');
+    filesModal.innerHTML = '<div class="modal"><div class="mhead"><h2>Files</h2><button class="mx" onclick="document.getElementById(\'files-ov\').classList.remove(\'open\')">×</button></div><div style="padding:10px 20px;border-bottom:1px solid var(--b);flex-shrink:0"><button class="btn btn-p btn-sm" onclick="document.getElementById(\'file-picker\').click()">Upload File</button></div><div class="mbody" id="files-list" style="gap:7px"></div></div>';
+    document.body.appendChild(filesModal);
+  }
+
+  if (!document.getElementById('tasks-ov')) {
+    const tasksModal = document.createElement('div');
+    tasksModal.className = 'ov';
+    tasksModal.id = 'tasks-ov';
+    tasksModal.onclick = e => closeOv(e,'tasks-ov');
+    tasksModal.innerHTML = '<div class="modal"><div class="mhead"><h2>Agent Tasks</h2><button class="mx" onclick="document.getElementById(\'tasks-ov\').classList.remove(\'open\')">×</button></div><div class="mbody" id="tasks-list" style="gap:7px"></div></div>';
+    document.body.appendChild(tasksModal);
+  }
+
+  renderAttachedFiles();
 });
 </script>
 </body>
