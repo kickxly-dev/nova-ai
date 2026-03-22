@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -23,6 +24,7 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 passport.serializeUser((u,done)=>done(null,u));
@@ -556,8 +558,9 @@ app.post('/api/chat', async (req,res) => {
     try{const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3.2',messages:enrichedMessages,stream:false})});if(!r.ok)return res.status(503).json({error:{message:'Ollama not running. Run: ollama serve'}});const d=await r.json();return res.json({choices:[{message:{role:'assistant',content:d.message?.content||''},finish_reason:'stop'}]});}
     catch{return res.status(503).json({error:{message:'Ollama not reachable at localhost:11434'}});}
   }
-  const apiKey=await getKey(provider);
-  if (!apiKey) return res.status(500).json({error:{message:`${cfg.name} API key not configured. Add it in Admin Panel → API Keys.`}});
+  // FIX: Use user's own BYOK key if set, otherwise fall back to shared key
+  const apiKey = await getUserKey(userToken, provider) || await getKey(provider);
+  if (!apiKey) return res.status(500).json({error:{message:`${cfg.name} API key not configured. Add it in Admin Panel → API Keys or Settings → BYOK Keys.`}});
   const reqBody=JSON.stringify({model:model||cfg.models[0],messages:enrichedMessages,max_tokens,temperature,stream});
   if (stream) {
     res.setHeader('Content-Type','text/event-stream');res.setHeader('Cache-Control','no-cache');res.setHeader('Connection','keep-alive');
@@ -1036,7 +1039,7 @@ app.delete('/api/prompts/:id', requireUserAccess, async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/prompts/:id/use', async (req,res) => {
+app.post('/api/prompts/:id/use', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({ok:true});
   try { await pool.query('UPDATE prompts SET use_count=use_count+1 WHERE id=$1', [req.params.id]); res.json({ok:true}); }
   catch(e) { res.status(500).json({error:e.message}); }
@@ -1052,7 +1055,7 @@ app.get('/api/settings/:userToken', requireUserAccess, async (req,res) => {
     res.json({settings:{...s, byok_groq:s.byok_groq?'SET':null, byok_cohere:s.byok_cohere?'SET':null}});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/settings', async (req,res) => {
+app.post('/api/settings', requireUserAccess, async (req,res) => {
   const {userToken,...fields} = req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.json({ok:true});
@@ -1381,9 +1384,21 @@ app.get('/api/insights/:userToken', requireUserAccess, async (req,res) => {
 });
 
 app.post('/api/insights/:id/seen', requireUserAccess, async (req,res) => {
+  const userToken = getRequestedUserToken(req);
   if (!pool) return res.json({ok:true});
-  try { await pool.query('UPDATE context_insights SET seen=true WHERE id=$1',[req.params.id]); res.json({ok:true}); }
+  try {
+    // FIX: Verify ownership before marking seen
+    await pool.query('UPDATE context_insights SET seen=true WHERE id=$1 AND user_token=$2',[req.params.id, userToken]);
+    res.json({ok:true});
+  }
   catch(e) { res.status(500).json({error:e.message}); }
+});
+// Serve landing page at / for first-time visitors, app for returning users
+app.get('/app',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('/',(req,res)=>{
+  if (req.cookies?.nv_seen) return res.sendFile(path.join(__dirname,'public','index.html'));
+  res.cookie('nv_seen','1',{maxAge:365*24*60*60*1000,httpOnly:true,sameSite:'lax'});
+  res.sendFile(path.join(__dirname,'public','landing.html'));
 });
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));

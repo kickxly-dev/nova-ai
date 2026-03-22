@@ -4125,3 +4125,415 @@ document.addEventListener('keydown', e => {
 
 console.log('NOVA v5.3 — Doc Q&A, Knowledge Base, Smart Insights loaded ✓');
 </script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// NOVA V5.4 — Smart follow-ups, better welcome, timestamps,
+//             resizable sidebar, empty states, read receipts
+// ═══════════════════════════════════════════════════════════════
+
+// ── CSS ──────────────────────────────────────────────────────
+const _v54css = document.createElement('style');
+_v54css.textContent = `
+/* Smart follow-ups */
+.follow-ups{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 4px;max-width:680px;animation:fadeUp .3s ease}
+.fup-btn{padding:6px 12px;background:none;border:1px solid var(--b);border-radius:999px;font-size:12px;font-family:inherit;color:var(--tx2);cursor:pointer;transition:all .18s;text-align:left;line-height:1.4}
+.fup-btn:hover{border-color:var(--ac);color:var(--acl);background:var(--acg);transform:translateY(-1px)}
+
+/* Chat timestamps */
+.msg-time{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu);opacity:0;transition:opacity .2s;margin-top:3px;padding:0 2px}
+.msg:hover .msg-time{opacity:1}
+.msg.user .msg-time{text-align:right}
+
+/* Resizable sidebar */
+.sb-resizer{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:31;transition:background .15s}
+.sb-resizer:hover,.sb-resizer.dragging{background:var(--ac)}
+.sb{position:relative}
+
+/* Collapsible long messages */
+.msg-collapse{display:none;margin-top:8px}
+.msg.collapsed .bubble .msg-full{display:none}
+.msg.collapsed .msg-collapse{display:inline-flex}
+.collapse-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:var(--s2);border:1px solid var(--b);border-radius:999px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--tx2);cursor:pointer;transition:all .12s;margin-top:6px}
+.collapse-btn:hover{border-color:var(--bh);color:var(--tx)}
+
+/* Read receipts */
+.read-receipts{display:flex;gap:-4px;margin-top:4px;justify-content:flex-end}
+.read-av{width:14px;height:14px;border-radius:50%;border:1px solid var(--bg);overflow:hidden;margin-left:-4px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0}
+
+/* Better welcome screen */
+.welcome-v2{display:flex;flex-direction:column;flex:1;padding:24px 20px 12px;max-width:780px;margin:0 auto;width:100%;animation:fadeIn .4s ease}
+.welcome-top{display:flex;align-items:center;gap:14px;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--b)}
+.welcome-avatar{width:52px;height:52px;border-radius:16px;background:var(--bg);border:2px solid var(--ac);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px var(--acg);flex-shrink:0}
+.welcome-avatar img{width:28px;height:28px}
+.welcome-greeting{flex:1;min-width:0}
+.welcome-name{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.welcome-sub{font-size:13px;color:var(--tx2);margin-top:2px}
+.welcome-stats{display:flex;gap:14px;flex-shrink:0}
+.welcome-stat{text-align:center}
+.welcome-stat-val{font-size:18px;font-weight:800;color:var(--acl);font-variant-numeric:tabular-nums}
+.welcome-stat-lbl{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--mu);text-transform:uppercase;letter-spacing:.08em}
+.welcome-mem{padding:10px 14px;background:var(--s2);border:1px solid var(--b);border-left:3px solid var(--ac2);border-radius:10px;font-size:12px;color:var(--tx2);line-height:1.55;margin-bottom:16px;display:none}
+.welcome-mem strong{color:var(--ac2);font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+.welcome-recent{margin-bottom:16px}
+.welcome-recent-title{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.welcome-chat-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;cursor:pointer;transition:background .12s}
+.welcome-chat-row:hover{background:var(--s2)}
+.welcome-chat-dot{width:6px;height:6px;border-radius:50%;background:var(--ac);flex-shrink:0}
+.welcome-chat-title{font-size:13px;font-weight:600;color:var(--tx2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.welcome-chat-time{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu);flex-shrink:0}
+.welcome-prompts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.welcome-empty-hint{display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 20px;color:var(--mu);text-align:center;flex:1;justify-content:center}
+.welcome-empty-icon{font-size:36px;opacity:.4}
+.welcome-empty-title{font-size:15px;font-weight:700;color:var(--tx2)}
+.welcome-empty-desc{font-size:13px;max-width:300px;line-height:1.6}
+
+/* Empty states */
+.empty-state{display:flex;flex-direction:column;align-items:center;gap:10px;padding:36px 20px;color:var(--mu);text-align:center}
+.empty-state-icon{font-size:32px;opacity:.45}
+.empty-state-title{font-size:14px;font-weight:700;color:var(--tx2)}
+.empty-state-desc{font-size:12px;max-width:260px;line-height:1.6}
+
+@media(max-width:640px){
+  .welcome-stats{display:none}
+  .welcome-prompts{grid-template-columns:1fr}
+  .follow-ups{flex-direction:column}
+  .fup-btn{width:100%}
+}
+`;
+document.head.appendChild(_v54css);
+
+// ══════════════════════════════════════════════════════════════
+// 1. BETTER WELCOME SCREEN
+// ══════════════════════════════════════════════════════════════
+const _origMkWelcome = mkWelcome;
+mkWelcome = function() {
+  // If user has chats, show personalized welcome
+  if (G.chats.length || G.user) return mkWelcomeV2();
+  return _origMkWelcome();
+};
+
+function mkWelcomeV2() {
+  const w = document.createElement('div');
+  w.className = 'welcome-v2'; w.id = 'welcome';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const name = G.user?.name?.split(' ')[0] || '';
+  const recentChats = G.chats.slice(0, 4);
+  const totalMsgs = G.chats.reduce((a,c) => a + (c.messageCount||c.history?.length||0), 0);
+  const memPreview = G.memory ? G.memory.split('\n').slice(0,2).join(' ').slice(0,120) : '';
+
+  const suggestCards = [
+    {icon:'💡',title:'Explain something',sub:'How does X work?'},
+    {icon:'✍️',title:'Write for me',sub:'Draft a professional email'},
+    {icon:'💻',title:'Write code',sub:'Build a REST API in Node.js'},
+    {icon:'🔍',title:'Debug my code',sub:'Find and fix the bug'},
+  ];
+
+  w.innerHTML = `
+    <div class="welcome-top">
+      <div class="welcome-avatar"><img src="nova-icon.svg" style="width:28px;height:28px" onerror="this.style.display='none'"/></div>
+      <div class="welcome-greeting">
+        <div class="welcome-name">${greeting}${name ? ', ' + esc(name) : ''}!</div>
+        <div class="welcome-sub">What can NOVA help with today?</div>
+      </div>
+      ${G.chats.length ? `<div class="welcome-stats">
+        <div class="welcome-stat"><div class="welcome-stat-val">${G.chats.length}</div><div class="welcome-stat-lbl">Chats</div></div>
+        <div class="welcome-stat"><div class="welcome-stat-val">${totalMsgs}</div><div class="welcome-stat-lbl">Messages</div></div>
+        ${G.notes?.length ? `<div class="welcome-stat"><div class="welcome-stat-val">${G.notes.length}</div><div class="welcome-stat-lbl">Notes</div></div>` : ''}
+      </div>` : ''}
+    </div>
+    ${memPreview ? `<div class="welcome-mem" id="welcome-mem"><strong>🧠 Memory</strong>${esc(memPreview)}${G.memory.length > 120 ? '...' : ''} <span style="color:var(--ac);cursor:pointer;font-size:11px" onclick="openMemory()">Edit</span></div>` : ''}
+    ${recentChats.length ? `
+      <div class="welcome-recent">
+        <div class="welcome-recent-title">Recent Chats</div>
+        ${recentChats.map(c => `<div class="welcome-chat-row" onclick="loadChatById('${c.id}')"><div class="welcome-chat-dot"></div><div class="welcome-chat-title">${esc(c.title||'Chat')}</div><div class="welcome-chat-time">${c.updatedAt ? fmtRelTime(new Date(c.updatedAt)) : ''}</div></div>`).join('')}
+      </div>
+    ` : ''}
+    <div class="welcome-prompts">
+      ${suggestCards.map(c => `<div class="wcard" onclick="suggest(this)"><strong>${c.icon} ${c.title}</strong><span>${c.sub}</span></div>`).join('')}
+    </div>
+  `;
+  // Show memory section if it exists
+  if (memPreview) setTimeout(() => { const m = document.getElementById('welcome-mem'); if(m) m.style.display='block'; }, 100);
+  return w;
+}
+
+function fmtRelTime(date) {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs/24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+// Refresh welcome when user data loads
+const _origLoadUD54 = loadUserData;
+loadUserData = async function() {
+  await _origLoadUD54();
+  // Refresh welcome screen if it's showing
+  if (document.getElementById('welcome') && G.currentView === 'chat') {
+    const area = document.getElementById('chat');
+    const welcome = document.getElementById('welcome');
+    if (welcome) { const newWelcome = mkWelcome(); area.replaceChild(newWelcome, welcome); }
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// 2. CHAT TIMESTAMPS
+// ══════════════════════════════════════════════════════════════
+const _origAddMsgTS = addMsg;
+addMsg = function(role, content, animate=true) {
+  const wrap = _origAddMsgTS(role, content, animate);
+  if (!wrap) return wrap;
+  const mwrap = wrap.querySelector('.mwrap');
+  if (mwrap) {
+    const time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    time.title = new Date().toLocaleString();
+    mwrap.appendChild(time);
+  }
+  // Collapse long messages (> 600 words)
+  const bubble = wrap.querySelector('.bubble');
+  if (bubble && bubble.textContent.length > 2400) {
+    const full = bubble.innerHTML;
+    const preview = full.slice(0, 1200);
+    bubble.innerHTML = `<div class="msg-full">${full}</div><div class="msg-preview">${preview}...</div>`;
+    wrap.classList.add('collapsed');
+    const colBtn = document.createElement('button');
+    colBtn.className = 'collapse-btn';
+    colBtn.innerHTML = '▼ Show full response';
+    colBtn.onclick = () => { wrap.classList.remove('collapsed'); colBtn.remove(); };
+    bubble.appendChild(colBtn);
+    const showMore = document.createElement('div'); showMore.className='msg-collapse';
+    bubble.appendChild(showMore);
+  }
+  return wrap;
+};
+
+// ══════════════════════════════════════════════════════════════
+// 3. RESIZABLE SIDEBAR
+// ══════════════════════════════════════════════════════════════
+function initResizableSidebar() {
+  if (window.innerWidth <= 640) return; // no resize on mobile
+  const sb = document.getElementById('sb'); if (!sb) return;
+  // Add resizer handle
+  const resizer = document.createElement('div'); resizer.className = 'sb-resizer';
+  sb.appendChild(resizer);
+  // Restore saved width
+  const savedW = localStorage.getItem('nv_sb_w');
+  if (savedW) { sb.style.width = savedW + 'px'; sb.style.minWidth = savedW + 'px'; }
+  let dragging = false, startX = 0, startW = 0;
+  resizer.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = sb.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const newW = Math.min(Math.max(startW + (e.clientX - startX), 200), 420);
+    sb.style.width = newW + 'px'; sb.style.minWidth = newW + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false; resizer.classList.remove('dragging');
+    document.body.style.cursor = ''; document.body.style.userSelect = '';
+    localStorage.setItem('nv_sb_w', sb.offsetWidth);
+  });
+}
+document.addEventListener('DOMContentLoaded', initResizableSidebar);
+setTimeout(initResizableSidebar, 500);
+
+// ══════════════════════════════════════════════════════════════
+// 4. BETTER EMPTY STATES
+// ══════════════════════════════════════════════════════════════
+// Override renderPrompts to have better empty state
+const _origRenderPrompts54 = renderPrompts;
+renderPrompts = function() {
+  _origRenderPrompts54();
+  const list = document.getElementById('prompt-list');
+  if (list && !G.prompts.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <div class="empty-state-title">No prompts saved yet</div>
+      <div class="empty-state-desc">Save your best prompts for one-click reuse. Great for things you ask often.</div>
+      <button class="btn btn-p btn-sm" onclick="openAddPrompt()">+ Create your first prompt</button>
+    </div>`;
+  }
+};
+
+// Override renderFilesList for empty state
+const _origRenderFilesList = renderFilesList;
+renderFilesList = function() {
+  _origRenderFilesList();
+  const list = document.getElementById('files-list');
+  if (list && !G.userFiles?.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">📎</div>
+      <div class="empty-state-title">No files uploaded yet</div>
+      <div class="empty-state-desc">Upload PDFs, code files, or docs to attach them to any chat. NOVA reads and reasons over them.</div>
+    </div>`;
+  }
+};
+
+// Override renderNotes for empty state  
+const _origRenderNotes = renderNotes;
+renderNotes = function() {
+  _origRenderNotes();
+  const body = document.getElementById('kb-body');
+  if (body && !G.notes.length) {
+    body.innerHTML = `<div class="empty-state" style="padding:48px 20px">
+      <div class="empty-state-icon">📚</div>
+      <div class="empty-state-title">Your knowledge base is empty</div>
+      <div class="empty-state-desc">Save AI responses, research, and insights here. They're searchable and permanent — like a second brain.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-p btn-sm" onclick="openNoteEditor()">✏️ Write a note</button>
+        <button class="btn btn-g btn-sm" onclick="document.getElementById('kb-ov').classList.remove('open');openDocQA()">📄 Import from doc</button>
+      </div>
+    </div>`;
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// 5. READ RECEIPTS IN SHARED CHAT
+// ══════════════════════════════════════════════════════════════
+// Track which message IDs each participant has seen
+G._readReceipts = {}; // { msgId: [userTokens who've seen it] }
+
+function updateReadReceipts(participants) {
+  // Attach seen avatars to the last message visible to each user
+  if (!participants?.length) return;
+  const msgs = document.querySelectorAll('.msg[data-msg-id]');
+  if (!msgs.length) return;
+  const lastMsg = msgs[msgs.length - 1];
+  const msgId = lastMsg.getAttribute('data-msg-id');
+  if (!msgId) return;
+  // Show read receipt avatars
+  let receipts = lastMsg.querySelector('.read-receipts');
+  if (!receipts) {
+    receipts = document.createElement('div'); receipts.className = 'read-receipts';
+    lastMsg.querySelector('.mwrap')?.appendChild(receipts);
+  }
+  receipts.innerHTML = '';
+  participants.filter(p => p.user_token !== G.user?.token).forEach(p => {
+    const av = document.createElement('div'); av.className = 'read-av';
+    av.style.background = `hsl(${Math.abs(p.user_token?.split('').reduce((a,c)=>a+c.charCodeAt(0),0)||0)%360},60%,50%)`;
+    av.title = p.user_name || 'User';
+    av.textContent = (p.user_name||'U')[0].toUpperCase();
+    receipts.appendChild(av);
+  });
+}
+
+// Patch addSharedMsg to add data-msg-id
+const _origAddSharedMsg = addSharedMsg;
+addSharedMsg = function(role, content, userName, userToken, animate=true) {
+  const wrap = _origAddSharedMsg(role, content, userName, userToken, animate);
+  if (wrap) {
+    const msgId = Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    wrap.setAttribute('data-msg-id', msgId);
+  }
+  return wrap;
+};
+
+// Patch pollSharedMessages to update read receipts
+const _origPollShared54 = pollSharedMessages;
+pollSharedMessages = async function() {
+  await _origPollShared54();
+  if (G.sharedParticipants?.length) updateReadReceipts(G.sharedParticipants);
+};
+
+// ══════════════════════════════════════════════════════════════
+// 6. SMART FOLLOW-UPS
+// ══════════════════════════════════════════════════════════════
+G.followUpsEnabled = true;
+let _followUpTimer = null;
+
+async function generateFollowUps(lastUserMsg, lastAIMsg) {
+  if (!G.followUpsEnabled) return;
+  if (!lastUserMsg || !lastAIMsg) return;
+  // Remove any existing follow-ups
+  document.querySelectorAll('.follow-ups').forEach(el => el.remove());
+  try {
+    const key = await fetch('/api/providers').then(r=>r.json()).then(d => {
+      if (d.groq?.available) return 'groq';
+      if (d.cohere?.available) return 'cohere';
+      return null;
+    });
+    if (!key) return;
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        provider: key,
+        messages: [
+          {role:'system', content:'You generate short, natural follow-up questions a user might want to ask after an AI conversation. Output ONLY a JSON array of 3 strings. Each question should be under 10 words, conversational, and genuinely useful. No numbering, no explanation.'},
+          {role:'user', content:`User asked: "${lastUserMsg.slice(0,300)}"\n\nAI answered: "${lastAIMsg.slice(0,500)}"\n\nGenerate 3 follow-up questions as a JSON array.`}
+        ],
+        max_tokens: 120,
+        temperature: 0.7
+      })
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    const text = d.choices?.[0]?.message?.content || '[]';
+    let questions = [];
+    try { questions = JSON.parse(text.replace(/```json|```/g,'').trim()); } catch { return; }
+    if (!Array.isArray(questions) || !questions.length) return;
+    // Render follow-up buttons after last AI message
+    const msgs = document.querySelectorAll('.msg.ai');
+    const lastAIEl = msgs[msgs.length - 1];
+    if (!lastAIEl) return;
+    const fups = document.createElement('div'); fups.className = 'follow-ups';
+    questions.slice(0,3).forEach(q => {
+      const btn = document.createElement('button'); btn.className = 'fup-btn';
+      btn.textContent = q;
+      btn.onclick = () => {
+        fups.remove();
+        document.getElementById('mi').value = q;
+        go();
+      };
+      fups.appendChild(btn);
+    });
+    lastAIEl.insertAdjacentElement('afterend', fups);
+    document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+  } catch {}
+}
+
+// Hook into go() to trigger follow-ups after each response
+const _origGo54 = go;
+go = async function() {
+  // Remove old follow-ups when user sends a new message
+  document.querySelectorAll('.follow-ups').forEach(el => el.remove());
+  await _origGo54();
+  // After response, schedule follow-up generation
+  clearTimeout(_followUpTimer);
+  _followUpTimer = setTimeout(() => {
+    const userMsgs = G.history.filter(m => m.role === 'user');
+    const aiMsgs = G.history.filter(m => m.role === 'assistant');
+    const lastUser = userMsgs[userMsgs.length-1]?.content;
+    const lastAI = aiMsgs[aiMsgs.length-1]?.content;
+    if (lastUser && lastAI) generateFollowUps(lastUser, lastAI);
+  }, 800);
+};
+
+// Toggle follow-ups (add to settings)
+window.toggleFollowUps = function() {
+  G.followUpsEnabled = !G.followUpsEnabled;
+  document.querySelectorAll('.follow-ups').forEach(el => el.remove());
+  toast(G.followUpsEnabled ? '💡 Follow-ups on' : 'Follow-ups off');
+};
+
+// Keyboard shortcut: F to toggle follow-ups
+document.addEventListener('keydown', e => {
+  const noInput = document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='INPUT';
+  if (e.key==='f' && noInput && !e.metaKey && !e.ctrlKey) { e.preventDefault(); toggleFollowUps(); }
+});
+
+console.log('NOVA v5.4 — Welcome screen, timestamps, resizable sidebar, empty states, read receipts, smart follow-ups loaded ✓');
+</script>
