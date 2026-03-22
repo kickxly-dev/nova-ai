@@ -77,7 +77,7 @@ a{color:var(--acl);text-decoration:none}
 .sb-new:active{transform:translateY(0)}
 .sb-sec{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--mu);letter-spacing:.14em;text-transform:uppercase;padding:10px 14px 5px;flex-shrink:0;animation:fadeIn .3s ease .35s both}
 .chat-list{flex:1;overflow-y:auto;padding:0 6px;display:flex;flex-direction:column;gap:1px}
-.ci{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;cursor:pointer;transition:all .15s;overflow:hidden}
+.ci{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;cursor:pointer;transition:all .15s;overflow:hidden;animation:sideItemIn .24s ease both;animation-delay:var(--stagger,0ms)}
 .ci:hover{background:var(--s2);transform:translateX(3px)}
 .ci.active{background:var(--s3)}
 .ci-dot{width:5px;height:5px;border-radius:50%;background:var(--mu2);flex-shrink:0;transition:all .2s}
@@ -210,6 +210,26 @@ a{color:var(--acl);text-decoration:none}
 .send:hover{background:var(--acl);transform:scale(1.07);box-shadow:0 4px 14px var(--acg)}
 .send:active{transform:scale(.97)}.send:disabled{background:var(--mu2);cursor:not-allowed;transform:none;box-shadow:none}
 .hint{text-align:center;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu2);margin-top:6px;max-width:840px;margin-left:auto;margin-right:auto}
+.mode-strip{display:flex;align-items:center;gap:8px;padding:10px 16px 8px;border-bottom:1px solid var(--b);background:linear-gradient(180deg,var(--s1),rgba(0,0,0,0));flex-shrink:0}
+.mode-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--b);background:var(--s2);color:var(--tx2);animation:modePulse 2.8s ease infinite}
+.mode-pill.m-chat{color:var(--tx2)}
+.mode-pill.m-search{color:var(--ac2);border-color:rgba(6,182,212,.35);background:rgba(6,182,212,.12)}
+.mode-pill.m-agent{color:var(--acl);border-color:rgba(124,58,237,.35);background:var(--acg)}
+.mode-pill.m-code{color:#60a5fa;border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.14)}
+.mode-pill.m-voice{color:var(--gr);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.12)}
+.mode-pill.m-shared{color:#f59e0b;border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.12)}
+.mode-meta{flex:1;min-width:0;font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mode-k{height:26px;padding:0 10px;border-radius:8px;border:1px solid var(--b);background:var(--s2);color:var(--tx2);font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;transition:all .16s}
+.mode-k:hover{border-color:var(--bh);color:var(--tx);transform:translateY(-1px)}
+.smartbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:840px;margin:0 auto 8px;padding:0 1px;animation:fadeUp .28s ease}
+.smart-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid var(--b);background:var(--s2);font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--tx2);transition:all .14s}
+.smart-chip.on{color:var(--tx);border-color:var(--bh)}
+.smart-chip.act{cursor:pointer}
+.smart-chip.act:hover{transform:translateY(-1px);border-color:var(--bh);color:var(--tx)}
+.smart-dot{width:6px;height:6px;border-radius:50%;background:var(--mu)}
+.smart-chip.on .smart-dot{background:var(--ac)}
+@keyframes modePulse{0%,100%{box-shadow:0 0 0 0 rgba(124,58,237,0)}50%{box-shadow:0 0 0 5px rgba(124,58,237,.09)}}
+@keyframes sideItemIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
 
 /* ── CODE MODE ── */
 #code-view{flex-direction:row}
@@ -283,6 +303,20 @@ a{color:var(--acl);text-decoration:none}
 .mx:hover{background:var(--s3);color:var(--tx)}
 .mbody{padding:18px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
 .mfoot{padding:12px 20px;border-top:1px solid var(--b);display:flex;gap:7px;justify-content:flex-end;flex-shrink:0}
+.cmd-modal{max-width:620px;padding:14px;border-radius:22px}
+.cmd-head{display:flex;align-items:center;gap:10px;padding:6px 8px 12px}
+.cmd-ico{width:30px;height:30px;border-radius:9px;border:1px solid var(--b);background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--mu)}
+.cmd-inp{flex:1;background:var(--s2);border:1px solid var(--b);border-radius:11px;padding:10px 12px;font-size:13px;color:var(--tx);outline:none}
+.cmd-inp:focus{border-color:var(--bh);box-shadow:0 0 0 2px var(--acg)}
+.cmd-list{display:flex;flex-direction:column;gap:6px;max-height:52dvh;overflow:auto;padding:0 6px 6px}
+.cmd-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:11px;border:1px solid var(--b);background:var(--s2);color:var(--tx2);transition:all .14s;cursor:pointer;animation:fadeUp .18s ease both}
+.cmd-item:hover,.cmd-item.active{border-color:var(--bh);background:var(--s3);color:var(--tx);transform:translateY(-1px)}
+.cmd-title{font-size:12px;font-weight:700}
+.cmd-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.cmd-kbd{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu);border:1px solid var(--b);border-radius:6px;padding:3px 6px;background:var(--s1);white-space:nowrap}
+.focus-chat .sb{transform:translateX(-100%)}
+.focus-chat .topbar,.focus-chat .mpbar{display:none}
+.focus-chat .main{max-width:1080px;margin:0 auto}
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:12px;font-weight:700;color:var(--tx2)}
 .field input,.field textarea,.field select{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--tx);outline:none;transition:all .15s;width:100%}
@@ -380,6 +414,11 @@ a{color:var(--acl);text-decoration:none}
   .sb.open{transform:translateX(0)}
   .topbar{display:none}
   .mtop{display:flex}.mpbar{display:flex}.mob-nav{display:flex}
+  .mode-strip{padding:8px 10px}
+  .mode-meta{font-size:10px}
+  .mode-k{display:none}
+  .smartbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .smartbar::-webkit-scrollbar{display:none}
   .chat{padding:12px 10px 8px}
   .input-area{padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))}
   .msg{max-width:100%}.bubble{max-width:calc(100vw - 68px)}
@@ -555,6 +594,11 @@ kbd{padding:3px 6px;background:var(--s3);border:1px solid var(--b);border-radius
 
     <!-- CHAT VIEW -->
     <div class="view active" id="chat-view">
+      <div class="mode-strip" id="mode-strip">
+        <div class="mode-pill m-chat" id="mode-pill">Chat</div>
+        <div class="mode-meta" id="mode-meta">Ready</div>
+        <button class="mode-k" onclick="openCommandPalette()" title="Command palette">Cmd/Ctrl + K</button>
+      </div>
       <div class="chat" id="chat">
         <div class="welcome" id="welcome">
           <div class="w-icon"><img src="nova-icon.svg" alt="NOVA" style="width:34px;height:34px"/></div>
@@ -569,6 +613,7 @@ kbd{padding:3px 6px;background:var(--s3);border:1px solid var(--b);border-radius
         </div>
       </div>
       <div class="input-area">
+        <div class="smartbar" id="smartbar"></div>
         <div class="input-wrap">
           <div class="ibtns">
             <button class="ibtn" id="agentbtn" onclick="toggleAgent()" title="Agent mode"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v10"/><path d="M1 12h6m6 0h10"/><path d="M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24"/><path d="M19.78 4.22l-4.24 4.24m-7.08 7.08l-4.24 4.24"/></svg></button>
@@ -580,7 +625,7 @@ kbd{padding:3px 6px;background:var(--s3);border:1px solid var(--b);border-radius
           <textarea id="mi" placeholder="Message NOVA..." rows="1" onkeydown="onKey(event)" oninput="resize(this)"></textarea>
           <button class="send" id="send" onclick="go()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
         </div>
-        <div class="hint">Enter to send · Shift+Enter newline · Cmd+K new chat · Cmd+/ code mode</div>
+        <div class="hint">Enter to send · Shift+Enter newline · Cmd/Ctrl+K commands · Cmd+/ code mode</div>
       </div>
     </div>
 
@@ -836,6 +881,19 @@ kbd{padding:3px 6px;background:var(--s3);border:1px solid var(--b);border-radius
       <div class="field"><label>Enter Share Code</label><input type="text" id="join-code-input" placeholder="e.g. ABCD1234" style="text-transform:uppercase;font-family:'JetBrains Mono',monospace"/></div>
       <button class="btn btn-p" style="width:100%" onclick="joinSharedChat()">Join Chat</button>
     </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="ov" id="cmd-ov" onclick="closeOv(event,'cmd-ov');closeCommandPalette();">
+  <div class="modal cmd-modal">
+    <div class="cmd-head">
+      <div class="cmd-ico">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <input class="cmd-inp" id="cmd-inp" placeholder="Run a command..." oninput="renderCommandPalette(this.value)" onkeydown="onCmdKey(event)"/>
+    </div>
+    <div class="cmd-list" id="cmd-list"></div>
   </div>
 </div>
 
@@ -2109,7 +2167,7 @@ function fmtUptime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);retur
 function fmtBytes(b){return b>1e6?`${(b/1e6).toFixed(1)}MB`:`${(b/1e3).toFixed(0)}KB`;}
 
 document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();newChat();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();if(typeof openCommandPalette==='function')openCommandPalette();else newChat();}
   if((e.metaKey||e.ctrlKey)&&e.key==='/'){e.preventDefault();switchView(G.currentView==='code'?'chat':'code');}
   if(e.key==='Escape'){closeDrop();closeSett();closeMem();closeAdmin();closeCLModal();document.getElementById('cl-modal')?.classList.remove('open');}
   if(e.key==='v'&&!e.metaKey&&!e.ctrlKey&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='INPUT'){toggleVoice();}
@@ -2217,6 +2275,8 @@ function settTab(tab, btn) {
 function syncSearchUI() {
   document.getElementById('srch-btn')?.classList.toggle('on', !!G.searchMode);
   document.getElementById('searchbtn')?.classList.toggle('on', !!G.searchMode);
+  updateModeStrip();
+  renderSmartBar();
 }
 
 function syncTTSUI() {
@@ -2224,11 +2284,135 @@ function syncTTSUI() {
   document.getElementById('sett-tts')?.classList.toggle('on', !!G.ttsMode);
   const voiceField = document.getElementById('tts-vf');
   if (voiceField) voiceField.style.display = G.ttsMode ? 'flex' : 'none';
+  renderSmartBar();
 }
 
 function syncVoiceUI() {
   document.getElementById('voice-btn')?.classList.toggle('on', !!G.voiceMode);
   document.getElementById('voicebtn')?.classList.toggle('on', !!G.voiceMode);
+  updateModeStrip();
+  renderSmartBar();
+}
+
+const CMD_ACTIONS = [
+  { id:'new-chat', title:'New Chat', subtitle:'Start a fresh conversation', hotkey:'Ctrl+K', run:() => newChat() },
+  { id:'toggle-focus', title:'Toggle Focus Mode', subtitle:'Hide sidebar and chrome for distraction-free chat', hotkey:'F', run:() => { document.body.classList.toggle('focus-chat'); renderSmartBar(); } },
+  { id:'go-chat', title:'Go to Chat', subtitle:'Switch to main chat view', hotkey:'C', run:() => switchView('chat') },
+  { id:'go-code', title:'Go to Code', subtitle:'Open code workbench', hotkey:'/', run:() => switchView('code') },
+  { id:'go-dash', title:'Go to Dashboard', subtitle:'Open stats and usage view', hotkey:'D', run:() => switchView('dash') },
+  { id:'toggle-search', title:'Toggle Search Mode', subtitle:'Enable/disable live web search for the next prompt', hotkey:'S', run:() => (typeof toggleSearchMode==='function' ? toggleSearchMode() : toggleSearch()) },
+  { id:'toggle-agent', title:'Toggle Agent Mode', subtitle:'Run autonomous agent tasks from chat', hotkey:'A', run:() => toggleAgent() },
+  { id:'open-files', title:'Open Files', subtitle:'Browse and attach uploaded files', hotkey:'', run:() => openFilesModal() },
+  { id:'open-tasks', title:'Open Agent Tasks', subtitle:'Review queued and completed tasks', hotkey:'', run:() => openTasksModal() },
+  { id:'open-memory', title:'Open Memory', subtitle:'Inspect and edit persistent memory', hotkey:'', run:() => openMemory() },
+  { id:'open-prompts', title:'Open Prompt Library', subtitle:'Use saved prompt snippets', hotkey:'P', run:() => openPrompts() }
+];
+
+function getModeState() {
+  if (G.currentView === 'code') return { key:'code', label:'Code', meta:'Editor and AI paired workbench' };
+  if (G.currentView === 'dash') return { key:'chat', label:'Dashboard', meta:'Usage metrics and activity insights' };
+  if (G.currentView === 'changelog') return { key:'chat', label:'Changelog', meta:'Product updates and release notes' };
+  if (G.sharedChat) return { key:'shared', label:'Shared', meta:`Live room ${G.sharedCode || ''}`.trim() };
+  if (G.agentMode) return { key:'agent', label:'Agent', meta:'Task execution mode active' };
+  if (G.searchMode) return { key:'search', label:'Search', meta:'Next prompt uses live web search' };
+  if (G.voiceMode) return { key:'voice', label:'Voice', meta:'Voice input enabled' };
+  if (G.imgMode) return { key:'search', label:'Image', meta:'Image generation mode active' };
+  return { key:'chat', label:'Chat', meta:'Ready for a new prompt' };
+}
+
+function updateModeStrip() {
+  const pill = document.getElementById('mode-pill');
+  const meta = document.getElementById('mode-meta');
+  if (!pill || !meta) return;
+  const state = getModeState();
+  pill.textContent = state.label;
+  pill.className = `mode-pill m-${state.key}`;
+  meta.textContent = state.meta;
+}
+
+function renderSmartBar() {
+  const bar = document.getElementById('smartbar');
+  if (!bar) return;
+  const chips = [];
+  chips.push({ id:'focus', label:'Focus', active:document.body.classList.contains('focus-chat'), action:'toggle-focus' });
+  chips.push({ id:'search', label:'Search', active:!!G.searchMode, action:'toggle-search' });
+  chips.push({ id:'agent', label:'Agent', active:!!G.agentMode, action:'toggle-agent' });
+  chips.push({ id:'voice', label:'Voice', active:!!G.voiceMode, action:'toggle-voice' });
+  chips.push({ id:'stream', label:'Stream', active:!!G.stream, action:'toggle-stream' });
+  if (G.memory) chips.push({ id:'memory', label:'Memory', active:true, info:`${(G.memory||'').split('\n').filter(Boolean).length || 1} notes`, action:'open-memory' });
+  if ((G.attachedFiles || []).length) chips.push({ id:'files', label:'Files', active:true, info:`${G.attachedFiles.length} attached`, action:'open-files' });
+  if (G.sharedChat) chips.push({ id:'shared', label:'Shared', active:true, info:G.sharedCode || 'room', action:'open-share' });
+  if ((G.offlineQueue || []).length) chips.push({ id:'queue', label:'Queue', active:true, info:`${G.offlineQueue.length} pending`, action:'flush-queue' });
+  bar.innerHTML = chips.map(chip => `<button class="smart-chip${chip.active ? ' on' : ''}${chip.action ? ' act' : ''}" data-smart-action="${chip.action||''}" title="${chip.info||chip.label}"><span class="smart-dot"></span>${chip.label}${chip.info ? ` <span style="opacity:.8">${esc(chip.info)}</span>` : ''}</button>`).join('');
+}
+
+function handleSmartAction(action) {
+  if (!action) return;
+  if (action === 'toggle-focus') document.body.classList.toggle('focus-chat');
+  if (action === 'toggle-search') (typeof toggleSearchMode==='function' ? toggleSearchMode() : toggleSearch());
+  if (action === 'toggle-agent') toggleAgent();
+  if (action === 'toggle-voice') (typeof handleVoiceBtn==='function' ? handleVoiceBtn() : toggleVoice());
+  if (action === 'toggle-stream') toggleStream();
+  if (action === 'open-memory') openMemory();
+  if (action === 'open-files') openFilesModal();
+  if (action === 'open-share') openShareModal();
+  if (action === 'flush-queue') flushOfflineQueue();
+  updateModeStrip();
+  renderSmartBar();
+}
+
+function renderCommandPalette(query='') {
+  const list = document.getElementById('cmd-list');
+  if (!list) return;
+  const q = (query || '').trim().toLowerCase();
+  const items = CMD_ACTIONS.filter(item => !q || item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q));
+  G.cmdItems = items;
+  G.cmdIndex = Math.min(G.cmdIndex || 0, Math.max(items.length - 1, 0));
+  list.innerHTML = items.length
+    ? items.map((item, idx) => `<button class="cmd-item${idx===G.cmdIndex?' active':''}" data-cmd="${item.id}" style="animation-delay:${Math.min(idx,8)*18}ms"><div><div class="cmd-title">${esc(item.title)}</div><div class="cmd-sub">${esc(item.subtitle)}</div></div>${item.hotkey ? `<span class="cmd-kbd">${esc(item.hotkey)}</span>` : ''}</button>`).join('')
+    : '<div class="cmd-item active"><div><div class="cmd-title">No commands found</div><div class="cmd-sub">Try a different keyword.</div></div></div>';
+}
+
+function runCommandAction(id) {
+  const item = CMD_ACTIONS.find(entry => entry.id === id);
+  if (!item) return;
+  closeCommandPalette();
+  item.run();
+  updateModeStrip();
+  renderSmartBar();
+}
+
+function openCommandPalette() {
+  const ov = document.getElementById('cmd-ov');
+  const input = document.getElementById('cmd-inp');
+  if (!ov || !input) return;
+  G.cmdIndex = 0;
+  ov.classList.add('open');
+  input.value = '';
+  renderCommandPalette('');
+  setTimeout(() => input.focus(), 20);
+}
+
+function closeCommandPalette() {
+  document.getElementById('cmd-ov')?.classList.remove('open');
+}
+
+function onCmdKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closeCommandPalette(); return; }
+  const items = G.cmdItems || [];
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    G.cmdIndex = (G.cmdIndex + 1) % items.length;
+    renderCommandPalette(document.getElementById('cmd-inp')?.value || '');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    G.cmdIndex = (G.cmdIndex - 1 + items.length) % items.length;
+    renderCommandPalette(document.getElementById('cmd-inp')?.value || '');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    runCommandAction(items[G.cmdIndex]?.id);
+  }
 }
 
 function normalizeTrustUrl(url) {
@@ -2311,24 +2495,27 @@ function trustPillsHTML(meta) {
 function renderAttachedFiles() {
   const host = document.getElementById('attached-files');
   if (!host) return;
-  if (!G.attachedFiles.length) { host.innerHTML=''; host.style.display='none'; return; }
+  if (!G.attachedFiles.length) { host.innerHTML=''; host.style.display='none'; renderSmartBar(); return; }
   host.style.display='flex';
   host.style.flexWrap='wrap';
   host.style.gap='6px';
   host.style.margin='8px auto 0';
   host.style.maxWidth='840px';
   host.innerHTML = G.attachedFiles.map(file => `<button class="mchip active" style="display:inline-flex;align-items:center;gap:6px" onclick="detachFile('${file.file_id}')">${esc(file.name)} <span style="font-size:11px">x</span></button>`).join('');
+  renderSmartBar();
 }
 
 function queueOfflineMessage(text) {
   G.offlineQueue.push({ text, createdAt: Date.now(), files: (G.attachedFiles || []).map(file => ({ file_id:file.file_id, name:file.name })) });
   localStorage.setItem('nv_offline_queue', JSON.stringify(G.offlineQueue));
+  renderSmartBar();
 }
 
 async function flushOfflineQueue() {
   if (!navigator.onLine || !G.offlineQueue.length || G.busy) return;
   const next = G.offlineQueue.shift();
   localStorage.setItem('nv_offline_queue', JSON.stringify(G.offlineQueue));
+  renderSmartBar();
   if (!next) return;
   const input = document.getElementById('mi');
   G.attachedFiles = next.files || [];
@@ -2900,6 +3087,70 @@ function rerenderSharedMessages() {
   });
 }
 
+const _origToggleAgentV2 = toggleAgent;
+toggleAgent = function() {
+  _origToggleAgentV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origToggleImgV2 = toggleImg;
+toggleImg = function() {
+  _origToggleImgV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origToggleVoiceV2 = toggleVoice;
+toggleVoice = function() {
+  _origToggleVoiceV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origToggleSearchV2 = toggleSearch;
+toggleSearch = function() {
+  _origToggleSearchV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origNewChatV2 = newChat;
+newChat = function() {
+  _origNewChatV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origCreateSharedChatV2 = createSharedChat;
+createSharedChat = async function() {
+  await _origCreateSharedChatV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origJoinSharedChatV2 = joinSharedChat;
+joinSharedChat = async function() {
+  await _origJoinSharedChatV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+const _origLeaveSharedChatV2 = leaveSharedChat;
+leaveSharedChat = async function() {
+  await _origLeaveSharedChatV2();
+  updateModeStrip();
+  renderSmartBar();
+};
+
+if (typeof toggleStream === 'function') {
+  const _origToggleStreamV2 = toggleStream;
+  toggleStream = function() {
+    _origToggleStreamV2();
+    renderSmartBar();
+  };
+}
+
 // ── Override: switchView (add dash + nav highlighting) ──
 const _origSwitchView = switchView;
 switchView = function(v) {
@@ -2915,6 +3166,8 @@ switchView = function(v) {
   document.querySelectorAll('.mnb').forEach(b => b.classList.remove('active'));
   const mn = {chat:'mob-chat',code:'mob-code',changelog:'mob-cl',dash:'mob-dash'};
   if (mn[v]) document.getElementById(mn[v])?.classList.add('active');
+  updateModeStrip();
+  renderSmartBar();
 };
 
 // ── Override: loadUserData (add folders, prompts, settings) ──
@@ -2936,6 +3189,8 @@ loadUserData = async function() {
     if (G.userSettings.byok_groq) document.getElementById('byok-groq-st').textContent='● Your key active';
     if (G.userSettings.byok_cohere) document.getElementById('byok-coh-st').textContent='● Your key active';
   } catch {}
+  updateModeStrip();
+  renderSmartBar();
 };
 
 const _origOpenMemory = openMemory;
@@ -2979,6 +3234,7 @@ addMsg = function(role, content, animate=true) {
 const _origRenderChatList = renderChatList;
 renderChatList = function() {
   const list = document.getElementById('chat-list'); if (!list) return; list.innerHTML = '';
+  makeChatItem._order = 0;
   const pinned = G.chats.filter(c => c.pinned);
   const unpinned = G.chats.filter(c => !c.pinned);
   if (pinned.length) {
@@ -3003,6 +3259,8 @@ renderChatList = function() {
 };
 function makeChatItem(c) {
   const item=document.createElement('div'); item.className=`ci${c.id===G.chatId?' active':''}${c.pinned?' pinned':''}`;
+  const nextOrder = (makeChatItem._order = (makeChatItem._order || 0) + 1);
+  item.style.setProperty('--stagger', `${Math.min(nextOrder, 14) * 18}ms`);
   item.innerHTML=`<div class="ci-dot"></div><div class="ci-info"><div class="ci-title">${esc(c.title||'Chat')}</div><div class="ci-meta">${c.provider||''}${c.messageCount?` · ${c.messageCount} msgs`:''}</div></div><button class="ci-menu" style="opacity:0;width:18px;height:18px;border-radius:4px;background:none;border:none;display:flex;align-items:center;justify-content:center;color:var(--mu);flex-shrink:0;padding:0;cursor:pointer" onclick="showChatMenu(event,'${c.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>`;
   item.onmouseenter=()=>item.querySelector('.ci-menu').style.opacity='1';
   item.onmouseleave=()=>item.querySelector('.ci-menu').style.opacity='0';
@@ -3122,6 +3380,8 @@ go = async function() {
   if (!G.searchMode) {
     G.pendingTrustMeta = buildLiveTrustMeta();
     await _origGo();
+    updateModeStrip();
+    renderSmartBar();
     return;
   }
   const inp=document.getElementById('mi'); const text=inp.value.trim(); if (!text||G.busy) return;
@@ -3165,12 +3425,15 @@ go = async function() {
     window.fetch = originalFetch;
     G.searchMode = wasSearchMode;
     syncSearchUI();
+    updateModeStrip();
+    renderSmartBar();
   }
 };
 
 // ── Extra keyboard shortcuts ─────────────────────────
 document.addEventListener('keydown', e => {
   const ni = document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='INPUT';
+  if ((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k') { e.preventDefault(); openCommandPalette(); }
   if ((e.metaKey||e.ctrlKey)&&e.key===',') { e.preventDefault(); openSettings(); }
   if ((e.metaKey||e.ctrlKey)&&e.key==='d') { e.preventDefault(); switchView('dash'); }
   if (e.key==='s'&&ni) { e.preventDefault(); toggleSearchMode(); }
@@ -3178,6 +3441,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='p'&&ni) { e.preventDefault(); openPrompts(); }
   if (e.key==='?'&&ni) { document.getElementById('kbd-ov').classList.add('open'); }
   if (e.key==='Escape') {
+    closeCommandPalette();
     document.getElementById('sr-drop')?.classList.remove('open');
     document.getElementById('kbd-ov')?.classList.remove('open');
     document.getElementById('pov')?.classList.remove('open');
@@ -3327,9 +3591,22 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('mi')?.addEventListener('input', persistDraft);
   document.getElementById('code-editor')?.addEventListener('input', persistDraft);
   document.getElementById('code-mi')?.addEventListener('input', persistDraft);
+  document.getElementById('smartbar')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-smart-action]');
+    if (!btn) return;
+    handleSmartAction(btn.dataset.smartAction);
+  });
+  document.getElementById('cmd-list')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    runCommandAction(btn.dataset.cmd);
+  });
   window.addEventListener('online', () => { toast('Back online'); flushOfflineQueue(); });
   setTimeout(() => { flushOfflineQueue(); }, 500);
   renderAttachedFiles();
+  updateModeStrip();
+  renderSmartBar();
+  renderCommandPalette('');
 });
 </script>
 </body>
