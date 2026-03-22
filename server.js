@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
