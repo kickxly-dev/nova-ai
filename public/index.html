@@ -4150,7 +4150,8 @@ _v54css.textContent = `
 /* Resizable sidebar */
 .sb-resizer{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:31;transition:background .15s}
 .sb-resizer:hover,.sb-resizer.dragging{background:var(--ac)}
-.sb{position:relative}
+/* FIX: only set relative on desktop — mobile needs fixed for drawer */
+@media(min-width:641px){.sb{position:relative}}
 
 /* Collapsible long messages */
 .msg-collapse{display:none;margin-top:8px}
@@ -5307,4 +5308,23 @@ kbd { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.1); col
 .code-ai-head { border-bottom: 1px solid rgba(255,255,255,.06); }
 .code-topbar { background: rgba(9,9,11,.9); border-bottom: 1px solid rgba(255,255,255,.06); }
 .code-sidebar { background: rgba(9,9,11,.9); border-right: 1px solid rgba(255,255,255,.06); }
+
+/* ── MOBILE FIXES ── */
+@media(max-width:640px){
+  .sb{width:82vw!important;max-width:300px!important;min-width:unset!important}
+  .sb-resizer{display:none}
+  .sb,.topbar,.mob-nav,.mpbar,.mtop,.input-wrap,.modal,.prov-dd,.ctx-menu,.slash-pop,.sr-drop,.voice-modal,.ob-panel,.bs{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .bubble{max-width:calc(100vw - 80px);font-size:14px}
+  .chat{padding:14px 12px 10px;gap:14px}
+  .input-area{padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+  .input-wrap{border-radius:14px}
+  .welcome-v2{padding:16px 14px 10px}
+  .welcome-top{gap:10px;margin-bottom:14px}
+  .welcome-name{font-size:17px}
+  .welcome-prompts{grid-template-columns:1fr;gap:6px}
+  .modal{border-radius:16px;max-height:92dvh}
+  .follow-ups{gap:5px}
+  .fup-btn{font-size:12px;padding:6px 11px}
+  .insights-banner{bottom:90px}
+}
 </style>
