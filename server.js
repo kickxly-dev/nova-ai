@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
-const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
@@ -18,6 +18,7 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 passport.serializeUser((u,done)=>done(null,u));
@@ -822,6 +823,14 @@ app.get('/api/export/:userToken/:chatId', async (req,res) => {
 });
 
 // ─── Fallback ─────────────────────────────────────────────────────────────────
+// Serve landing page at / if user hasn't visited before (no cookie),
+// otherwise go straight to the app. /app always goes to the chat.
+app.get('/app',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('/',(req,res)=>{
+  if (req.cookies?.nv_seen) return res.sendFile(path.join(__dirname,'public','index.html'));
+  res.cookie('nv_seen','1',{maxAge:365*24*60*60*1000,httpOnly:true,sameSite:'lax'});
+  res.sendFile(path.join(__dirname,'public','landing.html'));
+});
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 app.listen(PORT,()=>{
