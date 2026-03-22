@@ -58,6 +58,9 @@ async function initDB() {
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_chats (id SERIAL PRIMARY KEY, share_code VARCHAR(16) UNIQUE NOT NULL, title VARCHAR(256), creator_token VARCHAR(64) NOT NULL, provider VARCHAR(32), model VARCHAR(128), is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_participants (id SERIAL PRIMARY KEY, share_code VARCHAR(16) REFERENCES shared_chats(share_code) ON DELETE CASCADE, user_token VARCHAR(64) NOT NULL, user_name VARCHAR(128), joined_at TIMESTAMP DEFAULT NOW(), UNIQUE(share_code, user_token))`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_messages (id SERIAL PRIMARY KEY, share_code VARCHAR(16) REFERENCES shared_chats(share_code) ON DELETE CASCADE, user_token VARCHAR(64) NOT NULL, user_name VARCHAR(128), role VARCHAR(16) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
+    await pool.query(`ALTER TABLE shared_participants ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NOW()`);
+    await pool.query(`ALTER TABLE shared_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE shared_messages ADD COLUMN IF NOT EXISTS reactions_json TEXT DEFAULT '{}'`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS folders (
       id SERIAL PRIMARY KEY, user_token VARCHAR(64) NOT NULL,
@@ -684,7 +687,7 @@ app.post('/api/shared/create', async (req,res) => {
   const {userToken,userName,title,provider,model}=req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.status(503).json({error:'Database not available'});
-  try{const code=genShareCode();await pool.query('INSERT INTO shared_chats (share_code,creator_token,title,provider,model) VALUES ($1,$2,$3,$4,$5)',[code,userToken,(title||'Shared Chat').slice(0,200),provider||'groq',model||'']);await pool.query('INSERT INTO shared_participants (share_code,user_token,user_name) VALUES ($1,$2,$3)',[code,userToken,(userName||'User').slice(0,100)]);res.json({shareCode:code,title:title||'Shared Chat'});}
+  try{const code=genShareCode();await pool.query('INSERT INTO shared_chats (share_code,creator_token,title,provider,model) VALUES ($1,$2,$3,$4,$5)',[code,userToken,(title||'Shared Chat').slice(0,200),provider||'groq',model||'']);await pool.query('INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW())',[code,userToken,(userName||'User').slice(0,100)]);res.json({shareCode:code,title:title||'Shared Chat'});}
   catch(e){res.status(500).json({error:e.message});}
 });
 app.post('/api/shared/join', async (req,res) => {
@@ -695,9 +698,9 @@ app.post('/api/shared/join', async (req,res) => {
     const chatRes=await pool.query('SELECT * FROM shared_chats WHERE share_code=$1 AND is_active=true',[shareCode]);
     if (!chatRes.rows.length) return res.status(404).json({error:'Shared chat not found or inactive'});
     const chat=chatRes.rows[0];
-    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name) VALUES ($1,$2,$3) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3`,[shareCode,userToken,(userName||'User').slice(0,100)]);
-    const partsRes=await pool.query('SELECT user_token,user_name,joined_at FROM shared_participants WHERE share_code=$1',[shareCode]);
-    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at FROM shared_messages WHERE share_code=$1 ORDER BY created_at ASC LIMIT 200',[shareCode]);
+    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW()) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3,last_seen=NOW()`,[shareCode,userToken,(userName||'User').slice(0,100)]);
+    const partsRes=await pool.query('SELECT user_token,user_name,joined_at,last_seen FROM shared_participants WHERE share_code=$1',[shareCode]);
+    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at,edited_at,reactions_json FROM shared_messages WHERE share_code=$1 ORDER BY created_at ASC LIMIT 200',[shareCode]);
     res.json({shareCode:chat.share_code,title:chat.title,provider:chat.provider,model:chat.model,creatorToken:chat.creator_token,participants:partsRes.rows,messages:msgsRes.rows});
   }catch(e){res.status(500).json({error:e.message});}
 });
@@ -716,10 +719,52 @@ app.post('/api/shared/message', async (req,res) => {
     // FIX: Verify user is a real participant before posting — prevents spoofing
     const p=await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
     if (!p.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
+    await pool.query('UPDATE shared_participants SET last_seen=NOW() WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
     const r=await pool.query('INSERT INTO shared_messages (share_code,user_token,user_name,role,content) VALUES ($1,$2,$3,$4,$5) RETURNING id,created_at',[shareCode,userToken,(userName||'User').slice(0,100),role,content.slice(0,20000)]);
     await pool.query('UPDATE shared_chats SET updated_at=NOW() WHERE share_code=$1',[shareCode]);
     res.json({id:r.rows[0].id,created_at:r.rows[0].created_at});
   }catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/shared/presence', async (req,res) => {
+  const { shareCode, userToken, userName } = req.body;
+  if (!shareCode || !userToken) return res.status(400).json({error:'shareCode and userToken required'});
+  if (!pool) return res.json({ok:true});
+  try{
+    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW()) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3,last_seen=NOW()`,[shareCode,userToken,(userName||'User').slice(0,100)]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.put('/api/shared/message/:id', async (req,res) => {
+  const { shareCode, userToken, content } = req.body;
+  if (!shareCode || !userToken || !content) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    const ownerCheck = await pool.query('SELECT user_token,share_code FROM shared_messages WHERE id=$1',[req.params.id]);
+    const msg = ownerCheck.rows[0];
+    if (!msg || msg.share_code !== shareCode) return res.status(404).json({error:'Message not found'});
+    if (msg.user_token !== userToken) return res.status(403).json({error:'Only the author can edit this message'});
+    await pool.query('UPDATE shared_messages SET content=$2,edited_at=NOW() WHERE id=$1',[req.params.id,content.slice(0,20000)]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/shared/message/:id/react', async (req,res) => {
+  const { shareCode, userToken, emoji } = req.body;
+  if (!shareCode || !userToken || !emoji) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    const p=await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
+    if (!p.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
+    const msgRes=await pool.query('SELECT reactions_json FROM shared_messages WHERE id=$1 AND share_code=$2',[req.params.id,shareCode]);
+    const current=msgRes.rows[0];
+    if (!current) return res.status(404).json({error:'Message not found'});
+    let reactions={};
+    try{reactions=JSON.parse(current.reactions_json||'{}');}catch{}
+    const users=Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+    reactions[emoji]=users.includes(userToken) ? users.filter(token=>token!==userToken) : [...users,userToken];
+    if (!reactions[emoji].length) delete reactions[emoji];
+    await pool.query('UPDATE shared_messages SET reactions_json=$2 WHERE id=$1',[req.params.id,JSON.stringify(reactions)]);
+    res.json({ok:true,reactions});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 app.get('/api/shared/poll/:shareCode/:afterId', async (req,res) => {
   if (!pool) return res.json({messages:[],participants:[]});
@@ -728,8 +773,9 @@ app.get('/api/shared/poll/:shareCode/:afterId', async (req,res) => {
     if (!userToken) return res.status(400).json({error:'userToken required'});
     const participantRes = await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[req.params.shareCode,userToken]);
     if (!participantRes.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
-    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at FROM shared_messages WHERE share_code=$1 AND id > $2 ORDER BY id ASC LIMIT 50',[req.params.shareCode,parseInt(req.params.afterId)||0]);
-    const partsRes=await pool.query('SELECT user_token,user_name FROM shared_participants WHERE share_code=$1',[req.params.shareCode]);
+    await pool.query('UPDATE shared_participants SET last_seen=NOW() WHERE share_code=$1 AND user_token=$2',[req.params.shareCode,userToken]);
+    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at,edited_at,reactions_json FROM shared_messages WHERE share_code=$1 AND id > $2 ORDER BY id ASC LIMIT 50',[req.params.shareCode,parseInt(req.params.afterId)||0]);
+    const partsRes=await pool.query('SELECT user_token,user_name,last_seen FROM shared_participants WHERE share_code=$1',[req.params.shareCode]);
     res.json({messages:msgsRes.rows,participants:partsRes.rows});
   }catch(e){res.status(500).json({error:e.message});}
 });

@@ -1728,13 +1728,14 @@ function openShareModal(){
   document.getElementById('share-modal').classList.add('open');
   const body=document.getElementById('share-modal-body');
   if(G.sharedChat){
+    const now = Date.now();
     body.innerHTML=`<div style="text-align:center">
       <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Share Code</div>
       <div style="font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--ac);letter-spacing:4px;margin-bottom:12px">${G.sharedCode}</div>
       <button class="btn btn-p btn-sm" onclick="copyShareLink()">Copy Link</button>
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b)">
         <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Participants (${G.sharedParticipants.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${G.sharedParticipants.map(p=>`<div style="padding:4px 10px;background:var(--s2);border-radius:20px;font-size:11px">${esc(p.user_name||'User')}</div>`).join('')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${G.sharedParticipants.map(p=>`<div style="padding:4px 10px;background:var(--s2);border-radius:20px;font-size:11px">${esc(p.user_name||'User')} ${new Date(p.last_seen || 0).getTime() > now - 20000 ? '<span style="color:var(--gr)">• online</span>' : ''}</div>`).join('')}</div>
       </div>
       <button class="btn btn-d btn-sm" style="margin-top:16px" onclick="leaveSharedChat()">Leave Shared Chat</button>
     </div>`;
@@ -1785,14 +1786,9 @@ async function joinSharedChat(){
     G.sharedCode=d.shareCode;
     G.sharedChat={title:d.title,shareCode:d.shareCode,provider:d.provider,model:d.model,creatorToken:d.creatorToken};
     G.sharedParticipants=d.participants;
-    G.sharedMessages=d.messages;
+    G.sharedMessages=(d.messages || []).map(normalizeSharedMessage);
     G.sharedLastId=d.messages.length?Math.max(...d.messages.map(m=>m.id)):0;
-    // Render messages
-    const area=document.getElementById('chat');
-    area.innerHTML='';
-    d.messages.forEach(m=>{
-      if(m.role!=='system')addSharedMsg(m.role,m.content,m.user_name,m.user_token,false);
-    });
+    rerenderSharedMessages();
     closeJoinModal();
     switchView('chat');
     startSharedPoll();
@@ -1824,6 +1820,9 @@ function stringToColor(str){
 
 function startSharedPoll(){
   if(G.sharedPollTimer)clearInterval(G.sharedPollTimer);
+  if (G.sharedCode && G.user?.token) {
+    fetch('/api/shared/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shareCode:G.sharedCode,userToken:G.user.token,userName:G.user.name})}).catch(()=>{});
+  }
   G.sharedPollTimer=setInterval(pollSharedMessages,1500);
 }
 function stopSharedPoll(){
@@ -1832,16 +1831,18 @@ function stopSharedPoll(){
 async function pollSharedMessages(){
   if(!G.sharedCode||G.busy)return;
   try{
+    await fetch('/api/shared/presence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shareCode:G.sharedCode,userToken:G.user.token,userName:G.user.name})}).catch(()=>{});
     const r=await fetch(`/api/shared/poll/${G.sharedCode}/${G.sharedLastId}?userToken=${encodeURIComponent(G.user.token)}`);
     if(!r.ok)return;
     const d=await r.json();
     if(d.messages?.length){
       d.messages.forEach(m=>{
         if(m.id>G.sharedLastId){
-          G.sharedMessages.push(m);
+          const normalized = normalizeSharedMessage(m);
+          G.sharedMessages.push(normalized);
           // Only add to UI if not from current user (we already added those locally)
           if(m.user_token!==G.user?.token||m.role==='assistant'){
-            addSharedMsg(m.role,m.content,m.user_name,m.user_token);
+            addSharedMsg(m.role,m.content,m.user_name,m.user_token,true,normalized);
           }
           G.sharedLastId=m.id;
         }
@@ -2166,6 +2167,8 @@ G.fileLibrary = [];
 G.attachedFiles = [];
 G.agentTasks = [];
 G.pendingTrustMeta = null;
+G.codeSnapshots = [];
+G.offlineQueue = JSON.parse(localStorage.getItem('nv_offline_queue') || '[]');
 
 // ── Settings tabs ────────────────────────────────────
 function settTab(tab, btn) {
@@ -2215,6 +2218,56 @@ function renderAttachedFiles() {
   host.style.margin='8px auto 0';
   host.style.maxWidth='840px';
   host.innerHTML = G.attachedFiles.map(file => `<button class="mchip active" style="display:inline-flex;align-items:center;gap:6px" onclick="detachFile('${file.file_id}')">${esc(file.name)} <span style="font-size:11px">x</span></button>`).join('');
+}
+
+function queueOfflineMessage(text) {
+  G.offlineQueue.push({ text, createdAt: Date.now(), files: (G.attachedFiles || []).map(file => ({ file_id:file.file_id, name:file.name })) });
+  localStorage.setItem('nv_offline_queue', JSON.stringify(G.offlineQueue));
+}
+
+async function flushOfflineQueue() {
+  if (!navigator.onLine || !G.offlineQueue.length || G.busy) return;
+  const next = G.offlineQueue.shift();
+  localStorage.setItem('nv_offline_queue', JSON.stringify(G.offlineQueue));
+  if (!next) return;
+  const input = document.getElementById('mi');
+  G.attachedFiles = next.files || [];
+  renderAttachedFiles();
+  input.value = next.text;
+  await go();
+}
+
+function persistDraft() {
+  const mi = document.getElementById('mi');
+  const codeEditor = document.getElementById('code-editor');
+  const codePrompt = document.getElementById('code-mi');
+  if (mi) localStorage.setItem('nv_draft_chat', mi.value || '');
+  if (codeEditor) localStorage.setItem('nv_draft_code', codeEditor.value || '');
+  if (codePrompt) localStorage.setItem('nv_draft_code_prompt', codePrompt.value || '');
+}
+
+function restoreDrafts() {
+  const mi = document.getElementById('mi');
+  const codeEditor = document.getElementById('code-editor');
+  const codePrompt = document.getElementById('code-mi');
+  if (mi && !mi.value) mi.value = localStorage.getItem('nv_draft_chat') || '';
+  if (codeEditor && !codeEditor.value) codeEditor.value = localStorage.getItem('nv_draft_code') || codeEditor.value;
+  if (codePrompt && !codePrompt.value) codePrompt.value = localStorage.getItem('nv_draft_code_prompt') || '';
+}
+
+function normalizeSharedMessage(message) {
+  let reactions = message?.reactions || {};
+  if (!Object.keys(reactions).length && message?.reactions_json) {
+    try { reactions = JSON.parse(message.reactions_json || '{}'); } catch {}
+  }
+  return { ...message, reactions };
+}
+
+function sharedMessageActionsHTML(message) {
+  if (!message?.id) return '';
+  const reactions = Object.entries(message.reactions || {}).map(([emoji, users]) => `<button class="mact" onclick="toggleReaction(${message.id},'${emoji.replace(/'/g, "\\'")}')">${emoji} ${users.length}</button>`).join('');
+  const own = message.user_token === G.user?.token && message.role !== 'assistant';
+  return `<div class="mactions" style="opacity:1"><button class="mact" onclick="toggleReaction(${message.id},'👍')">👍</button><button class="mact" onclick="toggleReaction(${message.id},'🔥')">🔥</button>${reactions}${own ? `<button class="mact" onclick="editSharedMessage(${message.id})">Edit</button>` : ''}</div>`;
 }
 
 // ── BYOK + AI settings ──────────────────────────────
@@ -2564,6 +2617,125 @@ function openTasksModal() {
   loadAgentTasks();
 }
 
+function snapshotCurrentCode(label='Manual snapshot') {
+  const file = G.codeFiles.find(item => item.id === G.activeFile);
+  const editor = document.getElementById('code-editor');
+  if (!file || !editor) return;
+  G.codeSnapshots.unshift({
+    id: Date.now().toString(),
+    fileId: file.id,
+    fileName: file.name,
+    label,
+    content: editor.value,
+    createdAt: new Date().toISOString()
+  });
+  G.codeSnapshots = G.codeSnapshots.slice(0, 12);
+  renderSnapshotList();
+  toast('Snapshot saved');
+}
+
+function lineDiff(before, after) {
+  const a = (before || '').split('\n');
+  const b = (after || '').split('\n');
+  const max = Math.max(a.length, b.length);
+  let out = '';
+  for (let i = 0; i < max; i++) {
+    if (a[i] === b[i]) out += `  ${a[i] || ''}\n`;
+    else {
+      if (typeof a[i] !== 'undefined') out += `- ${a[i]}\n`;
+      if (typeof b[i] !== 'undefined') out += `+ ${b[i]}\n`;
+    }
+  }
+  return out.trim();
+}
+
+function renderSnapshotList() {
+  const host = document.getElementById('snapshot-list');
+  if (!host) return;
+  const file = G.codeFiles.find(item => item.id === G.activeFile);
+  const snapshots = G.codeSnapshots.filter(item => item.fileId === file?.id);
+  host.innerHTML = snapshots.length
+    ? snapshots.map(snapshot => `<div class="prompt-item" style="cursor:default"><div style="flex:1;min-width:0"><div class="prompt-title">${esc(snapshot.label)}</div><div class="prompt-cat">${new Date(snapshot.createdAt).toLocaleString()}</div></div><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" onclick="previewDiff('${snapshot.id}')">Diff</button><button class="btn btn-p btn-sm" onclick="restoreSnapshot('${snapshot.id}')">Restore</button></div></div>`).join('')
+    : '<div style="color:var(--mu);font-size:13px">No snapshots for this file yet.</div>';
+}
+
+function openSnapshotsModal() {
+  document.getElementById('snap-ov')?.classList.add('open');
+  renderSnapshotList();
+}
+
+function restoreSnapshot(snapshotId) {
+  const snapshot = G.codeSnapshots.find(item => item.id === snapshotId);
+  if (!snapshot) return;
+  document.getElementById('code-editor').value = snapshot.content;
+  persistDraft();
+  toast('Snapshot restored');
+  document.getElementById('snap-ov')?.classList.remove('open');
+}
+
+function previewDiff(snapshotId) {
+  const snapshot = G.codeSnapshots.find(item => item.id === snapshotId);
+  const editor = document.getElementById('code-editor');
+  if (!snapshot || !editor) return;
+  const pre = document.getElementById('diff-pre');
+  pre.textContent = lineDiff(snapshot.content, editor.value);
+  document.getElementById('diff-ov')?.classList.add('open');
+}
+
+function openCodePreview() {
+  const file = G.codeFiles.find(item => item.id === G.activeFile);
+  const code = document.getElementById('code-editor').value;
+  if (!file) return;
+  if (!/\.(html|svg)$/i.test(file.name)) { toast('Preview works for HTML and SVG files'); return; }
+  const frame = document.getElementById('code-preview-frame');
+  frame.srcdoc = code;
+  document.getElementById('code-preview-ov')?.classList.add('open');
+}
+
+async function toggleReaction(messageId, emoji) {
+  if (!G.sharedCode || !G.user?.token) return;
+  try {
+    const r = await fetch(`/api/shared/message/${messageId}/react`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ shareCode:G.sharedCode, userToken:G.user.token, emoji })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Reaction failed');
+    const msg = G.sharedMessages.find(item => item.id === messageId);
+    if (msg) msg.reactions = d.reactions || {};
+    rerenderSharedMessages();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function editSharedMessage(messageId) {
+  const msg = G.sharedMessages.find(item => item.id === messageId);
+  if (!msg) return;
+  const next = prompt('Edit message:', msg.content);
+  if (!next || next === msg.content) return;
+  try {
+    const r = await fetch(`/api/shared/message/${messageId}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ shareCode:G.sharedCode, userToken:G.user.token, content:next })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Edit failed');
+    msg.content = next;
+    msg.edited_at = new Date().toISOString();
+    rerenderSharedMessages();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+function rerenderSharedMessages() {
+  if (!G.sharedChat) return;
+  const area = document.getElementById('chat');
+  area.innerHTML = '';
+  G.sharedMessages.forEach(message => {
+    if (message.role !== 'system') addSharedMsg(message.role, message.content, message.user_name, message.user_token, false, message);
+  });
+}
+
 // ── Override: switchView (add dash + nav highlighting) ──
 const _origSwitchView = switchView;
 switchView = function(v) {
@@ -2724,6 +2896,35 @@ runAgent = async function(task) {
   }
 };
 
+const _origAddSharedMsg = addSharedMsg;
+addSharedMsg = function(role, content, userName, userToken, animate=true, message=null) {
+  const normalized = message ? normalizeSharedMessage(message) : null;
+  const wrap = _origAddSharedMsg(role, content, userName, userToken, animate);
+  if (!wrap) return wrap;
+  if (normalized) {
+    const bubble = wrap.querySelector('.bubble');
+    if (bubble) {
+      if (normalized.edited_at) {
+        bubble.insertAdjacentHTML('beforeend', `<div class="shared-user-badge" style="margin-top:6px">edited</div>`);
+      }
+      bubble.insertAdjacentHTML('beforeend', sharedMessageActionsHTML(normalized));
+    }
+  }
+  return wrap;
+};
+
+const _origSendCodeMsg = sendCodeMsg;
+sendCodeMsg = async function() {
+  snapshotCurrentCode('Before AI request');
+  await _origSendCodeMsg();
+};
+
+const _origSwitchCodeFile = switchCodeFile;
+switchCodeFile = function(id) {
+  _origSwitchCodeFile(id);
+  renderSnapshotList();
+};
+
 // ── Override: saveChat (track usage) ────────────────
 const _origSaveChat = saveChat;
 saveChat = async function(firstMsg) {
@@ -2734,6 +2935,17 @@ saveChat = async function(firstMsg) {
 // ── Override: go() (web search support) ─────────────
 const _origGo = go;
 go = async function() {
+  if (!navigator.onLine && !G.sharedChat) {
+    const inp=document.getElementById('mi');
+    const text=inp.value.trim();
+    if (!text) return;
+    addMsg('user', `${text}\n\n[Queued offline]`);
+    queueOfflineMessage(text);
+    inp.value='';
+    resize(inp);
+    toast('Queued until you are back online');
+    return;
+  }
   if (!G.searchMode) {
     G.pendingTrustMeta = { memory: !!G.memory, files: !!(G.attachedFiles || []).length, search: false };
     await _origGo();
@@ -2859,6 +3071,63 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(tasksModal);
   }
 
+  const codeActions = document.querySelector('.code-actions');
+  if (codeActions && !document.getElementById('code-snapshot-btn')) {
+    const snapshotBtn = document.createElement('button');
+    snapshotBtn.className = 'code-btn';
+    snapshotBtn.id = 'code-snapshot-btn';
+    snapshotBtn.onclick = () => snapshotCurrentCode();
+    snapshotBtn.textContent = 'Snapshot';
+    codeActions.appendChild(snapshotBtn);
+
+    const snapshotsBtn = document.createElement('button');
+    snapshotsBtn.className = 'code-btn';
+    snapshotsBtn.id = 'code-history-btn';
+    snapshotsBtn.onclick = openSnapshotsModal;
+    snapshotsBtn.textContent = 'Diffs';
+    codeActions.appendChild(snapshotsBtn);
+
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'code-btn';
+    previewBtn.id = 'code-preview-btn';
+    previewBtn.onclick = openCodePreview;
+    previewBtn.textContent = 'Preview';
+    codeActions.appendChild(previewBtn);
+  }
+
+  if (!document.getElementById('snap-ov')) {
+    const snapshotsModal = document.createElement('div');
+    snapshotsModal.className = 'ov';
+    snapshotsModal.id = 'snap-ov';
+    snapshotsModal.onclick = e => closeOv(e,'snap-ov');
+    snapshotsModal.innerHTML = '<div class="modal"><div class="mhead"><h2>Code Snapshots</h2><button class="mx" onclick="document.getElementById(\'snap-ov\').classList.remove(\'open\')">×</button></div><div class="mbody" id="snapshot-list" style="gap:7px"></div></div>';
+    document.body.appendChild(snapshotsModal);
+  }
+
+  if (!document.getElementById('diff-ov')) {
+    const diffModal = document.createElement('div');
+    diffModal.className = 'ov';
+    diffModal.id = 'diff-ov';
+    diffModal.onclick = e => closeOv(e,'diff-ov');
+    diffModal.innerHTML = '<div class="modal" style="max-width:780px"><div class="mhead"><h2>Diff Preview</h2><button class="mx" onclick="document.getElementById(\'diff-ov\').classList.remove(\'open\')">×</button></div><div class="mbody"><pre style="background:#04040a;border:1px solid var(--b);border-radius:10px;padding:14px;overflow:auto;max-height:60dvh"><code id="diff-pre"></code></pre></div></div>';
+    document.body.appendChild(diffModal);
+  }
+
+  if (!document.getElementById('code-preview-ov')) {
+    const previewModal = document.createElement('div');
+    previewModal.className = 'ov';
+    previewModal.id = 'code-preview-ov';
+    previewModal.onclick = e => closeOv(e,'code-preview-ov');
+    previewModal.innerHTML = '<div class="modal" style="max-width:900px"><div class="mhead"><h2>Preview</h2><button class="mx" onclick="document.getElementById(\'code-preview-ov\').classList.remove(\'open\')">×</button></div><div class="mbody" style="padding:0"><iframe id="code-preview-frame" style="width:100%;height:70dvh;border:none;background:#fff"></iframe></div></div>';
+    document.body.appendChild(previewModal);
+  }
+
+  restoreDrafts();
+  document.getElementById('mi')?.addEventListener('input', persistDraft);
+  document.getElementById('code-editor')?.addEventListener('input', persistDraft);
+  document.getElementById('code-mi')?.addEventListener('input', persistDraft);
+  window.addEventListener('online', () => { toast('Back online'); flushOfflineQueue(); });
+  setTimeout(() => { flushOfflineQueue(); }, 500);
   renderAttachedFiles();
 });
 </script>
