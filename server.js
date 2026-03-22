@@ -145,7 +145,7 @@ const requireAdmin = (req,res,next) => {
 };
 
 function getRequestedUserToken(req) {
-  return req.params.userToken || req.body?.userToken || req.query?.userToken || req.headers['x-user-token'];
+  return req.params.userToken || req.body?.userToken || req.headers['x-user-token'];
 }
 
 function requireUserAccess(req,res,next) {
@@ -910,7 +910,7 @@ app.get('/api/folders/:userToken', requireUserAccess, async (req,res) => {
     res.json({folders: f.rows.map(f => ({...f, chatCount: counts[f.id]||0}))});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/folders', async (req,res) => {
+app.post('/api/folders', requireUserAccess, async (req,res) => {
   const {userToken,name,color,icon} = req.body;
   if (!userToken||!name) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true,folder:{id:Date.now(),name,color,icon}});
@@ -919,7 +919,7 @@ app.post('/api/folders', async (req,res) => {
     res.json({ok:true,folder:r.rows[0]});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.put('/api/folders/:id', async (req,res) => {
+app.put('/api/folders/:id', requireUserAccess, async (req,res) => {
   const {userToken,name,color,icon} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -927,7 +927,7 @@ app.put('/api/folders/:id', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/folders/:id', async (req,res) => {
+app.delete('/api/folders/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -936,7 +936,7 @@ app.delete('/api/folders/:id', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/chats/:chatId/folder', async (req,res) => {
+app.post('/api/chats/:chatId/folder', requireUserAccess, async (req,res) => {
   const {userToken,folderId} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -944,7 +944,7 @@ app.post('/api/chats/:chatId/folder', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/chats/:chatId/pin', async (req,res) => {
+app.post('/api/chats/:chatId/pin', requireUserAccess, async (req,res) => {
   const {userToken,pinned} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -1086,7 +1086,7 @@ app.get('/api/pinned/:userToken', requireUserAccess, async (req,res) => {
     res.json({pinned:r.rows});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/pinned', async (req,res) => {
+app.post('/api/pinned', requireUserAccess, async (req,res) => {
   const {chatId,userToken,role,content,note} = req.body;
   if (!chatId||!userToken||!content) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -1095,7 +1095,7 @@ app.post('/api/pinned', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/pinned/:id', async (req,res) => {
+app.delete('/api/pinned/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {

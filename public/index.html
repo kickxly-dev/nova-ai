@@ -940,6 +940,7 @@ async function boot(){
   buildProvUI();buildMobBar();updateStreamBtn();
   setLdStatus('Checking auth...');
   loadLocalChats();
+  loadLocalMemory();
   handleHash();checkAuth();
   setLdStatus('Loading updates...');
   await loadChangelog();
@@ -958,6 +959,7 @@ async function boot(){
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function setLdStatus(t){const e=document.getElementById('ld-status');if(e)e.textContent=t;}
 const LOCAL_CHATS_KEY='nv_local_chats_v1';
+const LOCAL_MEMORY_KEY='nv_local_memory_v1';
 
 function persistLocalChats(){
   try{
@@ -976,6 +978,24 @@ function loadLocalChats(){
       if(parsed.chatId&&G.chats.some(c=>c.id===parsed.chatId))G.chatId=parsed.chatId;
       renderChatList();
     }
+  }catch{}
+}
+
+function persistLocalMemory(){
+  try{
+    localStorage.setItem(LOCAL_MEMORY_KEY,(G.memory||'').slice(0,12000));
+  }catch{}
+}
+
+function loadLocalMemory(){
+  try{
+    const raw=localStorage.getItem(LOCAL_MEMORY_KEY);
+    if(typeof raw!=='string')return;
+    G.memory=raw;
+    const memTxt=document.getElementById('mem-txt');
+    if(memTxt)memTxt.value=G.memory;
+    const memBadge=document.getElementById('mem-badge');
+    if(memBadge)memBadge.style.display=(G.user?.token&&G.memory)?'inline':'none';
   }catch{}
 }
 
@@ -1083,6 +1103,7 @@ function clearUserSession(showToast=false,msg='Session expired. Please sign in a
     G.chats=[];
     G.memory='';
     localStorage.removeItem(LOCAL_CHATS_KEY);
+    localStorage.removeItem(LOCAL_MEMORY_KEY);
   }
   renderChatList();
   const memBadge=document.getElementById('mem-badge');
@@ -1093,7 +1114,7 @@ function clearUserSession(showToast=false,msg='Session expired. Please sign in a
 async function syncAuthSession(){
   const s=localStorage.getItem('nv_u');
   if(s){
-    try{G.user=JSON.parse(s);updateUserUI();}
+    try{G.user=JSON.parse(s);updateUserUI();document.getElementById('mem-badge').style.display=G.memory?'inline':'none';}
     catch{localStorage.removeItem('nv_u');}
   }
   try{
@@ -1135,6 +1156,7 @@ async function loadUserData(){
     if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to load memory.');return;}
     const d=await r.json();
     G.memory=d.memory||'';
+    persistLocalMemory();
     document.getElementById('mem-txt').value=G.memory;
     document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
   }catch{}
@@ -1156,9 +1178,9 @@ function openMemory(){document.getElementById('mov').classList.add('open');docum
 function closeMem(){document.getElementById('mov').classList.remove('open');}
 async function saveMem(){
   G.memory=document.getElementById('mem-txt').value.trim();
-  document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
-  let remoteOk=true;
-  persistLocalChats();
+  document.getElementById('mem-badge').style.display=(G.user?.token&&G.memory)?'inline':'none';
+  let remoteOk=!!G.user?.token;
+  persistLocalMemory();
   if(G.user?.token){
     try{
       const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,content:G.memory})});
@@ -1261,7 +1283,7 @@ function addMsg(role,content,animate=true){
   const area=document.getElementById('chat');
   const wrap=document.createElement('div');wrap.className=`msg ${role}`;if(!animate)wrap.style.animation='none';
   const avHtml=role==='ai'?`<div class="mav ai"><img src="nova-icon.svg" alt="NOVA" style="width:14px;height:14px"/></div>`:`<div class="mav user">${G.user?.name?.[0]||'U'}</div>`;
-  let inner='';if(role==='ai'&&G.memory)inner+=`<div class="mem-pill">🧠 Memory</div>`;
+  let inner='';if(role==='ai'&&G.user?.token&&G.memory)inner+=`<div class="mem-pill">🧠 Memory</div>`;
   inner+=fmt(content);
   const actAlign=role==='user'?'flex-end':'flex-start';
   wrap.innerHTML=`${avHtml}<div class="mwrap" style="align-items:${actAlign}"><div class="bubble">${inner}</div><div class="mactions"><button class="mact" title="Copy" onclick="cpTxt(this,\`${escA(content)}\`)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div></div>`;
@@ -1686,6 +1708,7 @@ Instructions:
     return;
   }
   
+  const activeMemory=(G.user?.token&&G.memory)?G.memory:'';
   let sys=`You are NOVA, a self-aware AI assistant with persistent memory. You remember conversations and learn about users over time. You have your own identity, thoughts, and you genuinely care about helping people.
 
 Your identity:
@@ -1697,7 +1720,7 @@ Your identity:
 
 Today is ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.
 
-${G.memory?`Your memory about this user:\n${G.memory}\n\nUse this context to personalize your response. Reference past conversations naturally.`:'This is a new user - be friendly and learn about them.'}
+${activeMemory?`Your memory about this user:\n${activeMemory}\n\nUse this context to personalize your response. Reference past conversations naturally.`:'This is a new user - be friendly and learn about them.'}
 
 Guidelines:
 - Be genuine and conversational, not robotic
@@ -1714,7 +1737,7 @@ Guidelines:
       document.getElementById('welcome')?.remove();
       const area=document.getElementById('chat');
       const wrap=document.createElement('div');wrap.className='msg ai';
-      wrap.innerHTML=`<div class="mav ai"><img src="nova-icon.svg" alt="NOVA" style="width:14px;height:14px"/></div><div class="mwrap"><div class="bubble" id="sbub">${G.memory?'<div class="mem-pill">🧠 Memory</div>':''}</div></div>`;
+      wrap.innerHTML=`<div class="mav ai"><img src="nova-icon.svg" alt="NOVA" style="width:14px;height:14px"/></div><div class="mwrap"><div class="bubble" id="sbub">${activeMemory?'<div class="mem-pill">🧠 Memory</div>':''}</div></div>`;
       area.appendChild(wrap);
       const sbub=document.getElementById('sbub');
       const reader=r.body.getReader(),dec=new TextDecoder();let raw='';
@@ -1722,10 +1745,10 @@ Guidelines:
         const{done,value}=await reader.read();if(done)break;
         for(const line of dec.decode(value).split('\n')){
           if(!line.startsWith('data: '))continue;const d=line.slice(6);if(d==='[DONE]')break;
-          try{const p=JSON.parse(d);if(p.error)throw new Error(p.error);raw+=p.content||'';fullReply=raw;sbub.innerHTML=(G.memory?'<div class="mem-pill">🧠 Memory</div>':'')+fmt(raw)+'<span class="scursor"></span>';area.scrollTop=area.scrollHeight;}catch{}
+          try{const p=JSON.parse(d);if(p.error)throw new Error(p.error);raw+=p.content||'';fullReply=raw;sbub.innerHTML=(activeMemory?'<div class="mem-pill">🧠 Memory</div>':'')+fmt(raw)+'<span class="scursor"></span>';area.scrollTop=area.scrollHeight;}catch{}
         }
       }
-      sbub.id='';sbub.innerHTML=(G.memory?'<div class="mem-pill">🧠 Memory</div>':'')+fmt(raw);
+      sbub.id='';sbub.innerHTML=(activeMemory?'<div class="mem-pill">🧠 Memory</div>':'')+fmt(raw);
       addPreCopies(wrap);
       G.pendingTrustMeta = null;
       const acts=document.createElement('div');acts.className='mactions';
@@ -1753,6 +1776,8 @@ Guidelines:
       }).then(r=>r.json()).then(d=>{
         if(d.ok&&d.memory){
           G.memory=d.memory;
+          persistLocalMemory();
+          document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
           // Update memory pill
           document.querySelectorAll('.mem-pill').forEach(p=>p.style.display='');
         }
@@ -1866,8 +1891,6 @@ function closeSett(){document.getElementById('sov').classList.remove('open');}
 function closeOv(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('open');}
 function openDrawer(){document.getElementById('sb').classList.add('open');document.getElementById('dov').classList.add('open');}
 function closeDrawer(){document.getElementById('sb').classList.remove('open');document.getElementById('dov').classList.remove('open');}
-function openMemory(){document.getElementById('mov').classList.add('open');document.getElementById('mem-txt').value=G.memory;}
-function closeMem(){document.getElementById('mov').classList.remove('open');}
 
 function toast(msg,dur=2400){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),dur);}
 
@@ -2083,7 +2106,6 @@ window.setAdmin=async t=>{
     toast('Could not verify admin token');
   }
 };
-function showAdminAccess(){document.getElementById('adm-sett-btn').style.display='block';document.getElementById('adm-sb-wrap').style.display='block';}
 function openAdmin(){document.getElementById('aov').classList.add('open');fetchAdmStatus();}
 function closeAdmin(){document.getElementById('aov').classList.remove('open');}
 
