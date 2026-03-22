@@ -3612,3 +3612,516 @@ showChatMenu = function(e, chatId) {
 
 console.log('NOVA v5.2 — Voice conv, slash commands, search highlights, swipe, keyboard nav, haptics loaded ✓');
 </script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// NOVA V5.3 — Document Q&A, Knowledge Base, Smart Insights
+// ═══════════════════════════════════════════════════════════════
+
+// ── CSS ──────────────────────────────────────────────────────
+const _v53css = document.createElement('style');
+_v53css.textContent = `
+/* Document Q&A */
+.doc-mode-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:linear-gradient(90deg,rgba(6,182,212,.08),transparent);border-bottom:1px solid rgba(6,182,212,.2);font-size:12px;font-weight:700;color:var(--ac2);flex-shrink:0}
+.doc-mode-bar svg{width:14px;height:14px;flex-shrink:0}
+.doc-chip{display:flex;align-items:center;gap:6px;padding:3px 10px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);border-radius:999px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--ac2)}
+.doc-card{display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--b);border-radius:12px;cursor:pointer;transition:all .15s}
+.doc-card:hover{border-color:rgba(6,182,212,.3);background:var(--s3);transform:translateY(-1px)}
+.doc-card-icon{width:40px;height:40px;border-radius:10px;background:rgba(6,182,212,.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.doc-card-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.doc-card-meta{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu)}
+.doc-qa-row{display:flex;align-items:center;gap:8px;padding:10px 13px;background:var(--s2);border:1px solid var(--b);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:all .12s}
+.doc-qa-row:hover{border-color:var(--bh);background:var(--s3)}
+
+/* Knowledge Base */
+.note-card{background:var(--s1);border:1px solid var(--b);border-radius:14px;padding:16px;transition:all .15s;cursor:pointer}
+.note-card:hover{border-color:var(--bh);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.note-title{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--tx)}
+.note-preview{font-size:12px;color:var(--tx2);line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.note-meta{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.note-tag{padding:2px 8px;background:var(--acg);border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--acl)}
+.note-source{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu)}
+.note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.note-editor{display:flex;flex-direction:column;gap:10px}
+.note-editor input{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:9px 12px;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);outline:none;transition:all .15s}
+.note-editor input:focus{border-color:rgba(124,58,237,.45);background:var(--s3)}
+.note-editor textarea{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:11px 12px;font-family:inherit;font-size:13px;color:var(--tx);outline:none;resize:vertical;min-height:200px;line-height:1.65;transition:all .15s}
+.note-editor textarea:focus{border-color:rgba(124,58,237,.45);background:var(--s3)}
+.note-tags-input{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:7px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx);outline:none;transition:all .15s}
+.note-tags-input:focus{border-color:rgba(124,58,237,.45)}
+.kb-empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 20px;color:var(--mu);text-align:center}
+.kb-empty-icon{font-size:40px;opacity:.5}
+
+/* Smart Insights */
+.insight-card{display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--s1);border:1px solid var(--b);border-left:3px solid var(--acl);border-radius:12px;animation:slideInRight .3s ease}
+.insight-icon{width:32px;height:32px;border-radius:8px;background:var(--acg);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.insight-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.insight-body{font-size:12px;color:var(--tx2);line-height:1.6}
+.insight-dismiss{background:none;border:none;color:var(--mu);cursor:pointer;font-size:16px;line-height:1;padding:0;transition:color .1s;flex-shrink:0}
+.insight-dismiss:hover{color:var(--tx)}
+.insights-banner{position:fixed;bottom:80px;right:16px;width:320px;z-index:100;display:flex;flex-direction:column;gap:8px}
+@media(max-width:640px){.insights-banner{width:calc(100vw - 32px);bottom:90px}}
+
+/* KB view tab */
+.kb-search{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--s2);border:1px solid var(--b);border-radius:9px;margin-bottom:14px}
+.kb-search input{flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--tx);font-family:inherit}
+.kb-search input::placeholder{color:var(--mu)}
+.kb-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.kb-tag-filter{padding:3px 10px;border-radius:999px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid var(--b);color:var(--mu);cursor:pointer;background:none;transition:all .1s}
+.kb-tag-filter.active{background:var(--acg);border-color:rgba(124,58,237,.3);color:var(--acl)}
+`;
+document.head.appendChild(_v53css);
+
+// ── Inject modals + sidebar buttons + KB view ─────────────────
+document.body.insertAdjacentHTML('beforeend', `
+<!-- DOCUMENT Q&A MODAL -->
+<div class="ov" id="docqa-ov" onclick="closeOv(event,'docqa-ov')">
+  <div class="modal" style="max-width:600px">
+    <div class="mhead"><h2>📄 Document Q&A</h2><button class="mx" onclick="document.getElementById('docqa-ov').classList.remove('open')">×</button></div>
+    <div class="mtabs" id="docqa-tabs">
+      <button class="mtab active" onclick="docqaTab('files',this)">My Files</button>
+      <button class="mtab" onclick="docqaTab('sessions',this)">Past Sessions</button>
+      <button class="mtab" onclick="docqaTab('quick',this)">Quick Ask</button>
+    </div>
+    <div class="mbody" id="docqa-body" style="gap:10px"></div>
+  </div>
+</div>
+
+<!-- KNOWLEDGE BASE MODAL -->
+<div class="ov" id="kb-ov" onclick="closeOv(event,'kb-ov')">
+  <div class="modal" style="max-width:720px">
+    <div class="mhead">
+      <h2>📚 Knowledge Base</h2>
+      <div style="display:flex;gap:7px;align-items:center">
+        <button class="btn btn-p btn-sm" onclick="openNoteEditor()">+ New Note</button>
+        <button class="mx" onclick="document.getElementById('kb-ov').classList.remove('open')">×</button>
+      </div>
+    </div>
+    <div style="padding:0 20px 10px;border-bottom:1px solid var(--b);flex-shrink:0">
+      <div class="kb-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mu)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="kb-search-inp" placeholder="Search your knowledge base..." oninput="searchKB()" autocomplete="off"/>
+      </div>
+      <div class="kb-tags" id="kb-tag-filters"></div>
+    </div>
+    <div class="mbody" id="kb-body" style="gap:0"></div>
+  </div>
+</div>
+
+<!-- NOTE EDITOR -->
+<div class="ov" id="note-editor-ov" onclick="closeOv(event,'note-editor-ov')">
+  <div class="modal" style="max-width:600px">
+    <div class="mhead"><h2 id="note-editor-title">✏️ New Note</h2><button class="mx" onclick="document.getElementById('note-editor-ov').classList.remove('open')">×</button></div>
+    <div class="mbody">
+      <div class="note-editor">
+        <input type="text" id="note-title-inp" placeholder="Note title..." />
+        <textarea id="note-content-inp" placeholder="Write your note here... Markdown supported."></textarea>
+        <input type="text" id="note-tags-inp" class="note-tags-input" placeholder="Tags (comma separated): react, css, tips"/>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-g" onclick="document.getElementById('note-editor-ov').classList.remove('open')">Cancel</button>
+      <button class="btn btn-g btn-sm" onclick="autoGenerateTitle()" title="Auto-generate title with AI">✨ AI Title</button>
+      <button class="btn btn-p" onclick="saveNote()">Save Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTE VIEWER -->
+<div class="ov" id="note-viewer-ov" onclick="closeOv(event,'note-viewer-ov')">
+  <div class="modal" style="max-width:640px">
+    <div class="mhead">
+      <h2 id="note-viewer-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></h2>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-g btn-sm" id="note-edit-btn">Edit</button>
+        <button class="btn btn-g btn-sm" id="note-chat-btn">💬 Chat</button>
+        <button class="mx" onclick="document.getElementById('note-viewer-ov').classList.remove('open')">×</button>
+      </div>
+    </div>
+    <div class="mbody">
+      <div id="note-viewer-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"></div>
+      <div id="note-viewer-body" style="font-size:14px;color:var(--tx2);line-height:1.75;white-space:pre-wrap;word-break:break-word"></div>
+    </div>
+  </div>
+</div>
+
+<!-- INSIGHTS BANNER -->
+<div class="insights-banner" id="insights-banner"></div>
+`);
+
+// ── Add sidebar buttons ──────────────────────────────────────
+const sbBot = document.querySelector('.sb-bot');
+if (sbBot) {
+  const docBtn = document.createElement('button');
+  docBtn.className = 'sb-btn'; docBtn.onclick = openDocQA;
+  docBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="10" cy="13" r="1"/><path d="M10 17h4"/></svg>Doc Q&A`;
+  const kbBtn = document.createElement('button');
+  kbBtn.className = 'sb-btn'; kbBtn.onclick = openKB;
+  kbBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Knowledge Base<span class="sb-pill" id="kb-badge" style="display:none">0</span>`;
+  sbBot.insertBefore(docBtn, sbBot.firstChild);
+  sbBot.insertBefore(kbBtn, sbBot.firstChild);
+}
+
+// ── State ─────────────────────────────────────────────────────
+G.notes = [];
+G.docSessions = [];
+G.editingNoteId = null;
+G._kbTagFilter = null;
+
+// ══════════════════════════════════════════════════════════════
+// DOCUMENT Q&A
+// ══════════════════════════════════════════════════════════════
+function openDocQA() {
+  document.getElementById('docqa-ov').classList.add('open');
+  docqaTab('files', document.querySelector('#docqa-tabs .mtab'));
+}
+
+function docqaTab(tab, btn) {
+  document.querySelectorAll('#docqa-tabs .mtab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const body = document.getElementById('docqa-body'); body.innerHTML = '';
+  if (tab === 'files') renderDocFiles(body);
+  else if (tab === 'sessions') renderDocSessions(body);
+  else if (tab === 'quick') renderDocQuick(body);
+}
+
+function renderDocFiles(body) {
+  if (!G.user?.token) { body.innerHTML = '<div style="color:var(--mu);text-align:center;padding:20px;font-size:13px">Sign in to use Document Q&A.</div>'; return; }
+  if (!G.userFiles?.length) {
+    body.innerHTML = `<div class="kb-empty"><div class="kb-empty-icon">📄</div><div style="font-size:14px;font-weight:700">No files uploaded yet</div><div style="font-size:13px">Upload files first using the 📎 button in the chat, then come back here to start a Q&A session.</div><button class="btn btn-p btn-sm" onclick="openFilesPanel()">Upload Files</button></div>`;
+    return;
+  }
+  body.innerHTML = '<div style="font-size:12px;color:var(--mu);margin-bottom:10px;font-family:\'JetBrains Mono\',monospace">Select a document to start a dedicated Q&A session</div>';
+  G.userFiles.forEach(f => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    const icon = {pdf:'📄',txt:'📝',md:'📝',js:'🟡',ts:'🔷',py:'🐍',json:'📋',csv:'📊'}[ext]||'📎';
+    const card = document.createElement('div'); card.className = 'doc-card';
+    card.innerHTML = `<div class="doc-card-icon">${icon}</div><div style="flex:1;min-width:0"><div class="doc-card-title">${esc(f.name)}</div><div class="doc-card-meta">${fmtBytes(f.size_bytes||0)} · Click to start Q&A session</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`;
+    card.onclick = () => startDocSession(f.file_id, f.name);
+    body.appendChild(card);
+  });
+}
+
+async function renderDocSessions(body) {
+  if (!G.user?.token) { body.innerHTML = '<div style="color:var(--mu);text-align:center;padding:20px">Sign in to view sessions.</div>'; return; }
+  body.innerHTML = '<div style="color:var(--mu);padding:20px;text-align:center">Loading...</div>';
+  try {
+    const r = await fetch(`/api/doc/sessions/${G.user.token}`, {headers:{'x-user-token':G.user.token}});
+    const d = await r.json();
+    if (!d.sessions?.length) { body.innerHTML = '<div style="color:var(--mu);text-align:center;padding:20px;font-size:13px">No sessions yet. Start a Q&A session with a document.</div>'; return; }
+    body.innerHTML = '';
+    d.sessions.forEach(s => {
+      const row = document.createElement('div'); row.className = 'doc-qa-row';
+      row.innerHTML = `<span style="font-size:18px">📄</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(s.file_name||'Document')}</div><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu)">${new Date(s.created_at).toLocaleString()}</div></div><button class="btn btn-g btn-sm">Open Chat →</button>`;
+      row.onclick = () => { loadChatById(s.chat_id); document.getElementById('docqa-ov').classList.remove('open'); };
+      body.appendChild(row);
+    });
+  } catch { body.innerHTML = '<div style="color:var(--re);padding:20px">Failed to load sessions</div>'; }
+}
+
+function renderDocQuick(body) {
+  body.innerHTML = `
+    <div style="font-size:12px;color:var(--mu);margin-bottom:10px;font-family:'JetBrains Mono',monospace">Ask a quick question about any uploaded file without creating a chat session</div>
+    <div class="field"><label>Select file</label>
+      <select id="docqa-file-sel" style="background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:9px 12px;color:var(--tx);font-size:13px;outline:none;width:100%">
+        <option value="">— Choose a file —</option>
+        ${(G.userFiles||[]).map(f=>`<option value="${f.file_id}">${esc(f.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Your question</label><textarea id="docqa-question" style="min-height:80px" placeholder="What is the main topic of this document?&#10;Summarize the key points.&#10;What does section 3 say about..."></textarea></div>
+    <div id="docqa-answer" style="display:none;padding:12px 14px;background:var(--acg);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--tx2);line-height:1.7;white-space:pre-wrap"></div>
+    <button class="btn btn-p" onclick="runQuickDocAsk()" id="docqa-ask-btn">Ask Document</button>
+  `;
+}
+
+async function runQuickDocAsk() {
+  const fileId = document.getElementById('docqa-file-sel')?.value;
+  const question = document.getElementById('docqa-question')?.value.trim();
+  if (!fileId || !question) { toast('Select a file and enter a question'); return; }
+  if (!G.user?.token) { toast('Sign in to use Doc Q&A'); return; }
+  const btn = document.getElementById('docqa-ask-btn');
+  const ansDiv = document.getElementById('docqa-answer');
+  btn.textContent = 'Thinking...'; btn.disabled = true; ansDiv.style.display = 'none';
+  try {
+    const r = await fetch('/api/doc/ask', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,fileId,question})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error||r.status);
+    ansDiv.textContent = d.answer; ansDiv.style.display = 'block';
+  } catch(e) { toast('Error: '+e.message); }
+  finally { btn.textContent = 'Ask Document'; btn.disabled = false; }
+}
+
+async function startDocSession(fileId, fileName) {
+  if (!G.user?.token) { toast('Sign in to start a Q&A session'); return; }
+  toast(`📄 Setting up Q&A for "${fileName}"...`);
+  document.getElementById('docqa-ov').classList.remove('open');
+  try {
+    const r = await fetch('/api/doc/session', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,fileId})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error||r.status);
+    // Load the new chat
+    const chat = {id:d.chatId, title:`📄 ${fileName}`, provider:'groq', model:'llama-3.3-70b-versatile', history:[], messageCount:0};
+    G.chats.unshift(chat); renderChatList();
+    G.chatId = d.chatId; G.history = [];
+    const area = document.getElementById('chat'); area.innerHTML = '';
+    // Show doc mode bar
+    showDocModeBar(fileName);
+    switchView('chat');
+    addMsg('ai', `I've read **"${fileName}"** (${d.charCount?.toLocaleString()||'?'} characters). Ask me anything about it — I can summarize sections, answer specific questions, extract key points, find contradictions, or analyze the content in detail.`);
+    toast(`✓ Ready to answer questions about "${fileName}"`);
+  } catch(e) { toast('Error: '+e.message); }
+}
+
+function showDocModeBar(fileName) {
+  let bar = document.getElementById('doc-mode-bar');
+  if (!bar) {
+    bar = document.createElement('div'); bar.id='doc-mode-bar'; bar.className='doc-mode-bar';
+    const chatView = document.getElementById('chat-view');
+    chatView?.insertBefore(bar, chatView.firstChild);
+  }
+  bar.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div class="doc-chip">📄 ${esc(fileName)}</div><span style="color:var(--mu);font-weight:400">Doc Q&A mode — ask anything about this document</span><button class="btn btn-g btn-sm" style="margin-left:auto" onclick="exitDocMode()">Exit</button>`;
+  bar.style.display = 'flex';
+}
+
+function exitDocMode() {
+  const bar = document.getElementById('doc-mode-bar'); if (bar) bar.style.display='none';
+  newChat();
+}
+
+// Override switchView to hide doc bar when leaving chat
+const _origSwitchViewDoc = switchView;
+switchView = function(v) {
+  _origSwitchViewDoc(v);
+  const bar = document.getElementById('doc-mode-bar');
+  if (bar && v !== 'chat') bar.style.display = 'none';
+};
+
+// ══════════════════════════════════════════════════════════════
+// KNOWLEDGE BASE
+// ══════════════════════════════════════════════════════════════
+function openKB() {
+  document.getElementById('kb-ov').classList.add('open');
+  loadNotes();
+}
+
+async function loadNotes(q, tag) {
+  if (!G.user?.token) {
+    document.getElementById('kb-body').innerHTML = '<div style="color:var(--mu);text-align:center;padding:20px">Sign in to use the Knowledge Base.</div>';
+    return;
+  }
+  try {
+    let url = `/api/notes/${G.user.token}`;
+    if (q) url += `?q=${encodeURIComponent(q)}`;
+    else if (tag) url += `?tag=${encodeURIComponent(tag)}`;
+    const r = await fetch(url, {headers:{'x-user-token':G.user.token}});
+    const d = await r.json();
+    G.notes = d.notes||[];
+    renderNotes();
+    updateKBBadge();
+    buildTagFilters();
+  } catch { document.getElementById('kb-body').innerHTML='<div style="color:var(--re);padding:20px">Failed to load</div>'; }
+}
+
+let _kbSearchTimer;
+function searchKB() {
+  clearTimeout(_kbSearchTimer);
+  _kbSearchTimer = setTimeout(() => {
+    const q = document.getElementById('kb-search-inp').value.trim();
+    loadNotes(q || null, G._kbTagFilter);
+  }, 250);
+}
+
+function buildTagFilters() {
+  const allTags = [...new Set(G.notes.flatMap(n => (n.tags||'').split(',').map(t=>t.trim()).filter(Boolean)))];
+  const el = document.getElementById('kb-tag-filters'); if (!el) return; el.innerHTML = '';
+  if (!allTags.length) return;
+  allTags.slice(0,12).forEach(tag => {
+    const btn = document.createElement('button'); btn.className = `kb-tag-filter${G._kbTagFilter===tag?' active':''}`;
+    btn.textContent = tag;
+    btn.onclick = () => { G._kbTagFilter = G._kbTagFilter===tag ? null : tag; loadNotes(null, G._kbTagFilter); };
+    el.appendChild(btn);
+  });
+}
+
+function renderNotes() {
+  const body = document.getElementById('kb-body'); body.innerHTML = '';
+  if (!G.notes.length) {
+    body.innerHTML = `<div class="kb-empty"><div class="kb-empty-icon">📚</div><div style="font-size:14px;font-weight:700">Your knowledge base is empty</div><div style="font-size:13px">Save AI responses, insights, and notes here. They're searchable and stay forever.</div><button class="btn btn-p btn-sm" onclick="openNoteEditor()">Create your first note</button></div>`;
+    return;
+  }
+  const grid = document.createElement('div'); grid.className = 'note-grid'; grid.style.padding = '4px 0';
+  G.notes.forEach(note => {
+    const card = document.createElement('div'); card.className = 'note-card';
+    const tags = (note.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+    const srcIcons = {manual:'✏️', ai:'🤖', chat:'💬', doc:'📄'};
+    card.innerHTML = `<div class="note-title">${esc(note.title)}</div><div class="note-preview">${esc(note.content)}</div><div class="note-meta">${tags.map(t=>`<span class="note-tag">${esc(t)}</span>`).join('')}<span class="note-source">${srcIcons[note.source]||'✏️'} ${new Date(note.updated_at||note.created_at).toLocaleDateString()}</span></div>`;
+    card.onclick = () => viewNote(note);
+    body.appendChild(card);
+  });
+  body.appendChild(grid);
+  // Move cards into grid
+  const cards = [...body.querySelectorAll('.note-card')];
+  cards.forEach(c => grid.appendChild(c));
+}
+
+function viewNote(note) {
+  document.getElementById('note-viewer-title').textContent = note.title;
+  document.getElementById('note-viewer-body').innerHTML = fmt(note.content);
+  const tags = (note.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+  document.getElementById('note-viewer-meta').innerHTML = tags.map(t=>`<span class="note-tag">${esc(t)}</span>`).join('')+`<span class="note-source" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu)">Updated ${new Date(note.updated_at||note.created_at).toLocaleDateString()}</span>`;
+  document.getElementById('note-edit-btn').onclick = () => { document.getElementById('note-viewer-ov').classList.remove('open'); openNoteEditor(note); };
+  document.getElementById('note-chat-btn').onclick = () => {
+    document.getElementById('note-viewer-ov').classList.remove('open');
+    document.getElementById('kb-ov').classList.remove('open');
+    document.getElementById('mi').value = `Based on this note titled "${note.title}":\n\n${note.content.slice(0,2000)}\n\n`;
+    switchView('chat'); document.getElementById('mi').focus();
+  };
+  document.getElementById('note-viewer-ov').classList.add('open');
+}
+
+function openNoteEditor(note) {
+  G.editingNoteId = note?.note_id || null;
+  document.getElementById('note-editor-title').textContent = note ? '✏️ Edit Note' : '✏️ New Note';
+  document.getElementById('note-title-inp').value = note?.title || '';
+  document.getElementById('note-content-inp').value = note?.content || '';
+  document.getElementById('note-tags-inp').value = note?.tags || '';
+  document.getElementById('note-editor-ov').classList.add('open');
+  setTimeout(() => document.getElementById(note?'note-content-inp':'note-title-inp').focus(), 100);
+}
+
+async function autoGenerateTitle() {
+  const content = document.getElementById('note-content-inp').value.trim();
+  if (!content) { toast('Write some content first'); return; }
+  if (!G.user?.token) return;
+  const btn = document.querySelector('[onclick="autoGenerateTitle()"]'); if(btn){btn.textContent='✨...';btn.disabled=true;}
+  try {
+    const r = await fetch('/api/notes/generate-title', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,content})});
+    const d = await r.json();
+    document.getElementById('note-title-inp').value = d.title||'';
+    toast('Title generated ✓');
+  } catch {}
+  if(btn){btn.textContent='✨ AI Title';btn.disabled=false;}
+}
+
+async function saveNote() {
+  const title = document.getElementById('note-title-inp').value.trim();
+  const content = document.getElementById('note-content-inp').value.trim();
+  const tags = document.getElementById('note-tags-inp').value.trim();
+  if (!title || !content) { toast('Add a title and content'); return; }
+  if (!G.user?.token) { toast('Sign in to save notes'); return; }
+  try {
+    let r;
+    if (G.editingNoteId) {
+      r = await fetch(`/api/notes/${G.editingNoteId}`, {method:'PUT', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,title,content,tags})});
+    } else {
+      r = await fetch('/api/notes', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,title,content,source:'manual',tags})});
+    }
+    if (!r.ok) throw new Error((await r.json()).error||r.status);
+    document.getElementById('note-editor-ov').classList.remove('open');
+    toast(G.editingNoteId ? 'Note updated ✓' : 'Note saved ✓');
+    G.editingNoteId = null;
+    loadNotes();
+  } catch(e) { toast('Error: '+e.message); }
+}
+
+function updateKBBadge() {
+  const b = document.getElementById('kb-badge'); if(!b)return;
+  b.textContent = G.notes.length; b.style.display = G.notes.length ? 'inline' : 'none';
+}
+
+// Save AI message to KB — add button to AI messages
+const _origAddMsgKB = addMsg;
+addMsg = function(role, content, animate=true) {
+  const wrap = _origAddMsgKB(role, content, animate);
+  if (!wrap || role !== 'ai') return wrap;
+  const acts = wrap.querySelector('.mactions');
+  if (acts) {
+    const saveBtn = document.createElement('button'); saveBtn.className='mact'; saveBtn.title='Save to Knowledge Base';
+    saveBtn.innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>';
+    saveBtn.onclick = () => saveToKB(content, saveBtn);
+    acts.appendChild(saveBtn);
+  }
+  return wrap;
+};
+
+async function saveToKB(content, btn) {
+  if (!G.user?.token) { toast('Sign in to save notes'); return; }
+  btn.style.color = 'var(--acl)';
+  // Auto-generate title
+  try {
+    const titleR = await fetch('/api/notes/generate-title', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,content})});
+    const titleD = await titleR.json();
+    const r = await fetch('/api/notes', {method:'POST', headers:{'Content-Type':'application/json','x-user-token':G.user.token}, body:JSON.stringify({userToken:G.user.token,title:titleD.title||'Saved Note',content,source:'chat',sourceChatId:G.chatId||null,tags:''})});
+    if (!r.ok) throw new Error((await r.json()).error);
+    const d = await r.json(); if(d.note) G.notes.unshift(d.note);
+    updateKBBadge(); btn.style.color='var(--gr)'; toast('📚 Saved to Knowledge Base');
+    setTimeout(()=>btn.style.color='',2000);
+  } catch(e) { btn.style.color=''; toast('Error: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SMART CONTEXT INSIGHTS
+// ══════════════════════════════════════════════════════════════
+async function loadInsights() {
+  if (!G.user?.token) return;
+  try {
+    const r = await fetch(`/api/insights/${G.user.token}`, {headers:{'x-user-token':G.user.token}});
+    const d = await r.json();
+    if (d.insights?.length) renderInsights(d.insights);
+  } catch {}
+}
+
+function renderInsights(insights) {
+  const banner = document.getElementById('insights-banner'); if(!banner)return;
+  banner.innerHTML = '';
+  const icons = {pattern:'🔍',suggestion:'💡',tip:'⚡'};
+  insights.slice(0,2).forEach(ins => {
+    const card = document.createElement('div'); card.className='insight-card';
+    card.innerHTML=`<div class="insight-icon">${icons[ins.insight_type]||'💡'}</div><div style="flex:1;min-width:0"><div class="insight-title">${esc(ins.title)}</div><div class="insight-body">${esc(ins.body)}</div></div><button class="insight-dismiss" onclick="dismissInsight(${ins.id},this.closest('.insight-card'))">×</button>`;
+    banner.appendChild(card);
+  });
+}
+
+async function dismissInsight(id, card) {
+  card.style.opacity='0'; card.style.transform='translateX(20px)'; card.style.transition='all .2s ease';
+  setTimeout(()=>card.remove(),200);
+  if (G.user?.token) { try { await fetch(`/api/insights/${id}/seen`,{method:'POST',headers:{'Content-Type':'application/json','x-user-token':G.user.token},body:JSON.stringify({userToken:G.user.token})}); } catch {} }
+}
+
+async function generateInsights() {
+  if (!G.user?.token) return;
+  try {
+    const r = await fetch('/api/insights/generate',{method:'POST',headers:{'Content-Type':'application/json','x-user-token':G.user.token},body:JSON.stringify({userToken:G.user.token})});
+    const d = await r.json();
+    if (d.insights?.length) renderInsights(d.insights);
+  } catch {}
+}
+
+// Hook into loadUserData to load notes + insights
+const _origLoadUD53 = loadUserData;
+loadUserData = async function() {
+  await _origLoadUD53();
+  if (!G.user?.token) return;
+  // Load notes count for badge
+  try {
+    const r = await fetch(`/api/notes/${G.user.token}`, {headers:{'x-user-token':G.user.token}});
+    const d = await r.json(); G.notes = d.notes||[]; updateKBBadge();
+  } catch {}
+  // Load insights after a delay
+  setTimeout(loadInsights, 3000);
+  // Generate new insights periodically (once per session)
+  if (!sessionStorage.getItem('nv_insights_gen')) {
+    sessionStorage.setItem('nv_insights_gen','1');
+    setTimeout(generateInsights, 10000);
+  }
+};
+
+// Add KB note keyboard shortcut
+document.addEventListener('keydown', e => {
+  const noInput = document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='INPUT';
+  if (e.key==='b' && noInput && !e.metaKey && !e.ctrlKey) { e.preventDefault(); openKB(); }
+  if ((e.metaKey||e.ctrlKey) && e.key==='b') { e.preventDefault(); openKB(); }
+});
+
+console.log('NOVA v5.3 — Doc Q&A, Knowledge Base, Smart Insights loaded ✓');
+</script>

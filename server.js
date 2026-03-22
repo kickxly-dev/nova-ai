@@ -2,14 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const { Pool } = require('pg');
-const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.set('trust proxy', 1);
 app.use(session({
@@ -19,7 +23,6 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(cookieParser());
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 passport.serializeUser((u,done)=>done(null,u));
@@ -39,6 +42,7 @@ if (process.env.GOOGLE_CLIENT_ID) {
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
+const agentTaskRuns = new Map();
 
 async function initDB() {
   if (!pool) { console.log('No DATABASE_URL — running without database'); return; }
@@ -48,11 +52,15 @@ async function initDB() {
     await pool.query(`CREATE TABLE IF NOT EXISTS chats (id SERIAL PRIMARY KEY, chat_id VARCHAR(64) UNIQUE NOT NULL, user_token VARCHAR(64) NOT NULL, title VARCHAR(256), provider VARCHAR(32), model VARCHAR(128), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS chat_messages (id SERIAL PRIMARY KEY, chat_id VARCHAR(64) REFERENCES chats(chat_id) ON DELETE CASCADE, role VARCHAR(16) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS memories (id SERIAL PRIMARY KEY, user_token VARCHAR(64) UNIQUE NOT NULL, content TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS memory_history (id SERIAL PRIMARY KEY, user_token VARCHAR(64) NOT NULL, content TEXT NOT NULL, source VARCHAR(32) DEFAULT 'manual', note VARCHAR(256), created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS api_keys (id SERIAL PRIMARY KEY, provider VARCHAR(32) UNIQUE NOT NULL, api_key TEXT NOT NULL, label VARCHAR(128), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS changelog (id SERIAL PRIMARY KEY, version VARCHAR(32) NOT NULL, title VARCHAR(256) NOT NULL, body TEXT NOT NULL, type VARCHAR(32) DEFAULT 'update', published BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_chats (id SERIAL PRIMARY KEY, share_code VARCHAR(16) UNIQUE NOT NULL, title VARCHAR(256), creator_token VARCHAR(64) NOT NULL, provider VARCHAR(32), model VARCHAR(128), is_active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_participants (id SERIAL PRIMARY KEY, share_code VARCHAR(16) REFERENCES shared_chats(share_code) ON DELETE CASCADE, user_token VARCHAR(64) NOT NULL, user_name VARCHAR(128), joined_at TIMESTAMP DEFAULT NOW(), UNIQUE(share_code, user_token))`);
     await pool.query(`CREATE TABLE IF NOT EXISTS shared_messages (id SERIAL PRIMARY KEY, share_code VARCHAR(16) REFERENCES shared_chats(share_code) ON DELETE CASCADE, user_token VARCHAR(64) NOT NULL, user_name VARCHAR(128), role VARCHAR(16) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
+    await pool.query(`ALTER TABLE shared_participants ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NOW()`);
+    await pool.query(`ALTER TABLE shared_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE shared_messages ADD COLUMN IF NOT EXISTS reactions_json TEXT DEFAULT '{}'`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS folders (
       id SERIAL PRIMARY KEY, user_token VARCHAR(64) NOT NULL,
@@ -87,10 +95,56 @@ async function initDB() {
       user_token VARCHAR(64) NOT NULL, role VARCHAR(16), content TEXT NOT NULL,
       note VARCHAR(256), created_at TIMESTAMP DEFAULT NOW()
     )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS agent_tasks (
+      id SERIAL PRIMARY KEY, task_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, title VARCHAR(256),
+      status VARCHAR(24) DEFAULT 'queued', steps_json TEXT DEFAULT '[]',
+      result TEXT, error TEXT, created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(), completed_at TIMESTAMP
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_files (
+      id SERIAL PRIMARY KEY, file_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, name VARCHAR(256) NOT NULL,
+      mime_type VARCHAR(128), size_bytes INT DEFAULT 0,
+      extracted_text TEXT DEFAULT '', created_at TIMESTAMP DEFAULT NOW()
+    )`);
+
+    // Knowledge base
+    await pool.query(`CREATE TABLE IF NOT EXISTS knowledge_notes (
+      id SERIAL PRIMARY KEY, note_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, title VARCHAR(256) NOT NULL,
+      content TEXT NOT NULL, source VARCHAR(32) DEFAULT 'manual',
+      source_chat_id VARCHAR(64), tags TEXT DEFAULT '',
+      embedding_text TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notes_user ON knowledge_notes(user_token)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notes_search ON knowledge_notes USING gin(to_tsvector('english', title || ' ' || content))`);
+    // Document Q&A sessions
+    await pool.query(`CREATE TABLE IF NOT EXISTS doc_sessions (
+      id SERIAL PRIMARY KEY, session_id VARCHAR(64) UNIQUE NOT NULL,
+      user_token VARCHAR(64) NOT NULL, file_id VARCHAR(64),
+      file_name VARCHAR(256), chat_id VARCHAR(64),
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    // Context insights (smart suggestions)
+    await pool.query(`CREATE TABLE IF NOT EXISTS context_insights (
+      id SERIAL PRIMARY KEY, user_token VARCHAR(64) NOT NULL,
+      insight_type VARCHAR(32), title VARCHAR(256), body TEXT,
+      seen BOOLEAN DEFAULT false, created_at TIMESTAMP DEFAULT NOW()
+    )`);
     console.log('DB ready');
   } catch(e) { console.error('DB init:',e.message); }
 }
-initDB();
+async function resetStuckTasks() {
+  if (!pool) return;
+  try {
+    // FIX: On boot, any tasks stuck as 'running' from a previous crash get marked failed
+    const r = await pool.query("UPDATE agent_tasks SET status='failed', error='Server restarted', updated_at=NOW(), completed_at=NOW() WHERE status IN ('running','queued') RETURNING task_id");
+    if (r.rowCount > 0) console.log(`Reset ${r.rowCount} stuck agent task(s) to failed`);
+  } catch(e) { console.error('resetStuckTasks:', e.message); }
+}
+initDB().then(resetStuckTasks);
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 const PROVIDERS = {
@@ -122,6 +176,68 @@ const requireAdmin = (req,res,next) => {
   if (t && process.env.ADMIN_TOKEN && t === process.env.ADMIN_TOKEN) return next();
   res.status(403).json({ error:'Unauthorized' });
 };
+
+function getRequestedUserToken(req) {
+  return req.params.userToken || req.body?.userToken || req.headers['x-user-token'];
+}
+
+function requireUserAccess(req,res,next) {
+  const requestedToken = getRequestedUserToken(req);
+  if (!requestedToken) return res.status(400).json({ error:'userToken required' });
+  // FIX: Support both session-authenticated (Google OAuth) users AND
+  // token-based anonymous users. Session users get strict match.
+  // Anonymous users (no session) are allowed through since their token
+  // is a random local ID with no elevated privileges.
+  const sessionToken = req.user?.token;
+  if (sessionToken && sessionToken !== requestedToken) {
+    return res.status(403).json({ error:'Forbidden' });
+  }
+  next();
+}
+
+function createId(prefix) {
+  return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
+}
+
+async function recordMemorySnapshot(userToken, content, source='manual', note='') {
+  if (!pool || !userToken || !content?.trim()) return;
+  try {
+    await pool.query(
+      'INSERT INTO memory_history (user_token,content,source,note) VALUES ($1,$2,$3,$4)',
+      [userToken, content.slice(0, 5000), source, (note || '').slice(0, 256)]
+    );
+  } catch {}
+}
+
+async function extractFileText(file) {
+  if (!file?.buffer) return '';
+  if (file.mimetype === 'application/pdf') {
+    const parsed = await pdfParse(file.buffer);
+    return (parsed.text || '').replace(/\s+\n/g, '\n').trim().slice(0, 50000);
+  }
+  return file.buffer.toString('utf8').replace(/\u0000/g, ' ').trim().slice(0, 50000);
+}
+
+async function getUserFiles(userToken, fileIds=[]) {
+  if (!pool || !userToken || !fileIds.length) return [];
+  try {
+    const r = await pool.query(
+      'SELECT file_id,name,mime_type,size_bytes,extracted_text,created_at FROM user_files WHERE user_token=$1 AND file_id = ANY($2::varchar[]) ORDER BY created_at DESC',
+      [userToken, fileIds]
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
+function buildFileContext(files) {
+  if (!files.length) return '';
+  return files.map((file, index) => {
+    const snippet = (file.extracted_text || '').slice(0, 4000) || '[No extractable text found]';
+    return `File ${index + 1}: ${file.name}\nType: ${file.mime_type || 'unknown'}\nContent:\n${snippet}`;
+  }).join('\n\n');
+}
 
 app.post('/api/admin/verify', (req,res) => {
   const t = req.body?.token;
@@ -276,6 +392,68 @@ const AGENT_TOOLS=[
   // FIX: Removed create_file — was a stub that did nothing and had no UI to display results
 ];
 
+async function runAgentTask({ task, userToken, timezone='UTC', onStep=()=>{} }) {
+  const key=await getKey('groq');
+  if (!key) throw new Error('No AI provider available');
+  const steps=[];
+  const messages=[
+    {role:'system',content:'You are NOVA Agent — an autonomous AI that completes tasks step by step using tools. Use web_search for current info. Use save_memory/get_memory for user context. Be concise and complete the task fully.'},
+    {role:'user',content:task}
+  ];
+  const maxSteps=8;
+  for (let i=0;i<maxSteps;i++) {
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:AGENT_TOOLS,tool_choice:'auto',max_tokens:1500}),
+      signal:AbortSignal.timeout(30000)
+    });
+    if (!r.ok) throw new Error(`Groq error: ${r.status}`);
+    const data=await r.json();
+    const msg=data.choices?.[0]?.message;
+    if (!msg) throw new Error('No response from AI');
+    messages.push(msg);
+    if (!msg.tool_calls?.length && msg.content) {
+      const completeStep={step:i+1,type:'complete',content:msg.content};
+      steps.push(completeStep);
+      onStep([...steps]);
+      break;
+    }
+    if (msg.tool_calls) {
+      for (const call of msg.tool_calls) {
+        let args;
+        try{args=JSON.parse(call.function.arguments);}catch{args={};}
+        let result='';
+        steps.push({step:i+1,type:'tool',tool:call.function.name,args});
+        if (call.function.name==='web_search') {
+          try{const d=await performSearch(args.query||'',timezone);result=d.results?.map(item=>item.content||item.snippet).filter(Boolean).join('\n')||d.warning||'No results';}
+          catch(e){result='Search failed: '+e.message;}
+        } else if (call.function.name==='save_memory') {
+          if (pool&&userToken){
+            try{
+              const memoryChunk=(args.content||'').slice(0,1000);
+              await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=memories.content||E'\n'||$2,updated_at=NOW()`,[userToken,memoryChunk]);
+              const memoryRes=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);
+              await recordMemorySnapshot(userToken,memoryRes.rows[0]?.content||memoryChunk,'agent','Agent saved memory');
+              result='Saved to memory';
+            }catch{result='Memory save failed';}
+          } else {
+            result='Memory not available';
+          }
+        } else if (call.function.name==='get_memory') {
+          if (pool&&userToken){try{const m=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);result=m.rows[0]?.content||'No memories yet';}catch{result='Memory fetch failed';}}
+          else{result='Memory not available';}
+        }
+        messages.push({role:'tool',tool_call_id:call.id,content:result});
+        steps[steps.length-1].result=result;
+        onStep([...steps]);
+      }
+    }
+  }
+  const lastStep=steps[steps.length-1];
+  return { steps, result:lastStep?.content||'Task completed' };
+}
+
 app.post('/api/agent', async (req,res) => {
   const ip=req.ip||'unknown';
   // FIX: Strict separate rate limit — each agent call can cost up to 8 Groq API calls
@@ -284,70 +462,103 @@ app.post('/api/agent', async (req,res) => {
   if (!task) return res.status(400).json({error:'Task required'});
   // FIX: Cap task size to prevent prompt injection via huge inputs
   if (task.length>2000) return res.status(400).json({error:'Task too long (max 2000 chars)'});
-  const key=await getKey('groq');
-  if (!key) return res.status(400).json({error:'No AI provider available'});
-  const steps=[];
-  const messages=[
-    {role:'system',content:'You are NOVA Agent — an autonomous AI that completes tasks step by step using tools. Use web_search for current info. Use save_memory/get_memory for user context. Be concise and complete the task fully.'},
-    {role:'user',content:task}
-  ];
-  const maxSteps=8; // FIX: Reduced from 10 to limit runaway API costs
   try {
-    for (let i=0;i<maxSteps;i++) {
-      const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-        body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,tools:AGENT_TOOLS,tool_choice:'auto',max_tokens:1500}),
-        signal:AbortSignal.timeout(30000) // FIX: Per-step timeout to prevent hung requests
-      });
-      if (!r.ok) throw new Error(`Groq error: ${r.status}`);
-      const data=await r.json();
-      const msg=data.choices?.[0]?.message;
-      if (!msg) throw new Error('No response from AI');
-      messages.push(msg);
-      if (!msg.tool_calls?.length&&msg.content){steps.push({step:i+1,type:'complete',content:msg.content});break;}
-      if (msg.tool_calls) {
-        for (const call of msg.tool_calls) {
-          // FIX: JSON.parse was unwrapped — malformed args from AI would crash entire request
-          let args;
-          try{args=JSON.parse(call.function.arguments);}catch{args={};}
-          let result='';
-          steps.push({step:i+1,type:'tool',tool:call.function.name,args});
-          if (call.function.name==='web_search') {
-            try{const d=await performSearch(args.query||'',timezone);result=d.results?.map(r=>r.content||r.snippet).filter(Boolean).join('\n')||d.warning||'No results';}
-            catch(e){result='Search failed: '+e.message;}
-          } else if (call.function.name==='save_memory') {
-            if (pool&&userToken){try{await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=memories.content||E'\n'||$2,updated_at=NOW()`,[userToken,(args.content||'').slice(0,1000)]);result='Saved to memory';}catch{result='Memory save failed';}}
-            else{result='Memory not available';}
-          } else if (call.function.name==='get_memory') {
-            if (pool&&userToken){try{const m=await pool.query('SELECT content FROM memories WHERE user_token=$1',[userToken]);result=m.rows[0]?.content||'No memories yet';}catch{result='Memory fetch failed';}}
-            else{result='Memory not available';}
+    const run=await runAgentTask({ task, userToken, timezone });
+    res.json({success:true,steps:run.steps,result:run.result});
+  } catch(e){res.status(500).json({error:e.message,steps:[]});}
+});
+
+app.post('/api/agent/tasks', requireUserAccess, async (req,res) => {
+  const { task, userToken, timezone } = req.body;
+  if (!task) return res.status(400).json({error:'Task required'});
+  if (task.length>2000) return res.status(400).json({error:'Task too long (max 2000 chars)'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  const taskId=createId('task');
+  const title=task.split('\n')[0].slice(0,120);
+  try{
+    await pool.query(
+      `INSERT INTO agent_tasks (task_id,user_token,title,status,steps_json)
+       VALUES ($1,$2,$3,'queued','[]')`,
+      [taskId,userToken,title]
+    );
+    agentTaskRuns.set(taskId, true);
+    (async () => {
+      try{
+        await pool.query('UPDATE agent_tasks SET status=$2,updated_at=NOW() WHERE task_id=$1',[taskId,'running']);
+        const run=await runAgentTask({
+          task,
+          userToken,
+          timezone,
+          onStep: async (steps) => {
+            try{
+              await pool.query('UPDATE agent_tasks SET steps_json=$2,updated_at=NOW() WHERE task_id=$1',[taskId,JSON.stringify(steps)]);
+            } catch {}
           }
-          messages.push({role:'tool',tool_call_id:call.id,content:result});
-          steps[steps.length-1].result=result;
-        }
+        });
+        await pool.query(
+          `UPDATE agent_tasks
+           SET status='completed', steps_json=$2, result=$3, updated_at=NOW(), completed_at=NOW()
+           WHERE task_id=$1`,
+          [taskId,JSON.stringify(run.steps),run.result]
+        );
+      } catch (error) {
+        await pool.query(
+          `UPDATE agent_tasks
+           SET status='failed', error=$2, updated_at=NOW(), completed_at=NOW()
+           WHERE task_id=$1`,
+          [taskId,error.message]
+        ).catch(()=>{});
+      } finally {
+        agentTaskRuns.delete(taskId);
       }
-    }
-    const lastStep=steps[steps.length-1];
-    // FIX: NEVER send full messages array to client — it contains system prompt + all internal state
-    res.json({success:true,steps,result:lastStep?.content||'Task completed'});
-  } catch(e){res.status(500).json({error:e.message,steps});}
+    })();
+    res.json({ok:true,taskId});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/agent/tasks/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({tasks:[]});
+  try{
+    const r=await pool.query('SELECT task_id,title,status,steps_json,result,error,created_at,updated_at,completed_at FROM agent_tasks WHERE user_token=$1 ORDER BY created_at DESC LIMIT 20',[req.params.userToken]);
+    res.json({tasks:r.rows.map(row=>({...row,steps:JSON.parse(row.steps_json||'[]')}))});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.get('/api/agent/tasks/:userToken/:taskId', requireUserAccess, async (req,res) => {
+  if (!pool) return res.status(404).json({error:'Not found'});
+  try{
+    const r=await pool.query('SELECT task_id,title,status,steps_json,result,error,created_at,updated_at,completed_at FROM agent_tasks WHERE user_token=$1 AND task_id=$2',[req.params.userToken,req.params.taskId]);
+    const row=r.rows[0];
+    if (!row) return res.status(404).json({error:'Not found'});
+    res.json({task:{...row,steps:JSON.parse(row.steps_json||'[]')}});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 app.post('/api/chat', async (req,res) => {
   const ip=req.ip||'unknown';
   if (rateLimit(ip)) return res.status(429).json({error:{message:'Rate limit exceeded.'}});
-  const {provider='groq',model,messages,max_tokens=2000,temperature=0.7,stream=false}=req.body;
+  const {provider='groq',model,messages,max_tokens=2000,temperature=0.7,stream=false,userToken,fileIds=[]}=req.body;
   if (!messages||!Array.isArray(messages)||!messages.length) return res.status(400).json({error:{message:'messages required'}});
   const cfg=PROVIDERS[provider]; if (!cfg) return res.status(400).json({error:{message:`Unknown provider: ${provider}`}});
+  let enrichedMessages=messages;
+  if (Array.isArray(fileIds) && fileIds.length && userToken) {
+    // FIX: Removed req.user?.token check — allow token-based (non-OAuth) users to use files too
+    const files=await getUserFiles(userToken,fileIds.slice(0,5));
+    const fileContext=buildFileContext(files);
+    if (fileContext) {
+      enrichedMessages=[
+        ...messages.slice(0,1),
+        {role:'system',content:`The user attached files for this request. Use them as source material when relevant.\n\n${fileContext}`},
+        ...messages.slice(1)
+      ];
+    }
+  }
   if (provider==='ollama'){
-    try{const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3.2',messages,stream:false})});if(!r.ok)return res.status(503).json({error:{message:'Ollama not running. Run: ollama serve'}});const d=await r.json();return res.json({choices:[{message:{role:'assistant',content:d.message?.content||''},finish_reason:'stop'}]});}
+    try{const r=await fetch('http://127.0.0.1:11434/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model||'llama3.2',messages:enrichedMessages,stream:false})});if(!r.ok)return res.status(503).json({error:{message:'Ollama not running. Run: ollama serve'}});const d=await r.json();return res.json({choices:[{message:{role:'assistant',content:d.message?.content||''},finish_reason:'stop'}]});}
     catch{return res.status(503).json({error:{message:'Ollama not reachable at localhost:11434'}});}
   }
   const apiKey=await getKey(provider);
   if (!apiKey) return res.status(500).json({error:{message:`${cfg.name} API key not configured. Add it in Admin Panel → API Keys.`}});
-  const reqBody=JSON.stringify({model:model||cfg.models[0],messages,max_tokens,temperature,stream});
+  const reqBody=JSON.stringify({model:model||cfg.models[0],messages:enrichedMessages,max_tokens,temperature,stream});
   if (stream) {
     res.setHeader('Content-Type','text/event-stream');res.setHeader('Cache-Control','no-cache');res.setHeader('Connection','keep-alive');
     try{
@@ -364,19 +575,31 @@ app.post('/api/chat', async (req,res) => {
 });
 
 // ─── Memory ───────────────────────────────────────────────────────────────────
-app.get('/api/memory/:userToken', async (req,res) => {
+app.get('/api/memory/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({memory:''});
   try{const r=await pool.query('SELECT content FROM memories WHERE user_token=$1',[req.params.userToken]);res.json({memory:r.rows[0]?.content||''});}
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/memory', async (req,res) => {
+app.get('/api/memory/:userToken/history', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({history:[]});
+  try{
+    const r=await pool.query('SELECT id,content,source,note,created_at FROM memory_history WHERE user_token=$1 ORDER BY created_at DESC LIMIT 20',[req.params.userToken]);
+    res.json({history:r.rows});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/memory', requireUserAccess, async (req,res) => {
   const {userToken,content}=req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.json({ok:true});
-  try{await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,(content||'').slice(0,5000)]);res.json({ok:true});}
+  try{
+    const nextContent=(content||'').slice(0,5000);
+    await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,nextContent]);
+    await recordMemorySnapshot(userToken,nextContent,'manual','Manual update');
+    res.json({ok:true});
+  }
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/memory/learn', async (req,res) => {
+app.post('/api/memory/learn', requireUserAccess, async (req,res) => {
   const {userToken,conversation}=req.body;
   if (!userToken||!conversation) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -393,14 +616,63 @@ app.post('/api/memory/learn', async (req,res) => {
     const d=await r.json();
     const newMemory=d.choices?.[0]?.message?.content||existingMemory;
     await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,newMemory.slice(0,5000)]);
+    await recordMemorySnapshot(userToken,newMemory,'learn','Auto-learn from recent conversation');
     res.json({ok:true,memory:newMemory});
   }catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/memory/:userToken/revert', requireUserAccess, async (req,res) => {
+  const { historyId } = req.body;
+  if (!historyId) return res.status(400).json({error:'historyId required'});
+  if (!pool) return res.json({ok:true});
+  try{
+    const entry=await pool.query('SELECT content FROM memory_history WHERE id=$1 AND user_token=$2',[historyId,req.params.userToken]);
+    const content=entry.rows[0]?.content;
+    if (!content) return res.status(404).json({error:'History entry not found'});
+    await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[req.params.userToken,content]);
+    await recordMemorySnapshot(req.params.userToken,content,'revert',`Reverted to snapshot ${historyId}`);
+    res.json({ok:true,memory:content});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+
+// ─── Files ────────────────────────────────────────────────────────────────────
+app.get('/api/files/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({files:[]});
+  try{
+    const r=await pool.query('SELECT file_id,name,mime_type,size_bytes,created_at FROM user_files WHERE user_token=$1 ORDER BY created_at DESC LIMIT 30',[req.params.userToken]);
+    res.json({files:r.rows});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/files/upload', upload.single('file'), requireUserAccess, async (req,res) => {
+  const userToken=req.body?.userToken;
+  const file=req.file;
+  if (!userToken || !file) return res.status(400).json({error:'userToken and file are required'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    // FIX: Cap files per user to prevent DB bloat
+    const countRes = await pool.query('SELECT COUNT(*) FROM user_files WHERE user_token=$1', [userToken]);
+    if (parseInt(countRes.rows[0].count) >= 50) return res.status(400).json({error:'File limit reached (max 50). Delete some files first.'});
+    const extractedText=await extractFileText(file);
+    const fileId=createId('file');
+    await pool.query(
+      `INSERT INTO user_files (file_id,user_token,name,mime_type,size_bytes,extracted_text)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [fileId,userToken,file.originalname.slice(0,256),file.mimetype,file.size||0,extractedText]
+    );
+    res.json({ok:true,file:{file_id:fileId,name:file.originalname,mime_type:file.mimetype,size_bytes:file.size||0,excerpt:extractedText.slice(0,400)}});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.delete('/api/files/:userToken/:fileId', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({ok:true});
+  try{
+    await pool.query('DELETE FROM user_files WHERE user_token=$1 AND file_id=$2',[req.params.userToken,req.params.fileId]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
 });
 
 // ─── Chats ────────────────────────────────────────────────────────────────────
 // FIX: Restored full history join — previous version returned empty history arrays,
 // breaking chat history loading for all logged-in users
-app.get('/api/chats/:userToken', async (req,res) => {
+app.get('/api/chats/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({chats:[]});
   try{
     const r=await pool.query(
@@ -413,12 +685,22 @@ app.get('/api/chats/:userToken', async (req,res) => {
     res.json({chats:r.rows.map(row=>({id:row.chat_id,title:row.title,provider:row.provider,model:row.model,updatedAt:row.updated_at,history:row.history||[]}))});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/chats/:userToken/:chatId/history', async (req,res) => {
+app.get('/api/chats/:userToken/:chatId/history', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({history:[]});
-  try{const r=await pool.query('SELECT role,content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at',[req.params.chatId]);res.json({history:r.rows||[]});}
+  try{
+    const r=await pool.query(
+      `SELECT m.role,m.content
+       FROM chat_messages m
+       JOIN chats c ON c.chat_id=m.chat_id
+       WHERE m.chat_id=$1 AND c.user_token=$2
+       ORDER BY m.created_at`,
+      [req.params.chatId, req.params.userToken]
+    );
+    res.json({history:r.rows||[]});
+  }
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/chats', async (req,res) => {
+app.post('/api/chats', requireUserAccess, async (req,res) => {
   const {userToken,chatId,title,history,provider,model}=req.body;
   if (!userToken||!chatId) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -429,7 +711,7 @@ app.post('/api/chats', async (req,res) => {
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.delete('/api/chats/:userToken/:chatId', async (req,res) => {
+app.delete('/api/chats/:userToken/:chatId', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({ok:true});
   try{await pool.query('DELETE FROM chats WHERE chat_id=$1 AND user_token=$2',[req.params.chatId,req.params.userToken]);res.json({ok:true});}
   catch(e){res.status(500).json({error:e.message});}
@@ -446,7 +728,7 @@ app.post('/api/shared/create', async (req,res) => {
   const {userToken,userName,title,provider,model}=req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.status(503).json({error:'Database not available'});
-  try{const code=genShareCode();await pool.query('INSERT INTO shared_chats (share_code,creator_token,title,provider,model) VALUES ($1,$2,$3,$4,$5)',[code,userToken,(title||'Shared Chat').slice(0,200),provider||'groq',model||'']);await pool.query('INSERT INTO shared_participants (share_code,user_token,user_name) VALUES ($1,$2,$3)',[code,userToken,(userName||'User').slice(0,100)]);res.json({shareCode:code,title:title||'Shared Chat'});}
+  try{const code=genShareCode();await pool.query('INSERT INTO shared_chats (share_code,creator_token,title,provider,model) VALUES ($1,$2,$3,$4,$5)',[code,userToken,(title||'Shared Chat').slice(0,200),provider||'groq',model||'']);await pool.query('INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW())',[code,userToken,(userName||'User').slice(0,100)]);res.json({shareCode:code,title:title||'Shared Chat'});}
   catch(e){res.status(500).json({error:e.message});}
 });
 app.post('/api/shared/join', async (req,res) => {
@@ -457,9 +739,9 @@ app.post('/api/shared/join', async (req,res) => {
     const chatRes=await pool.query('SELECT * FROM shared_chats WHERE share_code=$1 AND is_active=true',[shareCode]);
     if (!chatRes.rows.length) return res.status(404).json({error:'Shared chat not found or inactive'});
     const chat=chatRes.rows[0];
-    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name) VALUES ($1,$2,$3) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3`,[shareCode,userToken,(userName||'User').slice(0,100)]);
-    const partsRes=await pool.query('SELECT user_token,user_name,joined_at FROM shared_participants WHERE share_code=$1',[shareCode]);
-    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at FROM shared_messages WHERE share_code=$1 ORDER BY created_at ASC LIMIT 200',[shareCode]);
+    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW()) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3,last_seen=NOW()`,[shareCode,userToken,(userName||'User').slice(0,100)]);
+    const partsRes=await pool.query('SELECT user_token,user_name,joined_at,last_seen FROM shared_participants WHERE share_code=$1',[shareCode]);
+    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at,edited_at,reactions_json FROM shared_messages WHERE share_code=$1 ORDER BY created_at ASC LIMIT 200',[shareCode]);
     res.json({shareCode:chat.share_code,title:chat.title,provider:chat.provider,model:chat.model,creatorToken:chat.creator_token,participants:partsRes.rows,messages:msgsRes.rows});
   }catch(e){res.status(500).json({error:e.message});}
 });
@@ -478,24 +760,85 @@ app.post('/api/shared/message', async (req,res) => {
     // FIX: Verify user is a real participant before posting — prevents spoofing
     const p=await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
     if (!p.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
+    await pool.query('UPDATE shared_participants SET last_seen=NOW() WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
     const r=await pool.query('INSERT INTO shared_messages (share_code,user_token,user_name,role,content) VALUES ($1,$2,$3,$4,$5) RETURNING id,created_at',[shareCode,userToken,(userName||'User').slice(0,100),role,content.slice(0,20000)]);
     await pool.query('UPDATE shared_chats SET updated_at=NOW() WHERE share_code=$1',[shareCode]);
     res.json({id:r.rows[0].id,created_at:r.rows[0].created_at});
   }catch(e){res.status(500).json({error:e.message});}
 });
+app.post('/api/shared/presence', async (req,res) => {
+  const { shareCode, userToken, userName } = req.body;
+  if (!shareCode || !userToken) return res.status(400).json({error:'shareCode and userToken required'});
+  if (!pool) return res.json({ok:true});
+  try{
+    await pool.query(`INSERT INTO shared_participants (share_code,user_token,user_name,last_seen) VALUES ($1,$2,$3,NOW()) ON CONFLICT (share_code,user_token) DO UPDATE SET user_name=$3,last_seen=NOW()`,[shareCode,userToken,(userName||'User').slice(0,100)]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.put('/api/shared/message/:id', async (req,res) => {
+  const { shareCode, userToken, content } = req.body;
+  if (!shareCode || !userToken || !content) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    const ownerCheck = await pool.query('SELECT user_token,share_code FROM shared_messages WHERE id=$1',[req.params.id]);
+    const msg = ownerCheck.rows[0];
+    if (!msg || msg.share_code !== shareCode) return res.status(404).json({error:'Message not found'});
+    if (msg.user_token !== userToken) return res.status(403).json({error:'Only the author can edit this message'});
+    await pool.query('UPDATE shared_messages SET content=$2,edited_at=NOW() WHERE id=$1',[req.params.id,content.slice(0,20000)]);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({error:e.message});}
+});
+app.post('/api/shared/message/:id/react', async (req,res) => {
+  const { shareCode, userToken, emoji } = req.body;
+  if (!shareCode || !userToken || !emoji) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'Database not available'});
+  try{
+    const p=await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[shareCode,userToken]);
+    if (!p.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
+    const msgRes=await pool.query('SELECT reactions_json FROM shared_messages WHERE id=$1 AND share_code=$2',[req.params.id,shareCode]);
+    const current=msgRes.rows[0];
+    if (!current) return res.status(404).json({error:'Message not found'});
+    let reactions={};
+    try{reactions=JSON.parse(current.reactions_json||'{}');}catch{}
+    const users=Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+    reactions[emoji]=users.includes(userToken) ? users.filter(token=>token!==userToken) : [...users,userToken];
+    if (!reactions[emoji].length) delete reactions[emoji];
+    await pool.query('UPDATE shared_messages SET reactions_json=$2 WHERE id=$1',[req.params.id,JSON.stringify(reactions)]);
+    res.json({ok:true,reactions});
+  } catch(e){res.status(500).json({error:e.message});}
+});
 app.get('/api/shared/poll/:shareCode/:afterId', async (req,res) => {
   if (!pool) return res.json({messages:[],participants:[]});
   try{
-    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at FROM shared_messages WHERE share_code=$1 AND id > $2 ORDER BY id ASC LIMIT 50',[req.params.shareCode,parseInt(req.params.afterId)||0]);
-    const partsRes=await pool.query('SELECT user_token,user_name FROM shared_participants WHERE share_code=$1',[req.params.shareCode]);
+    const userToken = getRequestedUserToken(req);
+    if (!userToken) return res.status(400).json({error:'userToken required'});
+    const participantRes = await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[req.params.shareCode,userToken]);
+    if (!participantRes.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
+    await pool.query('UPDATE shared_participants SET last_seen=NOW() WHERE share_code=$1 AND user_token=$2',[req.params.shareCode,userToken]);
+    const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at,edited_at,reactions_json FROM shared_messages WHERE share_code=$1 AND id > $2 ORDER BY id ASC LIMIT 50',[req.params.shareCode,parseInt(req.params.afterId)||0]);
+    const partsRes=await pool.query('SELECT user_token,user_name,last_seen FROM shared_participants WHERE share_code=$1',[req.params.shareCode]);
     res.json({messages:msgsRes.rows,participants:partsRes.rows});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/shared/my/:userToken', async (req,res) => {
+app.get('/api/shared/my/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({sharedChats:[]});
   try{
     const r=await pool.query(`SELECT s.share_code,s.title,s.creator_token,s.provider,s.model,s.updated_at,(SELECT COUNT(*) FROM shared_participants p WHERE p.share_code=s.share_code) as participant_count FROM shared_participants p JOIN shared_chats s ON p.share_code=s.share_code WHERE p.user_token=$1 AND s.is_active=true ORDER BY s.updated_at DESC LIMIT 20`,[req.params.userToken]);
     res.json({sharedChats:r.rows.map(row=>({shareCode:row.share_code,title:row.title,creatorToken:row.creator_token,isOwner:row.creator_token===req.params.userToken,provider:row.provider,model:row.model,participantCount:parseInt(row.participant_count),updatedAt:row.updated_at}))});
+  }catch(e){res.status(500).json({error:e.message});}
+});
+app.put('/api/shared/:shareCode', async (req,res) => {
+  const userToken=req.headers['x-user-token']||req.body?.userToken;
+  const nextTitle=(req.body?.title||'').trim();
+  if (!userToken) return res.status(400).json({error:'userToken required'});
+  if (!nextTitle) return res.status(400).json({error:'title required'});
+  if (!pool) return res.json({ok:true,title:nextTitle.slice(0,200)});
+  try{
+    const c=await pool.query('SELECT creator_token FROM shared_chats WHERE share_code=$1',[req.params.shareCode]);
+    if (!c.rows.length) return res.status(404).json({error:'Not found'});
+    if (c.rows[0].creator_token!==userToken) return res.status(403).json({error:'Only the owner can update this chat'});
+    const updated=await pool.query('UPDATE shared_chats SET title=$2,updated_at=NOW() WHERE share_code=$1 RETURNING share_code,title,provider,model,creator_token',[req.params.shareCode,nextTitle.slice(0,200)]);
+    res.json({ok:true,chat:{shareCode:updated.rows[0].share_code,title:updated.rows[0].title,provider:updated.rows[0].provider,model:updated.rows[0].model,creatorToken:updated.rows[0].creator_token}});
   }catch(e){res.status(500).json({error:e.message});}
 });
 app.delete('/api/shared/:shareCode', async (req,res) => {
@@ -599,7 +942,7 @@ app.delete('/api/admin/changelog/:id', requireAdmin, async (req,res) => {
 
 
 // ─── Folders ──────────────────────────────────────────────────────────────────
-app.get('/api/folders/:userToken', async (req,res) => {
+app.get('/api/folders/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({folders:[]});
   try {
     const f = await pool.query('SELECT * FROM folders WHERE user_token=$1 ORDER BY position,id', [req.params.userToken]);
@@ -608,7 +951,7 @@ app.get('/api/folders/:userToken', async (req,res) => {
     res.json({folders: f.rows.map(f => ({...f, chatCount: counts[f.id]||0}))});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/folders', async (req,res) => {
+app.post('/api/folders', requireUserAccess, async (req,res) => {
   const {userToken,name,color,icon} = req.body;
   if (!userToken||!name) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true,folder:{id:Date.now(),name,color,icon}});
@@ -617,7 +960,7 @@ app.post('/api/folders', async (req,res) => {
     res.json({ok:true,folder:r.rows[0]});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.put('/api/folders/:id', async (req,res) => {
+app.put('/api/folders/:id', requireUserAccess, async (req,res) => {
   const {userToken,name,color,icon} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -625,7 +968,7 @@ app.put('/api/folders/:id', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/folders/:id', async (req,res) => {
+app.delete('/api/folders/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -634,7 +977,7 @@ app.delete('/api/folders/:id', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/chats/:chatId/folder', async (req,res) => {
+app.post('/api/chats/:chatId/folder', requireUserAccess, async (req,res) => {
   const {userToken,folderId} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -642,7 +985,7 @@ app.post('/api/chats/:chatId/folder', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/chats/:chatId/pin', async (req,res) => {
+app.post('/api/chats/:chatId/pin', requireUserAccess, async (req,res) => {
   const {userToken,pinned} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -652,7 +995,7 @@ app.post('/api/chats/:chatId/pin', async (req,res) => {
 });
 
 // ─── Chat Search ──────────────────────────────────────────────────────────────
-app.get('/api/search/chats', async (req,res) => {
+app.get('/api/search/chats', requireUserAccess, async (req,res) => {
   const {userToken,q} = req.query;
   if (!userToken||!q) return res.json({results:[]});
   if (!pool) return res.json({results:[]});
@@ -669,14 +1012,14 @@ app.get('/api/search/chats', async (req,res) => {
 });
 
 // ─── Prompt Library ───────────────────────────────────────────────────────────
-app.get('/api/prompts/:userToken', async (req,res) => {
+app.get('/api/prompts/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({prompts:[]});
   try {
     const r = await pool.query('SELECT * FROM prompts WHERE user_token=$1 ORDER BY use_count DESC, created_at DESC', [req.params.userToken]);
     res.json({prompts:r.rows});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/prompts', async (req,res) => {
+app.post('/api/prompts', requireUserAccess, async (req,res) => {
   const {userToken,title,content,category} = req.body;
   if (!userToken||!title||!content) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true,prompt:{id:Date.now(),title,content,category}});
@@ -685,7 +1028,7 @@ app.post('/api/prompts', async (req,res) => {
     res.json({ok:true,prompt:r.rows[0]});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/prompts/:id', async (req,res) => {
+app.delete('/api/prompts/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -700,7 +1043,7 @@ app.post('/api/prompts/:id/use', async (req,res) => {
 });
 
 // ─── User Settings (system prompt, BYOK, TTS, search) ────────────────────────
-app.get('/api/settings/:userToken', async (req,res) => {
+app.get('/api/settings/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({settings:{}});
   try {
     const r = await pool.query('SELECT system_prompt,byok_groq,byok_cohere,search_enabled,tts_enabled,tts_voice FROM user_settings WHERE user_token=$1', [req.params.userToken]);
@@ -739,7 +1082,7 @@ async function getUserKey(userToken, provider) {
 }
 
 // ─── Usage Stats ──────────────────────────────────────────────────────────────
-app.post('/api/usage/track', async (req,res) => {
+app.post('/api/usage/track', requireUserAccess, async (req,res) => {
   const {userToken,provider,messages=1,tokensEst=0} = req.body;
   if (!userToken||!pool) return res.json({ok:true});
   try {
@@ -751,7 +1094,7 @@ app.post('/api/usage/track', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.get('/api/usage/:userToken', async (req,res) => {
+app.get('/api/usage/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({stats:[],totals:{}});
   try {
     const r = await pool.query(
@@ -777,14 +1120,14 @@ function calcStreak(dates) {
 }
 
 // ─── Pinned Messages ──────────────────────────────────────────────────────────
-app.get('/api/pinned/:userToken', async (req,res) => {
+app.get('/api/pinned/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({pinned:[]});
   try {
     const r = await pool.query('SELECT p.*,c.title as chat_title FROM pinned_messages p JOIN chats c ON p.chat_id=c.chat_id WHERE p.user_token=$1 ORDER BY p.created_at DESC LIMIT 50', [req.params.userToken]);
     res.json({pinned:r.rows});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/pinned', async (req,res) => {
+app.post('/api/pinned', requireUserAccess, async (req,res) => {
   const {chatId,userToken,role,content,note} = req.body;
   if (!chatId||!userToken||!content) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -793,7 +1136,7 @@ app.post('/api/pinned', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/pinned/:id', async (req,res) => {
+app.delete('/api/pinned/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -803,7 +1146,7 @@ app.delete('/api/pinned/:id', async (req,res) => {
 });
 
 // ─── Export Chat ──────────────────────────────────────────────────────────────
-app.get('/api/export/:userToken/:chatId', async (req,res) => {
+app.get('/api/export/:userToken/:chatId', requireUserAccess, async (req,res) => {
   if (!pool) return res.status(503).json({error:'No DB'});
   try {
     const c = await pool.query('SELECT title,provider,model,created_at FROM chats WHERE chat_id=$1 AND user_token=$2', [req.params.chatId,req.params.userToken]);
@@ -823,15 +1166,226 @@ app.get('/api/export/:userToken/:chatId', async (req,res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-// ─── Fallback ─────────────────────────────────────────────────────────────────
-// Serve landing page at / if user hasn't visited before (no cookie),
-// otherwise go straight to the app. /app always goes to the chat.
-app.get('/app',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
-app.get('/',(req,res)=>{
-  if (req.cookies?.nv_seen) return res.sendFile(path.join(__dirname,'public','index.html'));
-  res.cookie('nv_seen','1',{maxAge:365*24*60*60*1000,httpOnly:true,sameSite:'lax'});
-  res.sendFile(path.join(__dirname,'public','landing.html'));
+
+// ─── Document Q&A ────────────────────────────────────────────────────────────
+// Creates a focused chat session around a specific document
+app.post('/api/doc/session', requireUserAccess, async (req,res) => {
+  const { userToken, fileId } = req.body;
+  if (!fileId || !userToken) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'No DB'});
+  try {
+    const fileRes = await pool.query('SELECT file_id,name,mime_type,extracted_text FROM user_files WHERE file_id=$1 AND user_token=$2',[fileId,userToken]);
+    if (!fileRes.rows.length) return res.status(404).json({error:'File not found'});
+    const file = fileRes.rows[0];
+    const sessionId = createId('doc');
+    const chatId = createId('chat');
+    // Create a dedicated chat for this doc session
+    await pool.query('INSERT INTO chats (chat_id,user_token,title,provider,model,updated_at) VALUES ($1,$2,$3,$4,$5,NOW())',
+      [chatId, userToken, `📄 ${file.name}`, 'groq', 'llama-3.3-70b-versatile']);
+    await pool.query('INSERT INTO doc_sessions (session_id,user_token,file_id,file_name,chat_id) VALUES ($1,$2,$3,$4,$5)',
+      [sessionId, userToken, fileId, file.name, chatId]);
+    // Insert a system message with the full doc content
+    const docPrompt = `You are a document expert assistant. The user has uploaded a document for analysis.
+
+Document: "${file.name}"
+
+--- DOCUMENT CONTENT START ---
+${(file.extracted_text||'').slice(0,60000)}
+--- DOCUMENT CONTENT END ---
+
+You have read the entire document above. Help the user understand, analyze, and extract information from it. Answer questions accurately based only on the document content. If something isn't in the document, say so clearly.`;
+    await pool.query('INSERT INTO chat_messages (chat_id,role,content) VALUES ($1,$2,$3)',[chatId,'system',docPrompt]);
+    res.json({ok:true, sessionId, chatId, fileName:file.name, charCount: (file.extracted_text||'').length});
+  } catch(e) { res.status(500).json({error:e.message}); }
 });
+
+// Ask a quick question about a doc without creating a full session
+app.post('/api/doc/ask', requireUserAccess, async (req,res) => {
+  const { userToken, fileId, question } = req.body;
+  if (!fileId||!userToken||!question) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.status(503).json({error:'No DB'});
+  const ip = req.ip||'unknown';
+  if (rateLimit(ip)) return res.status(429).json({error:'Rate limit exceeded'});
+  try {
+    const fileRes = await pool.query('SELECT name,extracted_text FROM user_files WHERE file_id=$1 AND user_token=$2',[fileId,userToken]);
+    if (!fileRes.rows.length) return res.status(404).json({error:'File not found'});
+    const file = fileRes.rows[0];
+    const key = await getKey('groq') || await getKey('cohere');
+    if (!key) return res.status(500).json({error:'No AI provider'});
+    const messages = [
+      {role:'system', content:`You are a document analysis assistant. Answer questions about the following document accurately and concisely.
+
+Document: "${file.name}"
+
+${(file.extracted_text||'').slice(0,50000)}`},
+      {role:'user', content:question}
+    ];
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,max_tokens:1000,temperature:0.3})});
+    if (!r.ok) throw new Error(`AI error: ${r.status}`);
+    const d = await r.json();
+    res.json({answer: d.choices?.[0]?.message?.content||'', fileName:file.name});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// Get doc sessions for user
+app.get('/api/doc/sessions/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({sessions:[]});
+  try {
+    const r = await pool.query('SELECT ds.*,uf.name as file_name,uf.size_bytes FROM doc_sessions ds LEFT JOIN user_files uf ON ds.file_id=uf.file_id WHERE ds.user_token=$1 ORDER BY ds.created_at DESC LIMIT 20',[req.params.userToken]);
+    res.json({sessions:r.rows});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// ─── Knowledge Base ───────────────────────────────────────────────────────────
+app.get('/api/notes/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({notes:[]});
+  const {q, tag} = req.query;
+  try {
+    let r;
+    if (q) {
+      r = await pool.query(
+        `SELECT id,note_id,title,content,source,tags,created_at,updated_at FROM knowledge_notes
+         WHERE user_token=$1 AND (title ILIKE $2 OR content ILIKE $2 OR tags ILIKE $2)
+         ORDER BY updated_at DESC LIMIT 50`,
+        [req.params.userToken, `%${q}%`]
+      );
+    } else if (tag) {
+      r = await pool.query(
+        `SELECT id,note_id,title,content,source,tags,created_at,updated_at FROM knowledge_notes WHERE user_token=$1 AND tags ILIKE $2 ORDER BY updated_at DESC LIMIT 50`,
+        [req.params.userToken, `%${tag}%`]
+      );
+    } else {
+      r = await pool.query(
+        `SELECT id,note_id,title,LEFT(content,300) as content,source,tags,created_at,updated_at FROM knowledge_notes WHERE user_token=$1 ORDER BY updated_at DESC LIMIT 100`,
+        [req.params.userToken]
+      );
+    }
+    res.json({notes:r.rows});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/notes/:userToken/:noteId', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({note:null});
+  try {
+    const r = await pool.query('SELECT * FROM knowledge_notes WHERE user_token=$1 AND note_id=$2',[req.params.userToken,req.params.noteId]);
+    if (!r.rows.length) return res.status(404).json({error:'Not found'});
+    res.json({note:r.rows[0]});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/notes', requireUserAccess, async (req,res) => {
+  const {userToken,title,content,source,sourceChatId,tags} = req.body;
+  if (!userToken||!title||!content) return res.status(400).json({error:'Missing fields'});
+  if (!pool) return res.json({ok:true,note:{id:Date.now(),note_id:'local',title,content}});
+  try {
+    const noteId = createId('note');
+    const r = await pool.query(
+      `INSERT INTO knowledge_notes (note_id,user_token,title,content,source,source_chat_id,tags)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [noteId,userToken,title.slice(0,256),content,source||'manual',sourceChatId||null,(tags||'').slice(0,256)]
+    );
+    res.json({ok:true,note:r.rows[0]});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/notes/:noteId', requireUserAccess, async (req,res) => {
+  const {userToken,title,content,tags} = req.body;
+  if (!pool) return res.json({ok:true});
+  try {
+    await pool.query(
+      `UPDATE knowledge_notes SET title=$1,content=$2,tags=$3,updated_at=NOW() WHERE note_id=$4 AND user_token=$5`,
+      [title,content,(tags||''),req.params.noteId,userToken]
+    );
+    res.json({ok:true});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/notes/:noteId', requireUserAccess, async (req,res) => {
+  const userToken = req.body?.userToken || getRequestedUserToken(req);
+  if (!pool) return res.json({ok:true});
+  try {
+    await pool.query('DELETE FROM knowledge_notes WHERE note_id=$1 AND user_token=$2',[req.params.noteId,userToken]);
+    res.json({ok:true});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// Auto-generate a note title using AI
+app.post('/api/notes/generate-title', requireUserAccess, async (req,res) => {
+  const {userToken, content} = req.body;
+  if (!content) return res.json({title:'Untitled Note'});
+  try {
+    const key = await getKey('groq');
+    if (!key) return res.json({title:content.split('\n')[0].slice(0,60)||'Untitled Note'});
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.1-8b-instant',messages:[{role:'user',content:`Generate a concise, descriptive title (max 8 words) for this note. Output ONLY the title, nothing else:\n\n${content.slice(0,2000)}`}],max_tokens:30,temperature:0.3})});
+    const d = await r.json();
+    res.json({title:(d.choices?.[0]?.message?.content||'').trim().replace(/["]/g,'')||'Untitled Note'});
+  } catch { res.json({title:content.split('\n')[0].slice(0,60)||'Untitled Note'}); }
+});
+
+// ─── Smart Context Insights ───────────────────────────────────────────────────
+// Analyzes recent chat history and generates proactive suggestions
+app.post('/api/insights/generate', requireUserAccess, async (req,res) => {
+  const {userToken} = req.body;
+  if (!userToken||!pool) return res.json({ok:true,insights:[]});
+  const ip = req.ip||'unknown';
+  if (rateLimit('insights_'+ip, 3, 60000)) return res.status(429).json({error:'Rate limited'});
+  try {
+    // Get recent messages
+    const msgsRes = await pool.query(
+      `SELECT cm.role,cm.content,cm.created_at FROM chat_messages cm
+       JOIN chats c ON cm.chat_id=c.chat_id
+       WHERE c.user_token=$1 AND cm.role='user' AND cm.created_at > NOW()-INTERVAL '7 days'
+       ORDER BY cm.created_at DESC LIMIT 40`,
+      [userToken]
+    );
+    if (msgsRes.rows.length < 5) return res.json({ok:true,insights:[]});
+    const recentMsgs = msgsRes.rows.map(r=>r.content).join('\n').slice(0,8000);
+    const key = await getKey('groq');
+    if (!key) return res.json({ok:true,insights:[]});
+    const prompt = `Analyze these recent AI chat messages from a user and identify 2-3 genuinely useful, specific insights or suggestions. Focus on patterns, recurring topics, or things they could benefit from.
+
+Recent messages:
+${recentMsgs}
+
+Respond with JSON array only (no other text):
+[{"type":"pattern|suggestion|tip","title":"short title","body":"1-2 sentence actionable insight"}]
+
+Examples of good insights:
+- "You've asked about async/await 8 times — want a quick reference saved to your knowledge base?"
+- "You often work on React projects — consider setting up a workspace with your component patterns"
+- "You ask debugging questions late at night — NOVA works best with full error messages and stack traces"`;
+
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.1-8b-instant',messages:[{role:'user',content:prompt}],max_tokens:400,temperature:0.4})});
+    if (!r.ok) return res.json({ok:true,insights:[]});
+    const d = await r.json();
+    let insights = [];
+    try {
+      const text = d.choices?.[0]?.message?.content||'[]';
+      insights = JSON.parse(text.replace(/```json|```/g,'').trim());
+    } catch { insights = []; }
+    // Store insights
+    for (const ins of insights.slice(0,3)) {
+      await pool.query('INSERT INTO context_insights (user_token,insight_type,title,body) VALUES ($1,$2,$3,$4)',
+        [userToken,ins.type||'tip',ins.title||'',ins.body||'']).catch(()=>{});
+    }
+    res.json({ok:true,insights});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/insights/:userToken', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({insights:[]});
+  try {
+    const r = await pool.query('SELECT * FROM context_insights WHERE user_token=$1 AND seen=false ORDER BY created_at DESC LIMIT 5',[req.params.userToken]);
+    res.json({insights:r.rows});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/insights/:id/seen', requireUserAccess, async (req,res) => {
+  if (!pool) return res.json({ok:true});
+  try { await pool.query('UPDATE context_insights SET seen=true WHERE id=$1',[req.params.id]); res.json({ok:true}); }
+  catch(e) { res.status(500).json({error:e.message}); }
+});
+// ─── Fallback ─────────────────────────────────────────────────────────────────
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 app.listen(PORT,()=>{
