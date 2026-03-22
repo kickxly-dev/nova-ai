@@ -1054,7 +1054,41 @@ function handleHash(){
   const h=window.location.hash;if(!h.includes('auth='))return;
   try{const d=JSON.parse(decodeURIComponent(h.split('auth=')[1]));G.user={...d.user,token:d.token};localStorage.setItem('nv_u',JSON.stringify(G.user));window.history.replaceState(null,'','/');updateUserUI();loadUserData();toast(`Welcome, ${G.user.name?.split(' ')[0]||'back'}! 👋`);}catch{}
 }
-function checkAuth(){const s=localStorage.getItem('nv_u');if(s){try{G.user=JSON.parse(s);updateUserUI();loadUserData();}catch{}}if(G.adminToken)verifyAdminToken();}
+function clearUserSession(showToast=false,msg='Session expired. Please sign in again.'){
+  G.user=null;
+  localStorage.removeItem('nv_u');
+  G.chats=[];
+  G.memory='';
+  renderChatList();
+  const memBadge=document.getElementById('mem-badge');
+  if(memBadge)memBadge.style.display='none';
+  updateUserUI();
+  if(showToast)toast(msg);
+}
+async function syncAuthSession(){
+  const s=localStorage.getItem('nv_u');
+  if(s){
+    try{G.user=JSON.parse(s);updateUserUI();}
+    catch{localStorage.removeItem('nv_u');}
+  }
+  try{
+    const r=await fetch('/auth/me',{cache:'no-store'});
+    if(!r.ok)return;
+    const d=await r.json();
+    if(d.user?.token){
+      const n={name:d.user.name,email:d.user.email,picture:d.user.picture,token:d.user.token};
+      G.user=n;
+      localStorage.setItem('nv_u',JSON.stringify(n));
+      updateUserUI();
+      await loadUserData();
+      return;
+    }
+    if(G.user?.token){
+      clearUserSession(true,'Session expired. Please sign in again to sync chats and memory.');
+    }
+  }catch{}
+}
+function checkAuth(){syncAuthSession();if(G.adminToken)verifyAdminToken();}
 async function verifyAdminToken(){
   try{
     const r=await fetch('/api/admin/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:G.adminToken})});
@@ -1071,8 +1105,21 @@ function updateUserUI(){
 function showAdminAccess(){document.getElementById('adm-sett-btn').style.display='block';document.getElementById('adm-sb-wrap').style.display='block';}
 async function loadUserData(){
   if(!G.user?.token)return;
-  try{const r=await fetch(`/api/memory/${G.user.token}`);const d=await r.json();G.memory=d.memory||'';document.getElementById('mem-txt').value=G.memory;document.getElementById('mem-badge').style.display=G.memory?'inline':'none';}catch{}
-  try{const r=await fetch(`/api/chats/${G.user.token}`);const d=await r.json();G.chats=d.chats||[];renderChatList();}catch{}
+  try{
+    const r=await fetch(`/api/memory/${G.user.token}`);
+    if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to load memory.');return;}
+    const d=await r.json();
+    G.memory=d.memory||'';
+    document.getElementById('mem-txt').value=G.memory;
+    document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
+  }catch{}
+  try{
+    const r=await fetch(`/api/chats/${G.user.token}`);
+    if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to load chats.');return;}
+    const d=await r.json();
+    G.chats=d.chats||[];
+    renderChatList();
+  }catch{}
 }
 async function logout(){try{await fetch('/auth/logout',{method:'POST'});}catch{}G.user=null;localStorage.removeItem('nv_u');G.chats=[];G.memory='';renderChatList();updateUserUI();closeSett();toast('Signed out');}
 
@@ -1081,7 +1128,20 @@ async function logout(){try{await fetch('/auth/logout',{method:'POST'});}catch{}
 // ═══════════════════════════════════════════════════════════
 function openMemory(){document.getElementById('mov').classList.add('open');document.getElementById('mem-txt').value=G.memory;}
 function closeMem(){document.getElementById('mov').classList.remove('open');}
-async function saveMem(){G.memory=document.getElementById('mem-txt').value.trim();document.getElementById('mem-badge').style.display=G.memory?'inline':'none';if(G.user?.token){try{await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,content:G.memory})});}catch{}}closeMem();toast('Memory saved ✓');}
+async function saveMem(){
+  G.memory=document.getElementById('mem-txt').value.trim();
+  document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
+  let remoteOk=true;
+  if(G.user?.token){
+    try{
+      const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,content:G.memory})});
+      if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to save memory.');remoteOk=false;}
+      else if(!r.ok)remoteOk=false;
+    }catch{remoteOk=false;}
+  }
+  closeMem();
+  toast(remoteOk?'Memory saved ✓':'Memory saved locally');
+}
 
 // ═══════════════════════════════════════════════════════════
 // CHANGELOG
@@ -1126,6 +1186,7 @@ async function saveChat(firstMsg){
   if(G.user?.token){
     try{
       const r=await fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,chatId:G.chatId,title:G.chats.find(c=>c.id===G.chatId)?.title||'Chat',history:G.history,provider:G.provider,model:G.model})});
+      if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to sync chats.');return;}
       if(!r.ok){const d=await r.json();console.error('saveChat error:',d.error);}
     }catch(e){console.error('saveChat error:',e);}
   }
@@ -1141,6 +1202,7 @@ async function loadChat(id){
   if(G.user?.token){
     try{
       const r=await fetch(`/api/chats/${G.user.token}/${id}/history`);
+      if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to open chats.');return;}
       const d=await r.json();
       G.history=d.history||[];
     }catch(e){
