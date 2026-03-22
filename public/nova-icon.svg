@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#09090b" rx="100"/>
+
+  <!-- Icon mark centered -->
+  <rect x="106" y="106" width="300" height="300" rx="60" fill="#09090b"/>
+  <rect x="108" y="108" width="296" height="296" rx="58" fill="none" stroke="#7c3aed" stroke-width="5"/>
+
+  <!-- N letterform -->
+  <path d="M168 362 L168 150 L218 150 L310 290 L310 150 L344 150 L344 362 L294 362 L202 222 L202 362 Z" fill="#a855f7"/>
+</svg>
