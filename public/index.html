@@ -939,6 +939,7 @@ async function boot(){
   setLdStatus('Building UI...');
   buildProvUI();buildMobBar();updateStreamBtn();
   setLdStatus('Checking auth...');
+  loadLocalChats();
   handleHash();checkAuth();
   setLdStatus('Loading updates...');
   await loadChangelog();
@@ -956,6 +957,27 @@ async function boot(){
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function setLdStatus(t){const e=document.getElementById('ld-status');if(e)e.textContent=t;}
+const LOCAL_CHATS_KEY='nv_local_chats_v1';
+
+function persistLocalChats(){
+  try{
+    const snapshot={chats:(G.chats||[]).slice(0,120),chatId:G.chatId||null,savedAt:Date.now()};
+    localStorage.setItem(LOCAL_CHATS_KEY,JSON.stringify(snapshot));
+  }catch{}
+}
+
+function loadLocalChats(){
+  try{
+    const raw=localStorage.getItem(LOCAL_CHATS_KEY);
+    if(!raw)return;
+    const parsed=JSON.parse(raw);
+    if(Array.isArray(parsed.chats)&&parsed.chats.length&&!G.chats.length){
+      G.chats=parsed.chats;
+      if(parsed.chatId&&G.chats.some(c=>c.id===parsed.chatId))G.chatId=parsed.chatId;
+      renderChatList();
+    }
+  }catch{}
+}
 
 // ═══════════════════════════════════════════════════════════
 // WHAT'S NEW MODAL
@@ -1054,11 +1076,14 @@ function handleHash(){
   const h=window.location.hash;if(!h.includes('auth='))return;
   try{const d=JSON.parse(decodeURIComponent(h.split('auth=')[1]));G.user={...d.user,token:d.token};localStorage.setItem('nv_u',JSON.stringify(G.user));window.history.replaceState(null,'','/');updateUserUI();loadUserData();toast(`Welcome, ${G.user.name?.split(' ')[0]||'back'}! 👋`);}catch{}
 }
-function clearUserSession(showToast=false,msg='Session expired. Please sign in again.'){
+function clearUserSession(showToast=false,msg='Session expired. Please sign in again.',keepLocal=true){
   G.user=null;
   localStorage.removeItem('nv_u');
-  G.chats=[];
-  G.memory='';
+  if(!keepLocal){
+    G.chats=[];
+    G.memory='';
+    localStorage.removeItem(LOCAL_CHATS_KEY);
+  }
   renderChatList();
   const memBadge=document.getElementById('mem-badge');
   if(memBadge)memBadge.style.display='none';
@@ -1118,10 +1143,11 @@ async function loadUserData(){
     if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to load chats.');return;}
     const d=await r.json();
     G.chats=d.chats||[];
+    persistLocalChats();
     renderChatList();
   }catch{}
 }
-async function logout(){try{await fetch('/auth/logout',{method:'POST'});}catch{}G.user=null;localStorage.removeItem('nv_u');G.chats=[];G.memory='';renderChatList();updateUserUI();closeSett();toast('Signed out');}
+async function logout(){try{await fetch('/auth/logout',{method:'POST'});}catch{}clearUserSession(false,'',false);updateUserUI();closeSett();toast('Signed out');}
 
 // ═══════════════════════════════════════════════════════════
 // MEMORY
@@ -1132,6 +1158,7 @@ async function saveMem(){
   G.memory=document.getElementById('mem-txt').value.trim();
   document.getElementById('mem-badge').style.display=G.memory?'inline':'none';
   let remoteOk=true;
+  persistLocalChats();
   if(G.user?.token){
     try{
       const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,content:G.memory})});
@@ -1167,7 +1194,7 @@ function fmtCL(t){if(!t)return'';t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</str
 // ═══════════════════════════════════════════════════════════
 // CHAT LIST
 // ═══════════════════════════════════════════════════════════
-function newChat(){stopSharedPoll();G.sharedChat=null;G.sharedCode='';G.history=[];G.chatId=null;const a=document.getElementById('chat');a.innerHTML='';a.appendChild(mkWelcome());renderChatList();closeDrawer();switchView('chat');}
+function newChat(){stopSharedPoll();G.sharedChat=null;G.sharedCode='';G.history=[];G.chatId=null;const a=document.getElementById('chat');a.innerHTML='';a.appendChild(mkWelcome());persistLocalChats();renderChatList();closeDrawer();switchView('chat');}
 function mkWelcome(){const w=document.createElement('div');w.className='welcome';w.id='welcome';w.innerHTML=`<div class="w-icon"><img src="nova-icon.svg" alt="NOVA" style="width:34px;height:34px"/></div><h1>What can I help with?</h1><p>Powered by Groq, Cohere & Ollama.</p><div class="w-grid"><div class="wcard" onclick="suggest(this)"><strong>💡 Explain something</strong><span>How do neural networks learn?</span></div><div class="wcard" onclick="suggest(this)"><strong>✍️ Write for me</strong><span>Draft a professional email</span></div><div class="wcard" onclick="suggest(this)"><strong>💻 Write code</strong><span>Build a REST API in Node.js</span></div><div class="wcard" onclick="suggest(this)"><strong>🔍 Debug my code</strong><span>Find and fix the bug</span></div></div>`;return w;}
 function suggest(el){document.getElementById('mi').value=el.querySelector('span').textContent.trim();switchView('chat');go();}
 function renderChatList(){
@@ -1183,6 +1210,7 @@ function renderChatList(){
 async function saveChat(firstMsg){
   if(!G.chatId){G.chatId=Date.now().toString();const title=firstMsg.slice(0,34)+(firstMsg.length>34?'…':'');G.chats.unshift({id:G.chatId,title,provider:G.provider,model:G.model,messageCount:G.history.length,history:G.history});renderChatList();}
   else{const c=G.chats.find(c=>c.id===G.chatId);if(c){c.history=G.history;c.messageCount=G.history.length;}}
+  persistLocalChats();
   if(G.user?.token){
     try{
       const r=await fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,chatId:G.chatId,title:G.chats.find(c=>c.id===G.chatId)?.title||'Chat',history:G.history,provider:G.provider,model:G.model})});
@@ -1203,11 +1231,14 @@ async function loadChat(id){
     try{
       const r=await fetch(`/api/chats/${G.user.token}/${id}/history`);
       if(r.status===403){clearUserSession(true,'Session expired. Please sign in again to open chats.');return;}
-      const d=await r.json();
-      G.history=d.history||[];
+      if(!r.ok){G.history=c.history||[];}
+      else{
+        const d=await r.json();
+        G.history=d.history||[];
+      }
     }catch(e){
       console.error('loadChat error:',e);
-      G.history=[];
+      G.history=c.history||[];
     }
   }else{
     G.history=c.history||[];
@@ -1220,7 +1251,7 @@ async function loadChat(id){
   switchView('chat');
   area.scrollTop=area.scrollHeight;
 }
-async function delChat(e,id){e.stopPropagation();G.chats=G.chats.filter(c=>c.id!==id);if(G.chatId===id){G.chatId=null;G.history=[];const a=document.getElementById('chat');a.innerHTML='';a.appendChild(mkWelcome());}renderChatList();if(G.user?.token){try{await fetch(`/api/chats/${G.user.token}/${id}`,{method:'DELETE'});}catch{}}}
+async function delChat(e,id){e.stopPropagation();G.chats=G.chats.filter(c=>c.id!==id);if(G.chatId===id){G.chatId=null;G.history=[];const a=document.getElementById('chat');a.innerHTML='';a.appendChild(mkWelcome());}persistLocalChats();renderChatList();if(G.user?.token){try{await fetch(`/api/chats/${G.user.token}/${id}`,{method:'DELETE'});}catch{}}}
 
 // ═══════════════════════════════════════════════════════════
 // MESSAGES
