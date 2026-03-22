@@ -1729,15 +1729,17 @@ function openShareModal(){
   const body=document.getElementById('share-modal-body');
   if(G.sharedChat){
     const now = Date.now();
+    const isOwner = G.sharedChat.creatorToken === G.user.token;
     body.innerHTML=`<div style="text-align:center">
       <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Share Code</div>
       <div style="font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--ac);letter-spacing:4px;margin-bottom:12px">${G.sharedCode}</div>
       <button class="btn btn-p btn-sm" onclick="copyShareLink()">Copy Link</button>
+      ${isOwner ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b);text-align:left"><div style="font-size:11px;color:var(--mu);margin-bottom:8px;text-align:center">Owner Controls</div><div class="field" style="margin-bottom:10px"><label>Room Title</label><input type="text" id="share-room-title" value="${esc(G.sharedChat.title||'Shared Chat')}"/></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="saveSharedChatTitle()">Save Title</button><button class="btn btn-d btn-sm" onclick="closeSharedChat()">Close Room</button></div></div>` : ''}
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b)">
         <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Participants (${G.sharedParticipants.length})</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${G.sharedParticipants.map(p=>`<div style="padding:4px 10px;background:var(--s2);border-radius:20px;font-size:11px">${esc(p.user_name||'User')} ${new Date(p.last_seen || 0).getTime() > now - 20000 ? '<span style="color:var(--gr)">• online</span>' : ''}</div>`).join('')}</div>
       </div>
-      <button class="btn btn-d btn-sm" style="margin-top:16px" onclick="leaveSharedChat()">Leave Shared Chat</button>
+      <button class="btn btn-d btn-sm" style="margin-top:16px" onclick="leaveSharedChat()">${isOwner ? 'Exit Room' : 'Leave Shared Chat'}</button>
     </div>`;
   }else{
     body.innerHTML=`<div style="text-align:center">
@@ -1753,6 +1755,36 @@ function copyShareLink(){
   navigator.clipboard.writeText(link);
   toast('Link copied!');
 }
+async function saveSharedChatTitle(){
+  const input=document.getElementById('share-room-title');
+  const title=input?.value.trim();
+  if(!title){toast('Enter a room title');return;}
+  try{
+    const r=await fetch(`/api/shared/${encodeURIComponent(G.sharedCode)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token,title})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Update failed');
+    G.sharedChat={...G.sharedChat,...d.chat};
+    openShareModal();
+    toast('Room updated');
+  }catch(e){toast('Error: '+e.message);}
+}
+async function closeSharedChat(){
+  if(!confirm('Close this shared chat for everyone?'))return;
+  try{
+    const r=await fetch(`/api/shared/${encodeURIComponent(G.sharedCode)}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({userToken:G.user.token})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Close failed');
+    stopSharedPoll();
+    G.sharedChat=null;
+    G.sharedCode='';
+    G.sharedParticipants=[];
+    G.sharedMessages=[];
+    G.sharedLastId=0;
+    closeShareModal();
+    newChat();
+    toast('Shared chat closed');
+  }catch(e){toast('Error: '+e.message);}
+}
 async function createSharedChat(){
   const title=document.getElementById('share-title-input').value.trim()||'Shared Chat';
   try{
@@ -1760,8 +1792,8 @@ async function createSharedChat(){
     if(!r.ok)throw new Error((await r.json()).error);
     const d=await r.json();
     G.sharedCode=d.shareCode;
-    G.sharedChat={title:d.title,shareCode:d.shareCode};
-    G.sharedParticipants=[{user_token:G.user.token,user_name:G.user.name}];
+    G.sharedChat={title:d.title,shareCode:d.shareCode,creatorToken:G.user.token,provider:G.provider,model:G.model};
+    G.sharedParticipants=[{user_token:G.user.token,user_name:G.user.name,last_seen:new Date().toISOString()}];
     G.sharedMessages=[];
     G.sharedLastId=0;
     startSharedPoll();
@@ -2199,13 +2231,81 @@ function syncVoiceUI() {
   document.getElementById('voicebtn')?.classList.toggle('on', !!G.voiceMode);
 }
 
+function normalizeTrustUrl(url) {
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function buildLiveTrustMeta(extra={}) {
+  const memoryLines = (G.memory || '').split('\n').map(line => line.trim()).filter(Boolean);
+  const attachedFiles = (G.attachedFiles || []).map(file => ({ file_id:file.file_id, name:file.name })).filter(file => file.name);
+  return {
+    memory: G.memory ? {
+      count: memoryLines.length || 1,
+      preview: memoryLines.slice(0, 2).join(' ').slice(0, 160)
+    } : null,
+    files: attachedFiles.length ? {
+      count: attachedFiles.length,
+      items: attachedFiles.slice(0, 4)
+    } : null,
+    search: null,
+    ...extra
+  };
+}
+
+function buildSearchTrustMeta(query, results=[], warning='') {
+  const sources = (results || []).slice(0, 5).map(result => ({
+    title: result.title || result.url || 'Source',
+    url: normalizeTrustUrl(result.url || ''),
+    snippet: (result.snippet || result.content || '').slice(0, 140)
+  }));
+  return buildLiveTrustMeta({
+    search: {
+      query,
+      count: results.length,
+      warning,
+      sources
+    }
+  });
+}
+
+function buildSearchContext(query, results=[], warning='') {
+  const chunks = [];
+  if (warning) chunks.push(`Search warning: ${warning}`);
+  if (results.length) {
+    chunks.push(...results.map((result, index) => {
+      const url = normalizeTrustUrl(result.url || '');
+      const body = [result.snippet, result.content ? result.content.slice(0, 900) : ''].filter(Boolean).join('\n');
+      return `[${index + 1}] ${result.title || 'Untitled'}${url ? `\nURL: ${url}` : ''}${body ? `\n${body}` : ''}`;
+    }));
+  } else {
+    chunks.push('No live search results were returned for this query.');
+  }
+  return `Live web search for "${query}":\n\n${chunks.join('\n\n')}\n\nUse this search context only when it is relevant. Mention when the live search is inconclusive.`;
+}
+
 function trustPillsHTML(meta) {
   if (!meta) return '';
   const pills = [];
-  if (meta.memory) pills.push('<div class="mem-pill">Memory</div>');
-  if (meta.files) pills.push('<div class="search-pill">Files</div>');
-  if (meta.search) pills.push('<div class="search-pill">Search</div>');
-  return pills.join('');
+  const details = [];
+  if (meta.memory) pills.push(`<div class="mem-pill">Memory${meta.memory.count ? ` • ${meta.memory.count}` : ''}</div>`);
+  if (meta.files) pills.push(`<div class="search-pill">Files${meta.files.count ? ` • ${meta.files.count}` : ''}</div>`);
+  if (meta.search) pills.push(`<div class="search-pill">Search${meta.search.count ? ` • ${meta.search.count}` : ''}</div>`);
+  if (meta.memory?.preview) {
+    details.push(`<div style="font-size:11px;color:var(--mu);padding:8px 10px;background:var(--s2);border:1px solid var(--b);border-radius:12px"><strong style="color:var(--tx)">Memory</strong><div style="margin-top:4px">${esc(meta.memory.preview)}</div></div>`);
+  }
+  if (meta.files?.items?.length) {
+    details.push(`<div style="font-size:11px;color:var(--mu);padding:8px 10px;background:var(--s2);border:1px solid var(--b);border-radius:12px"><strong style="color:var(--tx)">Files</strong><div style="margin-top:4px">${meta.files.items.map(file => `<span class="mchip active" style="display:inline-flex;margin:2px 6px 0 0">${esc(file.name)}</span>`).join('')}</div></div>`);
+  }
+  if (meta.search) {
+    const sourceHtml = meta.search.sources?.length
+      ? meta.search.sources.map((source, index) => `<a href="${source.url}" target="_blank" rel="noopener noreferrer" style="display:block;padding:7px 8px;border-radius:10px;background:var(--s2);border:1px solid var(--b);text-decoration:none;color:inherit"><strong>${index + 1}. ${esc(source.title)}</strong>${source.snippet ? `<div style="margin-top:3px;font-size:10px;color:var(--mu)">${esc(source.snippet)}</div>` : ''}</a>`).join('')
+      : `<div style="font-size:11px;color:var(--mu)">${esc(meta.search.warning || 'No live sources were available for this response.')}</div>`;
+    details.push(`<div style="font-size:11px;color:var(--mu);padding:8px 10px;background:var(--s2);border:1px solid var(--b);border-radius:12px"><strong style="color:var(--tx)">Search</strong><div style="margin-top:4px">${esc(meta.search.query || 'Live search')}</div><div style="display:grid;gap:6px;margin-top:6px">${sourceHtml}</div></div>`);
+  }
+  const pillsHtml = pills.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${details.length ? 8 : 0}px">${pills.join('')}</div>` : '';
+  const detailsHtml = details.length ? `<div style="display:grid;gap:6px;margin-bottom:8px">${details.join('')}</div>` : '';
+  return `${pillsHtml}${detailsHtml}`;
 }
 
 function renderAttachedFiles() {
@@ -2692,6 +2792,70 @@ function openCodePreview() {
   document.getElementById('code-preview-ov')?.classList.add('open');
 }
 
+function extractCodeSuggestionFromNode(node) {
+  if (!node) return null;
+  const blocks = Array.from(node.querySelectorAll('pre code'))
+    .map((block, index) => {
+      const match = (block.className || '').match(/language-([\w-]+)/i);
+      return {
+        code: block.textContent || '',
+        label: match?.[1] || `code block ${index + 1}`
+      };
+    })
+    .filter(block => block.code.trim());
+  if (!blocks.length) return null;
+  return blocks.sort((a, b) => b.code.length - a.code.length)[0];
+}
+
+function previewSuggestedCode(node) {
+  const suggestion = extractCodeSuggestionFromNode(node);
+  const editor = document.getElementById('code-editor');
+  if (!suggestion || !editor) { toast('No code suggestion to preview'); return; }
+  const diff = lineDiff(editor.value, suggestion.code);
+  document.getElementById('diff-content').textContent = diff || 'No differences';
+  document.getElementById('diff-ov')?.classList.add('open');
+}
+
+function applySuggestedCode(node) {
+  const suggestion = extractCodeSuggestionFromNode(node);
+  const editor = document.getElementById('code-editor');
+  if (!suggestion || !editor) { toast('No code suggestion to apply'); return; }
+  snapshotCurrentCode('Before applying AI suggestion');
+  editor.value = suggestion.code;
+  const file = G.codeFiles.find(item => item.id === G.activeFile);
+  if (file) file.content = suggestion.code;
+  persistDraft();
+  renderSnapshotList();
+  toast('Applied AI suggestion');
+}
+
+function decorateCodeSuggestion(node) {
+  if (!node || node.dataset.suggestionActions === '1') return;
+  const suggestion = extractCodeSuggestionFromNode(node);
+  if (!suggestion) return;
+  node.dataset.suggestionActions = '1';
+  const bar = document.createElement('div');
+  bar.style.display = 'flex';
+  bar.style.flexWrap = 'wrap';
+  bar.style.gap = '8px';
+  bar.style.marginTop = '10px';
+  const applyBtn = document.createElement('button');
+  applyBtn.className = 'btn btn-p btn-sm';
+  applyBtn.textContent = 'Apply to Editor';
+  applyBtn.onclick = () => applySuggestedCode(node);
+  const diffBtn = document.createElement('button');
+  diffBtn.className = 'btn btn-g btn-sm';
+  diffBtn.textContent = 'Preview Diff';
+  diffBtn.onclick = () => previewSuggestedCode(node);
+  const label = document.createElement('div');
+  label.style.fontSize = '11px';
+  label.style.color = 'var(--mu)';
+  label.style.alignSelf = 'center';
+  label.textContent = `Ready from ${suggestion.label}`;
+  bar.append(applyBtn, diffBtn, label);
+  node.appendChild(bar);
+}
+
 async function toggleReaction(messageId, emoji) {
   if (!G.sharedCode || !G.user?.token) return;
   try {
@@ -2788,7 +2952,8 @@ addMsg = function(role, content, animate=true) {
   if (role === 'ai') {
     const bubble = wrap.querySelector('.bubble');
     if (bubble && G.pendingTrustMeta) {
-      bubble.insertAdjacentHTML('afterbegin', trustPillsHTML(G.pendingTrustMeta));
+      const trustHtml = trustPillsHTML(G.pendingTrustMeta);
+      if (trustHtml) bubble.insertAdjacentHTML('afterbegin', trustHtml);
       G.pendingTrustMeta = null;
     }
     const acts = wrap.querySelector('.mactions');
@@ -2901,6 +3066,12 @@ addSharedMsg = function(role, content, userName, userToken, animate=true, messag
   const normalized = message ? normalizeSharedMessage(message) : null;
   const wrap = _origAddSharedMsg(role, content, userName, userToken, animate);
   if (!wrap) return wrap;
+  if (role === 'assistant' && G.pendingTrustMeta) {
+    const bubble = wrap.querySelector('.bubble');
+    const trustHtml = trustPillsHTML(G.pendingTrustMeta);
+    if (bubble && trustHtml) bubble.insertAdjacentHTML('afterbegin', trustHtml);
+    G.pendingTrustMeta = null;
+  }
   if (normalized) {
     const bubble = wrap.querySelector('.bubble');
     if (bubble) {
@@ -2917,6 +3088,8 @@ const _origSendCodeMsg = sendCodeMsg;
 sendCodeMsg = async function() {
   snapshotCurrentCode('Before AI request');
   await _origSendCodeMsg();
+  const bubbles = Array.from(document.querySelectorAll('#code-ai-chat .cam.ai'));
+  decorateCodeSuggestion(bubbles.at(-1));
 };
 
 const _origSwitchCodeFile = switchCodeFile;
@@ -2947,24 +3120,52 @@ go = async function() {
     return;
   }
   if (!G.searchMode) {
-    G.pendingTrustMeta = { memory: !!G.memory, files: !!(G.attachedFiles || []).length, search: false };
+    G.pendingTrustMeta = buildLiveTrustMeta();
     await _origGo();
     return;
   }
   const inp=document.getElementById('mi'); const text=inp.value.trim(); if (!text||G.busy) return;
   inp.value=''; resize(inp); G.busy=true; document.getElementById('send').disabled=true;
   addMsg('user',text); addTyping();
-  let ctx='';
-  try { const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})}); const d=await r.json(); if(d.results?.length)ctx='\n\nWeb search results:\n'+d.results.map((r,i)=>`[${i+1}] ${r.title}\n${r.content||r.snippet||''}`).filter(Boolean).join('\n\n'); else if(d.warning)ctx='\n\n'+d.warning; } catch { ctx='\n\n(Web search unavailable)'; }
+  let results=[]; let warning='';
+  try {
+    const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
+    const d=await r.json();
+    results=d.results||[];
+    warning=d.warning||'';
+  } catch {
+    warning='Web search was unavailable for this message.';
+  }
   rmTyping(); G.busy=false; document.getElementById('send').disabled=false;
   const wasSearchMode = G.searchMode;
+  const originalFetch = window.fetch;
+  let injected = false;
   G.searchMode = false;
   syncSearchUI();
-  G.pendingTrustMeta = { memory: !!G.memory, files: !!(G.attachedFiles || []).length, search: true };
-  inp.value=`${text}${ctx}`;
-  await _origGo();
-  G.searchMode = wasSearchMode;
-  syncSearchUI();
+  G.pendingTrustMeta = buildSearchTrustMeta(text, results, warning);
+  const searchContext = buildSearchContext(text, results, warning);
+  window.fetch = async function(resource, init) {
+    const url = typeof resource === 'string' ? resource : resource?.url || '';
+    if (!injected && init?.body && typeof url === 'string' && url.includes('/api/chat')) {
+      try {
+        const payload = JSON.parse(init.body);
+        if (Array.isArray(payload.messages)) {
+          payload.messages = [{ role:'system', content:searchContext }, ...payload.messages];
+          init = { ...init, body:JSON.stringify(payload) };
+          injected = true;
+        }
+      } catch {}
+    }
+    return originalFetch.call(this, resource, init);
+  };
+  try {
+    inp.value=text;
+    await _origGo();
+  } finally {
+    window.fetch = originalFetch;
+    G.searchMode = wasSearchMode;
+    syncSearchUI();
+  }
 };
 
 // ── Extra keyboard shortcuts ─────────────────────────

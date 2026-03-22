@@ -786,6 +786,20 @@ app.get('/api/shared/my/:userToken', requireUserAccess, async (req,res) => {
     res.json({sharedChats:r.rows.map(row=>({shareCode:row.share_code,title:row.title,creatorToken:row.creator_token,isOwner:row.creator_token===req.params.userToken,provider:row.provider,model:row.model,participantCount:parseInt(row.participant_count),updatedAt:row.updated_at}))});
   }catch(e){res.status(500).json({error:e.message});}
 });
+app.put('/api/shared/:shareCode', async (req,res) => {
+  const userToken=req.headers['x-user-token']||req.body?.userToken;
+  const nextTitle=(req.body?.title||'').trim();
+  if (!userToken) return res.status(400).json({error:'userToken required'});
+  if (!nextTitle) return res.status(400).json({error:'title required'});
+  if (!pool) return res.json({ok:true,title:nextTitle.slice(0,200)});
+  try{
+    const c=await pool.query('SELECT creator_token FROM shared_chats WHERE share_code=$1',[req.params.shareCode]);
+    if (!c.rows.length) return res.status(404).json({error:'Not found'});
+    if (c.rows[0].creator_token!==userToken) return res.status(403).json({error:'Only the owner can update this chat'});
+    const updated=await pool.query('UPDATE shared_chats SET title=$2,updated_at=NOW() WHERE share_code=$1 RETURNING share_code,title,provider,model,creator_token',[req.params.shareCode,nextTitle.slice(0,200)]);
+    res.json({ok:true,chat:{shareCode:updated.rows[0].share_code,title:updated.rows[0].title,provider:updated.rows[0].provider,model:updated.rows[0].model,creatorToken:updated.rows[0].creator_token}});
+  }catch(e){res.status(500).json({error:e.message});}
+});
 app.delete('/api/shared/:shareCode', async (req,res) => {
   // FIX: Accept userToken from header OR body for flexibility
   const userToken=req.headers['x-user-token']||req.body?.userToken;
