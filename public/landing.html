@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NOVA AI — Your Personal AI Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090b;--s1:#0f0f12;--s2:#17171b;--s3:#1f1f24;--b:rgba(255,255,255,.07);--ac:#7c3aed;--acl:#a855f7;--acg:rgba(124,58,237,.14);--tx:#f4f4f5;--tx2:#a1a1aa;--mu:#52525b;--gr:#22c55e;--yw:#f59e0b;--re:#ef4444}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font-family:'Syne',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--acl);text-decoration:none}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--mu);border-radius:2px}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;background:rgba(9,9,11,.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--b)}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-mark{width:34px;height:34px;border-radius:9px;background:var(--bg);border:2px solid var(--ac);display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px var(--acg)}
+.nav-mark svg{width:18px;height:18px}
+.nav-name{font-size:18px;font-weight:800;letter-spacing:.07em;color:var(--acl)}
+.nav-links{display:flex;align-items:center;gap:24px}
+.nav-links a{font-size:13px;font-weight:600;color:var(--tx2);transition:color .15s}
+.nav-links a:hover{color:var(--tx)}
+.nav-cta{display:flex;gap:8px}
+.btn-outline{padding:8px 18px;border:1px solid var(--b);border-radius:8px;font-size:13px;font-weight:700;color:var(--tx2);background:none;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-outline:hover{border-color:var(--bh);color:var(--tx)}
+.btn-primary{padding:8px 20px;background:var(--ac);border:none;border-radius:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;transition:all .18s}
+.btn-primary:hover{background:var(--acl);box-shadow:0 4px 16px var(--acg);transform:translateY(-1px)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:100px 24px 60px;text-align:center;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 30%,rgba(124,58,237,.18) 0%,transparent 70%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;background:var(--acg);border:1px solid rgba(124,58,237,.3);border-radius:999px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--acl);margin-bottom:24px;animation:fadeUp .6s ease}
+.hero-badge span{width:6px;height:6px;border-radius:50%;background:var(--acl);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.hero h1{font-size:clamp(40px,7vw,80px);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin-bottom:22px;animation:fadeUp .7s ease .1s both}
+.hero h1 span{background:linear-gradient(135deg,var(--ac),var(--acl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:clamp(16px,2vw,20px);color:var(--tx2);max-width:580px;line-height:1.65;margin-bottom:36px;animation:fadeUp .7s ease .2s both}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:60px;animation:fadeUp .7s ease .3s both}
+.btn-hero{padding:14px 32px;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s}
+.btn-hero-p{background:var(--ac);color:#fff;border:none}
+.btn-hero-p:hover{background:var(--acl);box-shadow:0 6px 24px var(--acg);transform:translateY(-2px)}
+.btn-hero-g{background:none;color:var(--tx2);border:1px solid var(--b)}
+.btn-hero-g:hover{border-color:rgba(255,255,255,.2);color:var(--tx)}
+.hero-preview{width:100%;max-width:860px;border-radius:16px;overflow:hidden;border:1px solid var(--b);box-shadow:0 32px 80px rgba(0,0,0,.8);animation:fadeUp .8s ease .4s both;background:var(--s1)}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--s1);border-bottom:1px solid var(--b)}
+.preview-dot{width:10px;height:10px;border-radius:50%}
+.preview-title{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu);margin-left:4px}
+.preview-body{padding:20px;display:flex;flex-direction:column;gap:12px;min-height:200px}
+.preview-msg{display:flex;gap:10px;max-width:75%}
+.preview-msg.ai{align-self:flex-start}
+.preview-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.preview-av{width:26px;height:26px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.preview-av.ai{background:var(--bg);border:2px solid var(--ac);color:var(--acl)}
+.preview-av.user{background:var(--s3);border:1px solid var(--b);color:var(--acl)}
+.preview-bub{padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.65;color:var(--tx2)}
+.preview-msg.ai .preview-bub{background:var(--s2);border:1px solid var(--b);border-top-left-radius:3px}
+.preview-msg.user .preview-bub{background:var(--s3);border:1px solid var(--b);border-top-right-radius:3px}
+.preview-bub code{background:var(--acg);color:var(--acl);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.preview-cursor{display:inline-block;width:2px;height:14px;background:var(--ac);margin-left:2px;animation:blink .8s infinite;vertical-align:text-bottom}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* SOCIAL PROOF */
+.proof{padding:40px 24px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap;border-top:1px solid var(--b);border-bottom:1px solid var(--b)}
+.proof-stat{text-align:center}
+.proof-val{font-size:28px;font-weight:800;color:var(--acl)}
+.proof-lbl{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--mu);margin-top:3px;text-transform:uppercase;letter-spacing:.08em}
+
+/* FEATURES */
+.section{padding:80px 24px;max-width:1100px;margin:0 auto}
+.section-label{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--acl);letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px;text-align:center}
+.section-title{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.02em;text-align:center;margin-bottom:12px;line-height:1.15}
+.section-sub{font-size:16px;color:var(--tx2);text-align:center;max-width:540px;margin:0 auto 52px;line-height:1.6}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.feat-card{background:var(--s1);border:1px solid var(--b);border-radius:16px;padding:24px;transition:all .2s;position:relative;overflow:hidden}
+.feat-card:hover{border-color:rgba(124,58,237,.3);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.feat-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--acg),transparent);opacity:0;transition:opacity .2s}
+.feat-card:hover::before{opacity:1}
+.feat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;position:relative}
+.feat-title{font-size:16px;font-weight:700;margin-bottom:8px;position:relative}
+.feat-desc{font-size:13px;color:var(--tx2);line-height:1.65;position:relative}
+
+/* PROVIDERS */
+.prov-row{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:40px}
+.prov-card{display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--s1);border:1px solid var(--b);border-radius:12px;transition:all .15s}
+.prov-card:hover{border-color:var(--bh);transform:translateY(-2px)}
+.prov-dot{width:10px;height:10px;border-radius:50%}
+.prov-name{font-size:14px;font-weight:700}
+.prov-badge{font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:4px;margin-left:4px}
+
+/* PRICING */
+.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:820px;margin:0 auto}
+.price-card{background:var(--s1);border:1px solid var(--b);border-radius:18px;padding:28px;display:flex;flex-direction:column;gap:16px;transition:all .2s}
+.price-card.featured{border-color:rgba(124,58,237,.5);background:linear-gradient(135deg,rgba(124,58,237,.08),var(--s1));box-shadow:0 8px 32px var(--acg)}
+.price-card:hover{transform:translateY(-3px)}
+.price-name{font-size:13px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em}
+.price-val{font-size:40px;font-weight:800;letter-spacing:-.02em}
+.price-val span{font-size:16px;font-weight:600;color:var(--tx2)}
+.price-desc{font-size:13px;color:var(--tx2);line-height:1.5}
+.price-features{display:flex;flex-direction:column;gap:8px;flex:1}
+.price-feat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2)}
+.price-feat svg{width:14px;height:14px;flex-shrink:0;color:var(--gr)}
+.feat-badge{display:inline-block;padding:2px 8px;background:var(--acg);border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--acl);margin-left:4px}
+
+/* FAQ */
+.faq-list{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.faq-item{background:var(--s1);border:1px solid var(--b);border-radius:12px;overflow:hidden}
+.faq-q{padding:16px 20px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;user-select:none}
+.faq-q:hover{background:var(--s2)}
+.faq-a{padding:0 20px;font-size:13px;color:var(--tx2);line-height:1.65;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease}
+.faq-item.open .faq-a{max-height:200px;padding:0 20px 16px}
+.faq-arrow{transition:transform .3s;flex-shrink:0}
+.faq-item.open .faq-arrow{transform:rotate(180deg)}
+
+/* CTA */
+.cta-section{padding:100px 24px;text-align:center;position:relative;overflow:hidden}
+.cta-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 50%,rgba(124,58,237,.2) 0%,transparent 70%);pointer-events:none}
+.cta-section h2{font-size:clamp(32px,5vw,56px);font-weight:800;letter-spacing:-.03em;margin-bottom:16px;position:relative}
+.cta-section p{font-size:16px;color:var(--tx2);max-width:480px;margin:0 auto 36px;line-height:1.65;position:relative}
+
+/* FOOTER */
+footer{padding:40px 24px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.footer-logo{display:flex;align-items:center;gap:8px}
+.footer-links{display:flex;gap:20px}
+.footer-links a{font-size:12px;color:var(--mu);transition:color .15s}
+.footer-links a:hover{color:var(--tx2)}
+.footer-copy{font-size:12px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+
+@media(max-width:640px){
+  nav{padding:12px 16px}
+  .nav-links{display:none}
+  .hero{padding:80px 16px 40px}
+  .proof{gap:24px}
+  .section{padding:56px 16px}
+  footer{flex-direction:column;align-items:flex-start;gap:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19V5l7 9 7-9v14" stroke="var(--ac)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="nav-name">NOVA</div>
+  </div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#providers">Providers</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="nav-cta">
+    <a href="/app"><button class="btn-outline">Sign In</button></a>
+    <a href="/app"><button class="btn-primary">Get Started Free</button></a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge"><span></span>Powered by Groq · Cohere · Ollama</div>
+  <h1>The AI assistant<br/>that <span>actually gets you</span></h1>
+  <p class="hero-sub">NOVA remembers who you are, learns from every conversation, and gets smarter the more you use it. Fast, private, endlessly customizable.</p>
+  <div class="hero-actions">
+    <a href="/app"><button class="btn-hero btn-hero-p">Start chatting free →</button></a>
+    <a href="#features"><button class="btn-hero btn-hero-g">See what it can do</button></a>
+  </div>
+  <div class="hero-preview">
+    <div class="preview-bar">
+      <div class="preview-dot" style="background:#ff5f57"></div>
+      <div class="preview-dot" style="background:#ffbd2e"></div>
+      <div class="preview-dot" style="background:#28c840"></div>
+      <div class="preview-title">NOVA AI — Chat</div>
+    </div>
+    <div class="preview-body">
+      <div class="preview-msg user"><div class="preview-av user">K</div><div class="preview-bub">Write me a Node.js API endpoint that validates JWT tokens and returns user data</div></div>
+      <div class="preview-msg ai"><div class="preview-av ai"><svg viewBox="0 0 24 24" fill="none" width="12" height="12"><path d="M5 19V5l7 9 7-9v14" stroke="var(--ac)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="preview-bub">Here's a clean implementation using <code>jsonwebtoken</code>:<br/><br/>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#7dd3fc">app</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#d4d4d8">.get('/me', verifyToken, (req, res) => {<br/>&nbsp;&nbsp;res.json({ user: req.user });<br/>});</span>
+          <span class="preview-cursor"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<div class="proof">
+  <div class="proof-stat"><div class="proof-val">3</div><div class="proof-lbl">AI Providers</div></div>
+  <div class="proof-stat"><div class="proof-val">∞</div><div class="proof-lbl">Messages</div></div>
+  <div class="proof-stat"><div class="proof-val">0ms</div><div class="proof-lbl">Setup Time</div></div>
+  <div class="proof-stat"><div class="proof-val">100%</div><div class="proof-lbl">Private</div></div>
+</div>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="section-label">Everything you need</div>
+  <h2 class="section-title">Built different from the start</h2>
+  <p class="section-sub">Not just another ChatGPT wrapper. NOVA is a full-featured AI platform with tools that actually make you more productive.</p>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon" style="background:var(--acg)">🧠</div>
+      <div class="feat-title">Persistent Memory</div>
+      <div class="feat-desc">NOVA remembers your name, preferences, and context across every conversation. The more you use it, the smarter it gets about you.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(245,158,11,.12)">📎</div>
+      <div class="feat-title">File Attachments</div>
+      <div class="feat-desc">Attach PDFs, code files, CSVs and more. NOVA reads and reasons over your files, extracting insights and answering questions about them.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(6,182,212,.1)">🤖</div>
+      <div class="feat-title">Autonomous Agent</div>
+      <div class="feat-desc">Give NOVA a complex task and walk away. The Agent breaks it into steps, searches the web, saves findings to memory, and delivers results.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(34,197,94,.1)">🔍</div>
+      <div class="feat-title">Web Search</div>
+      <div class="feat-desc">Toggle web search on and NOVA will find current information before answering. No more outdated answers about recent events.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(239,68,68,.1)">🎨</div>
+      <div class="feat-title">Artifact Rendering</div>
+      <div class="feat-desc">When NOVA writes HTML or SVG, it renders live in the chat window. See your code running instantly without leaving the conversation.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(168,85,247,.12)">💻</div>
+      <div class="feat-title">Code Mode</div>
+      <div class="feat-desc">A full split-pane editor with AI assistance. Write code, ask NOVA to review it, and get instant feedback in the panel beside your editor.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:var(--acg)">🔊</div>
+      <div class="feat-title">Text to Speech</div>
+      <div class="feat-desc">Every AI response can be read aloud using natural-sounding voices powered by OpenAI TTS, with browser fallback for instant use.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(245,158,11,.1)">📋</div>
+      <div class="feat-title">Prompt Library</div>
+      <div class="feat-desc">Save your best prompts, organize by category, and reuse them in one click. Your personal collection of AI workflows, always at hand.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(34,197,94,.1)">🔑</div>
+      <div class="feat-title">Bring Your Own Key</div>
+      <div class="feat-desc">Use your own Groq or Cohere API keys so your usage never counts against shared limits. Keys stored server-side, never in your browser.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROVIDERS -->
+<section class="section" id="providers" style="padding-top:0">
+  <div class="section-label">Providers</div>
+  <h2 class="section-title">Best-in-class models</h2>
+  <p class="section-sub">Switch between providers in one click. No vendor lock-in, no API juggling.</p>
+  <div class="prov-row">
+    <div class="prov-card"><div class="prov-dot" style="background:#f55036"></div><div><div class="prov-name">Groq</div><div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu)">Llama · Mixtral · Gemma</div></div><span class="prov-badge" style="background:rgba(245,80,54,.1);color:#f55036;border:1px solid rgba(245,80,54,.2)">⚡ Fastest</span></div>
+    <div class="prov-card"><div class="prov-dot" style="background:#39d353"></div><div><div class="prov-name">Cohere</div><div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu)">Command R · Command R+</div></div><span class="prov-badge" style="background:rgba(57,211,83,.1);color:#39d353;border:1px solid rgba(57,211,83,.2)">🧠 Smartest</span></div>
+    <div class="prov-card"><div class="prov-dot" style="background:#06b6d4"></div><div><div class="prov-name">Ollama</div><div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mu)">Any local model</div></div><span class="prov-badge" style="background:rgba(6,182,212,.1);color:#06b6d4;border:1px solid rgba(6,182,212,.2)">🔒 Private</span></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-label">Pricing</div>
+  <h2 class="section-title">Simple, transparent pricing</h2>
+  <p class="section-sub">Start free, upgrade when you need more. No hidden fees, no per-message charges.</p>
+  <div class="price-grid">
+    <div class="price-card">
+      <div class="price-name">Free</div>
+      <div><div class="price-val">$0<span>/mo</span></div></div>
+      <div class="price-desc">Everything you need to get started.</div>
+      <div class="price-features">
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Unlimited messages</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>All 3 AI providers</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Persistent memory</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Chat history sync</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Code mode</div>
+      </div>
+      <a href="/app"><button class="btn-primary" style="width:100%;padding:12px">Get started free</button></a>
+    </div>
+    <div class="price-card featured">
+      <div style="display:flex;align-items:center;justify-content:space-between"><div class="price-name" style="color:var(--acl)">Pro</div><span style="padding:3px 9px;background:var(--acg);border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--acl);border:1px solid rgba(124,58,237,.3)">Most Popular</span></div>
+      <div><div class="price-val">$12<span>/mo</span></div></div>
+      <div class="price-desc">For power users who want it all.</div>
+      <div class="price-features">
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Everything in Free</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>File uploads <span class="feat-badge">NEW</span></div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Agent tasks <span class="feat-badge">NEW</span></div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Text-to-speech</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Image generation</div>
+        <div class="price-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Priority support</div>
+      </div>
+      <a href="/app"><button class="btn-primary" style="width:100%;padding:12px">Start Pro →</button></a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq" style="padding-top:0">
+  <div class="section-label">FAQ</div>
+  <h2 class="section-title">Common questions</h2>
+  <div class="faq-list">
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Do I need an API key to use NOVA?<svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">No — NOVA includes shared API keys for all providers so you can start immediately. If you want higher limits or to use your own quota, you can add your own key in Settings → BYOK Keys.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Is my data private?<svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Your conversations are stored in a private database only you and the admin can access. We don't sell data or use your conversations to train models. You can export or delete your data at any time from Settings.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">What's the difference between Chat and Agent mode?<svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Chat is a standard back-and-forth conversation. Agent mode lets NOVA work autonomously — it breaks your task into steps, searches the web for information, saves findings, and delivers a complete result without you needing to guide every step.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">Can I use NOVA with local models?<svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Yes. NOVA supports Ollama out of the box. Install Ollama, run <code style="background:rgba(255,255,255,.07);padding:1px 6px;border-radius:4px;font-size:12px">ollama serve</code>, and select Ollama as your provider. All processing stays on your machine.</div>
+    </div>
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">What file types can I attach?<svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">PDFs, plain text, Markdown, code files (JS, TS, Python, JSON, CSV, HTML, CSS), and more. Max 5MB per file, up to 5 files per message. NOVA extracts and reads the text content to answer your questions.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-bg"></div>
+  <h2>Start building with<br/><span style="background:linear-gradient(135deg,var(--ac),var(--acl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">NOVA today</span></h2>
+  <p>Free forever. No credit card required. Just sign in and start chatting.</p>
+  <a href="/app"><button class="btn-hero btn-hero-p" style="font-size:16px;padding:16px 40px">Get started for free →</button></a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="nav-mark" style="width:28px;height:28px;border-radius:7px"><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M5 19V5l7 9 7-9v14" stroke="var(--ac)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <span style="font-size:15px;font-weight:800;letter-spacing:.06em;color:var(--acl)">NOVA</span>
+  </div>
+  <div class="footer-links">
+    <a href="/app">App</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="footer-copy">© 2025 NOVA AI. All rights reserved.</div>
+</footer>
+
+</body>
+</html>
