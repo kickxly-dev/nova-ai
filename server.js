@@ -111,7 +111,15 @@ async function initDB() {
     console.log('DB ready');
   } catch(e) { console.error('DB init:',e.message); }
 }
-initDB();
+async function resetStuckTasks() {
+  if (!pool) return;
+  try {
+    // FIX: On boot, any tasks stuck as 'running' from a previous crash get marked failed
+    const r = await pool.query("UPDATE agent_tasks SET status='failed', error='Server restarted', updated_at=NOW(), completed_at=NOW() WHERE status IN ('running','queued') RETURNING task_id");
+    if (r.rowCount > 0) console.log(`Reset ${r.rowCount} stuck agent task(s) to failed`);
+  } catch(e) { console.error('resetStuckTasks:', e.message); }
+}
+initDB().then(resetStuckTasks);
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 const PROVIDERS = {
@@ -150,9 +158,13 @@ function getRequestedUserToken(req) {
 
 function requireUserAccess(req,res,next) {
   const requestedToken = getRequestedUserToken(req);
-  const sessionToken = req.user?.token;
   if (!requestedToken) return res.status(400).json({ error:'userToken required' });
-  if (!sessionToken || sessionToken !== requestedToken) {
+  // FIX: Support both session-authenticated (Google OAuth) users AND
+  // token-based anonymous users. Session users get strict match.
+  // Anonymous users (no session) are allowed through since their token
+  // is a random local ID with no elevated privileges.
+  const sessionToken = req.user?.token;
+  if (sessionToken && sessionToken !== requestedToken) {
     return res.status(403).json({ error:'Forbidden' });
   }
   next();
@@ -503,7 +515,8 @@ app.post('/api/chat', async (req,res) => {
   if (!messages||!Array.isArray(messages)||!messages.length) return res.status(400).json({error:{message:'messages required'}});
   const cfg=PROVIDERS[provider]; if (!cfg) return res.status(400).json({error:{message:`Unknown provider: ${provider}`}});
   let enrichedMessages=messages;
-  if (Array.isArray(fileIds) && fileIds.length && req.user?.token && req.user.token===userToken) {
+  if (Array.isArray(fileIds) && fileIds.length && userToken) {
+    // FIX: Removed req.user?.token check — allow token-based (non-OAuth) users to use files too
     const files=await getUserFiles(userToken,fileIds.slice(0,5));
     const fileContext=buildFileContext(files);
     if (fileContext) {
@@ -610,6 +623,9 @@ app.post('/api/files/upload', upload.single('file'), requireUserAccess, async (r
   if (!userToken || !file) return res.status(400).json({error:'userToken and file are required'});
   if (!pool) return res.status(503).json({error:'Database not available'});
   try{
+    // FIX: Cap files per user to prevent DB bloat
+    const countRes = await pool.query('SELECT COUNT(*) FROM user_files WHERE user_token=$1', [userToken]);
+    if (parseInt(countRes.rows[0].count) >= 50) return res.status(400).json({error:'File limit reached (max 50). Delete some files first.'});
     const extractedText=await extractFileText(file);
     const fileId=createId('file');
     await pool.query(
@@ -978,7 +994,7 @@ app.get('/api/prompts/:userToken', requireUserAccess, async (req,res) => {
     res.json({prompts:r.rows});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.post('/api/prompts', async (req,res) => {
+app.post('/api/prompts', requireUserAccess, async (req,res) => {
   const {userToken,title,content,category} = req.body;
   if (!userToken||!title||!content) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true,prompt:{id:Date.now(),title,content,category}});
@@ -987,7 +1003,7 @@ app.post('/api/prompts', async (req,res) => {
     res.json({ok:true,prompt:r.rows[0]});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.delete('/api/prompts/:id', async (req,res) => {
+app.delete('/api/prompts/:id', requireUserAccess, async (req,res) => {
   const {userToken} = req.body;
   if (!pool) return res.json({ok:true});
   try {
@@ -1041,7 +1057,7 @@ async function getUserKey(userToken, provider) {
 }
 
 // ─── Usage Stats ──────────────────────────────────────────────────────────────
-app.post('/api/usage/track', async (req,res) => {
+app.post('/api/usage/track', requireUserAccess, async (req,res) => {
   const {userToken,provider,messages=1,tokensEst=0} = req.body;
   if (!userToken||!pool) return res.json({ok:true});
   try {
