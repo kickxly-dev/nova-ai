@@ -2571,7 +2571,9 @@ loadUserData = async function() {
   try { const r=await fetch(`/api/prompts/${G.user.token}`); const d=await r.json(); G.prompts=d.prompts||[]; updatePromptBadge(); } catch {}
   try {
     const r=await fetch(`/api/settings/${G.user.token}`); const d=await r.json(); G.userSettings=d.settings||{};
-    if (G.userSettings.search_enabled) { G.searchMode=true; document.getElementById('srch-btn')?.classList.add('on'); document.getElementById('sett-search')?.classList.add('on'); }
+    // FIX: Don't auto-enable search on load — it's a per-message toggle, not a persistent mode
+    // Just sync the settings toggle UI state without activating search
+    if (G.userSettings.search_enabled !== undefined) { document.getElementById('sett-search')?.classList.toggle('on', !!G.userSettings.search_enabled); }
     if (G.userSettings.tts_enabled) { G.ttsMode=true; document.getElementById('tts-btn')?.classList.add('on'); document.getElementById('sett-tts')?.classList.add('on'); document.getElementById('tts-vf').style.display='flex'; }
     if (G.userSettings.system_prompt) document.getElementById('sett-sysprompt').value=G.userSettings.system_prompt;
     if (G.userSettings.tts_voice) document.getElementById('sett-voice').value=G.userSettings.tts_voice;
@@ -4510,6 +4512,8 @@ const _origGo54 = go;
 go = async function() {
   // Remove old follow-ups when user sends a new message
   document.querySelectorAll('.follow-ups').forEach(el => el.remove());
+  // FIX: Inject relevant KB notes into context before sending
+  await injectKBContext();
   await _origGo54();
   // After response, schedule follow-up generation
   clearTimeout(_followUpTimer);
@@ -4536,4 +4540,110 @@ document.addEventListener('keydown', e => {
 });
 
 console.log('NOVA v5.4 — Welcome screen, timestamps, resizable sidebar, empty states, read receipts, smart follow-ups loaded ✓');
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// NOVA V5.4.1 — KB context injection + search mode fix
+// ═══════════════════════════════════════════════════════════════
+
+// Searches KB for notes relevant to the current message and
+// stores them in G._kbContext for the system prompt to pick up
+async function injectKBContext() {
+  G._kbContext = null;
+  if (!G.user?.token || !G.notes?.length) return;
+  const inp = document.getElementById('mi');
+  const query = inp?.value?.trim();
+  if (!query || query.length < 3) return;
+  try {
+    // Search notes locally first (fast, no network)
+    const q = query.toLowerCase();
+    const relevant = G.notes.filter(n =>
+      n.title?.toLowerCase().includes(q) ||
+      n.content?.toLowerCase().includes(q) ||
+      (n.tags||'').toLowerCase().includes(q)
+    ).slice(0, 3);
+
+    // If no local match, do server search
+    if (!relevant.length && G.notes.length > 10) {
+      const r = await fetch(`/api/notes/${G.user.token}?q=${encodeURIComponent(query.slice(0,80))}`, {
+        headers: {'x-user-token': G.user.token}
+      });
+      const d = await r.json();
+      if (d.notes?.length) {
+        G._kbContext = d.notes.slice(0,3).map(n =>
+          `**${n.title}**\n${n.content.slice(0,800)}`
+        ).join('\n\n---\n\n');
+      }
+      return;
+    }
+
+    if (relevant.length) {
+      G._kbContext = relevant.map(n =>
+        `**${n.title}**\n${n.content.slice(0,800)}`
+      ).join('\n\n---\n\n');
+    }
+  } catch {}
+}
+
+// Patch the core go() function to inject KB into system prompt
+// We do this by wrapping the fetch call to /api/chat
+const _origFetchForKB = window.fetch;
+const _kbPatchedFetch = async function(url, opts) {
+  if (typeof url === 'string' && url.includes('/api/chat') && opts?.body && G._kbContext) {
+    try {
+      const body = JSON.parse(opts.body);
+      if (body.messages?.length) {
+        // Find system message and append KB context
+        const sysIdx = body.messages.findIndex(m => m.role === 'system');
+        const kbSection = `\n\n---\n🧠 Relevant notes from user's Knowledge Base:\n${G._kbContext}\n---\n\nUse the above notes if they're relevant to the user's question. Don't mention the notes unless they actually help answer the question.`;
+        if (sysIdx >= 0) {
+          body.messages[sysIdx] = {
+            ...body.messages[sysIdx],
+            content: body.messages[sysIdx].content + kbSection
+          };
+        } else {
+          body.messages.unshift({role:'system', content:'You are NOVA.' + kbSection});
+        }
+        opts = {...opts, body: JSON.stringify(body)};
+        G._kbContext = null; // clear after use
+      }
+    } catch {}
+  }
+  return _origFetchForKB(url, opts);
+};
+
+// Only activate KB fetch patch when we have context to inject
+// (avoids patching every request unnecessarily)
+const _origGo_kb = go;
+go = async function() {
+  if (G._kbContext) window.fetch = _kbPatchedFetch;
+  try { await _origGo_kb(); }
+  finally { window.fetch = _origFetchForKB; G._kbContext = null; }
+};
+
+// Show a subtle indicator when KB context is being used
+const _origInjectKB = injectKBContext;
+injectKBContext = async function() {
+  await _origInjectKB();
+  if (G._kbContext) {
+    // Show small pill above input so user knows KB is active
+    const bar = document.getElementById('file-attach-bar');
+    if (bar) {
+      const existing = document.getElementById('kb-context-pill');
+      if (!existing) {
+        const pill = document.createElement('div');
+        pill.id = 'kb-context-pill';
+        pill.className = 'file-chip';
+        pill.style.cssText = 'background:var(--acg);border-color:rgba(124,58,237,.3);color:var(--acl)';
+        pill.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg> Using KB';
+        bar.appendChild(pill);
+        bar.classList.add('has-files');
+        setTimeout(() => { pill.remove(); if (!bar.querySelector('.file-chip')) bar.classList.remove('has-files'); }, 4000);
+      }
+    }
+  }
+};
+
+console.log('NOVA v5.4.1 — KB context injection + search mode fix loaded ✓');
 </script>
