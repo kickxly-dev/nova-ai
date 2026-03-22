@@ -1227,7 +1227,7 @@ G.searchMode=false;G.searchResults=null;
 
 function toggleSearch(){
   G.searchMode=!G.searchMode;
-  document.getElementById('searchbtn')?.classList.toggle('on',G.searchMode);
+  syncSearchUI();
   if(G.searchMode){
     toast('🔍 Search mode on - your next message will search the web');
     document.getElementById('mi').placeholder='Search the web...';
@@ -1262,7 +1262,7 @@ function toggleVoice(){
     return;
   }
   G.voiceMode=!G.voiceMode;
-  document.getElementById('voicebtn')?.classList.toggle('on',G.voiceMode);
+  syncVoiceUI();
   if(G.voiceMode){
     toast('🎤 Voice mode on - click mic to speak');
     document.getElementById('mi').placeholder='Click mic or press Space to speak...';
@@ -1290,6 +1290,7 @@ function startVoice(){
   recognition.lang='en-US';
   
   document.getElementById('voicebtn')?.classList.add('active');
+  document.getElementById('voice-btn')?.classList.add('active');
   document.getElementById('mi').placeholder='Listening...';
   document.getElementById('mi').value='';
   
@@ -1300,6 +1301,7 @@ function startVoice(){
   
   recognition.onend=()=>{
     document.getElementById('voicebtn')?.classList.remove('active');
+    document.getElementById('voice-btn')?.classList.remove('active');
     const text=document.getElementById('mi').value.trim();
     if(text&&G.voiceMode){
       go();
@@ -1310,6 +1312,7 @@ function startVoice(){
   
   recognition.onerror=e=>{
     document.getElementById('voicebtn')?.classList.remove('active');
+    document.getElementById('voice-btn')?.classList.remove('active');
     if(e.error!=='aborted')toast('Voice error: '+e.error);
   };
   
@@ -1385,7 +1388,8 @@ async function go(){
     if(results.length){
       let searchHtml='<div class="search-results"><strong>Search results:</strong><ul>';
       results.forEach(r=>{
-        searchHtml+=`<li><a href="https://${r.url}" target="_blank">${esc(r.title)}</a><p>${esc(r.snippet)}</p></li>`;
+        const resultUrl=/^https?:\/\//i.test(r.url)?r.url:`https://${r.url}`;
+        searchHtml+=`<li><a href="${resultUrl}" target="_blank" rel="noopener noreferrer">${esc(r.title)}</a><p>${esc(r.snippet)}</p></li>`;
       });
       searchHtml+='</ul></div>';
       
@@ -1827,7 +1831,7 @@ function stopSharedPoll(){
 async function pollSharedMessages(){
   if(!G.sharedCode||G.busy)return;
   try{
-    const r=await fetch(`/api/shared/poll/${G.sharedCode}/${G.sharedLastId}`);
+    const r=await fetch(`/api/shared/poll/${G.sharedCode}/${G.sharedLastId}?userToken=${encodeURIComponent(G.user.token)}`);
     if(!r.ok)return;
     const d=await r.json();
     if(d.messages?.length){
@@ -2144,9 +2148,6 @@ boot();
   </div>
 </div>
 
-</body>
-</html>
-
 <script>
 // ═══════════════════════════════════════════════════
 // NOVA V5 — All new feature JS (clean separate block)
@@ -2172,6 +2173,23 @@ function settTab(tab, btn) {
   });
 }
 
+function syncSearchUI() {
+  document.getElementById('srch-btn')?.classList.toggle('on', !!G.searchMode);
+  document.getElementById('searchbtn')?.classList.toggle('on', !!G.searchMode);
+}
+
+function syncTTSUI() {
+  document.getElementById('tts-btn')?.classList.toggle('on', !!G.ttsMode);
+  document.getElementById('sett-tts')?.classList.toggle('on', !!G.ttsMode);
+  const voiceField = document.getElementById('tts-vf');
+  if (voiceField) voiceField.style.display = G.ttsMode ? 'flex' : 'none';
+}
+
+function syncVoiceUI() {
+  document.getElementById('voice-btn')?.classList.toggle('on', !!G.voiceMode);
+  document.getElementById('voicebtn')?.classList.toggle('on', !!G.voiceMode);
+}
+
 // ── BYOK + AI settings ──────────────────────────────
 async function saveAISett() {
   if (!G.user?.token) { toast('Sign in to save settings'); return; }
@@ -2180,8 +2198,8 @@ async function saveAISett() {
   const sys = document.getElementById('sett-sysprompt').value.trim();
   const voice = document.getElementById('sett-voice').value;
   G.searchMode = searchOn; G.ttsMode = ttsOn;
-  document.getElementById('srch-btn')?.classList.toggle('on', searchOn);
-  document.getElementById('tts-btn')?.classList.toggle('on', ttsOn);
+  syncSearchUI();
+  syncTTSUI();
   G.userSettings = {...G.userSettings, search_enabled:searchOn, tts_enabled:ttsOn, system_prompt:sys, tts_voice:voice};
   try { await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userToken:G.user.token, search_enabled:searchOn, tts_enabled:ttsOn, system_prompt:sys, tts_voice:voice})}); toast('AI settings saved ✓'); }
   catch { toast('Saved locally'); }
@@ -2202,8 +2220,8 @@ async function saveBYOK() {
 }
 
 // ── Toggle modes ────────────────────────────────────
-function toggleSearchMode() { G.searchMode = !G.searchMode; document.getElementById('srch-btn')?.classList.toggle('on', G.searchMode); toast(G.searchMode ? '🔍 Web search on' : 'Web search off'); }
-function toggleTTS() { G.ttsMode = !G.ttsMode; document.getElementById('tts-btn')?.classList.toggle('on', G.ttsMode); toast(G.ttsMode ? '🔊 TTS on' : 'TTS off'); }
+function toggleSearchMode() { G.searchMode = !G.searchMode; syncSearchUI(); toast(G.searchMode ? '🔍 Web search on' : 'Web search off'); }
+function toggleTTS() { G.ttsMode = !G.ttsMode; syncTTSUI(); toast(G.ttsMode ? '🔊 TTS on' : 'TTS off'); }
 
 // ── TTS ─────────────────────────────────────────────
 async function readAloud(btn, text) {
@@ -2409,8 +2427,8 @@ loadUserData = async function() {
   try { const r=await fetch(`/api/prompts/${G.user.token}`); const d=await r.json(); G.prompts=d.prompts||[]; updatePromptBadge(); } catch {}
   try {
     const r=await fetch(`/api/settings/${G.user.token}`); const d=await r.json(); G.userSettings=d.settings||{};
-    if (G.userSettings.search_enabled) { G.searchMode=true; document.getElementById('srch-btn')?.classList.add('on'); document.getElementById('sett-search')?.classList.add('on'); }
-    if (G.userSettings.tts_enabled) { G.ttsMode=true; document.getElementById('tts-btn')?.classList.add('on'); document.getElementById('sett-tts')?.classList.add('on'); document.getElementById('tts-vf').style.display='flex'; }
+    if (G.userSettings.search_enabled) { G.searchMode=true; document.getElementById('sett-search')?.classList.add('on'); syncSearchUI(); }
+    if (G.userSettings.tts_enabled) { G.ttsMode=true; syncTTSUI(); }
     if (G.userSettings.system_prompt) document.getElementById('sett-sysprompt').value=G.userSettings.system_prompt;
     if (G.userSettings.tts_voice) document.getElementById('sett-voice').value=G.userSettings.tts_voice;
     if (G.userSettings.byok_groq) document.getElementById('byok-groq-st').textContent='● Your key active';
@@ -2477,7 +2495,7 @@ function makeChatItem(c) {
   item.onclick=e=>{ if (!e.target.closest('.ci-menu')) loadChatById(c.id); };
   return item;
 }
-function loadChatById(id) { const c=G.chats.find(c=>c.id===id); if(!c)return; G.chatId=id; G.history=c.history||[]; const area=document.getElementById('chat'); area.innerHTML=''; G.history.forEach(m=>{if(m.role!=='system')addMsg(m.role==='user'?'user':'ai',m.content,false);}); renderChatList(); closeDrawer(); switchView('chat'); area.scrollTop=area.scrollHeight; }
+function loadChatById(id) { return loadChat(id); }
 
 // ── Override: saveChat (track usage) ────────────────
 const _origSaveChat = saveChat;
@@ -2496,7 +2514,13 @@ go = async function() {
   let ctx='';
   try { const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})}); const d=await r.json(); if(d.results?.length)ctx='\n\nWeb search results:\n'+d.results.map((r,i)=>`[${i+1}] ${r.title}\n${r.content||r.snippet||''}`).filter(Boolean).join('\n\n'); else if(d.warning)ctx='\n\n'+d.warning; } catch { ctx='\n\n(Web search unavailable)'; }
   rmTyping(); G.busy=false; document.getElementById('send').disabled=false;
-  inp.value=text+ctx; await _origGo();
+  const wasSearchMode = G.searchMode;
+  G.searchMode = false;
+  syncSearchUI();
+  inp.value=`${text}${ctx}`;
+  await _origGo();
+  G.searchMode = wasSearchMode;
+  syncSearchUI();
 };
 
 // ── Extra keyboard shortcuts ─────────────────────────
@@ -2532,3 +2556,5 @@ document.addEventListener('DOMContentLoaded', () => {
   ['st-ai','st-keys','st-account'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
 });
 </script>
+</body>
+</html>

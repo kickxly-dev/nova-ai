@@ -121,6 +121,20 @@ const requireAdmin = (req,res,next) => {
   res.status(403).json({ error:'Unauthorized' });
 };
 
+function getRequestedUserToken(req) {
+  return req.params.userToken || req.body?.userToken || req.query?.userToken || req.headers['x-user-token'];
+}
+
+function requireUserAccess(req,res,next) {
+  const requestedToken = getRequestedUserToken(req);
+  const sessionToken = req.user?.token;
+  if (!requestedToken) return res.status(400).json({ error:'userToken required' });
+  if (!sessionToken || sessionToken !== requestedToken) {
+    return res.status(403).json({ error:'Forbidden' });
+  }
+  next();
+}
+
 app.post('/api/admin/verify', (req,res) => {
   const t = req.body?.token;
   res.json({ valid: !!(t && process.env.ADMIN_TOKEN && t === process.env.ADMIN_TOKEN) });
@@ -362,19 +376,19 @@ app.post('/api/chat', async (req,res) => {
 });
 
 // ─── Memory ───────────────────────────────────────────────────────────────────
-app.get('/api/memory/:userToken', async (req,res) => {
+app.get('/api/memory/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({memory:''});
   try{const r=await pool.query('SELECT content FROM memories WHERE user_token=$1',[req.params.userToken]);res.json({memory:r.rows[0]?.content||''});}
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/memory', async (req,res) => {
+app.post('/api/memory', requireUserAccess, async (req,res) => {
   const {userToken,content}=req.body;
   if (!userToken) return res.status(400).json({error:'userToken required'});
   if (!pool) return res.json({ok:true});
   try{await pool.query(`INSERT INTO memories (user_token,content) VALUES ($1,$2) ON CONFLICT (user_token) DO UPDATE SET content=$2,updated_at=NOW()`,[userToken,(content||'').slice(0,5000)]);res.json({ok:true});}
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/memory/learn', async (req,res) => {
+app.post('/api/memory/learn', requireUserAccess, async (req,res) => {
   const {userToken,conversation}=req.body;
   if (!userToken||!conversation) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -398,7 +412,7 @@ app.post('/api/memory/learn', async (req,res) => {
 // ─── Chats ────────────────────────────────────────────────────────────────────
 // FIX: Restored full history join — previous version returned empty history arrays,
 // breaking chat history loading for all logged-in users
-app.get('/api/chats/:userToken', async (req,res) => {
+app.get('/api/chats/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({chats:[]});
   try{
     const r=await pool.query(
@@ -411,12 +425,22 @@ app.get('/api/chats/:userToken', async (req,res) => {
     res.json({chats:r.rows.map(row=>({id:row.chat_id,title:row.title,provider:row.provider,model:row.model,updatedAt:row.updated_at,history:row.history||[]}))});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/chats/:userToken/:chatId/history', async (req,res) => {
+app.get('/api/chats/:userToken/:chatId/history', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({history:[]});
-  try{const r=await pool.query('SELECT role,content FROM chat_messages WHERE chat_id=$1 ORDER BY created_at',[req.params.chatId]);res.json({history:r.rows||[]});}
+  try{
+    const r=await pool.query(
+      `SELECT m.role,m.content
+       FROM chat_messages m
+       JOIN chats c ON c.chat_id=m.chat_id
+       WHERE m.chat_id=$1 AND c.user_token=$2
+       ORDER BY m.created_at`,
+      [req.params.chatId, req.params.userToken]
+    );
+    res.json({history:r.rows||[]});
+  }
   catch(e){res.status(500).json({error:e.message});}
 });
-app.post('/api/chats', async (req,res) => {
+app.post('/api/chats', requireUserAccess, async (req,res) => {
   const {userToken,chatId,title,history,provider,model}=req.body;
   if (!userToken||!chatId) return res.status(400).json({error:'Missing fields'});
   if (!pool) return res.json({ok:true});
@@ -427,7 +451,7 @@ app.post('/api/chats', async (req,res) => {
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.delete('/api/chats/:userToken/:chatId', async (req,res) => {
+app.delete('/api/chats/:userToken/:chatId', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({ok:true});
   try{await pool.query('DELETE FROM chats WHERE chat_id=$1 AND user_token=$2',[req.params.chatId,req.params.userToken]);res.json({ok:true});}
   catch(e){res.status(500).json({error:e.message});}
@@ -484,12 +508,16 @@ app.post('/api/shared/message', async (req,res) => {
 app.get('/api/shared/poll/:shareCode/:afterId', async (req,res) => {
   if (!pool) return res.json({messages:[],participants:[]});
   try{
+    const userToken = getRequestedUserToken(req);
+    if (!userToken) return res.status(400).json({error:'userToken required'});
+    const participantRes = await pool.query('SELECT 1 FROM shared_participants WHERE share_code=$1 AND user_token=$2',[req.params.shareCode,userToken]);
+    if (!participantRes.rows.length) return res.status(403).json({error:'Not a participant in this chat'});
     const msgsRes=await pool.query('SELECT id,user_token,user_name,role,content,created_at FROM shared_messages WHERE share_code=$1 AND id > $2 ORDER BY id ASC LIMIT 50',[req.params.shareCode,parseInt(req.params.afterId)||0]);
     const partsRes=await pool.query('SELECT user_token,user_name FROM shared_participants WHERE share_code=$1',[req.params.shareCode]);
     res.json({messages:msgsRes.rows,participants:partsRes.rows});
   }catch(e){res.status(500).json({error:e.message});}
 });
-app.get('/api/shared/my/:userToken', async (req,res) => {
+app.get('/api/shared/my/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({sharedChats:[]});
   try{
     const r=await pool.query(`SELECT s.share_code,s.title,s.creator_token,s.provider,s.model,s.updated_at,(SELECT COUNT(*) FROM shared_participants p WHERE p.share_code=s.share_code) as participant_count FROM shared_participants p JOIN shared_chats s ON p.share_code=s.share_code WHERE p.user_token=$1 AND s.is_active=true ORDER BY s.updated_at DESC LIMIT 20`,[req.params.userToken]);
@@ -597,7 +625,7 @@ app.delete('/api/admin/changelog/:id', requireAdmin, async (req,res) => {
 
 
 // ─── Folders ──────────────────────────────────────────────────────────────────
-app.get('/api/folders/:userToken', async (req,res) => {
+app.get('/api/folders/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({folders:[]});
   try {
     const f = await pool.query('SELECT * FROM folders WHERE user_token=$1 ORDER BY position,id', [req.params.userToken]);
@@ -650,7 +678,7 @@ app.post('/api/chats/:chatId/pin', async (req,res) => {
 });
 
 // ─── Chat Search ──────────────────────────────────────────────────────────────
-app.get('/api/search/chats', async (req,res) => {
+app.get('/api/search/chats', requireUserAccess, async (req,res) => {
   const {userToken,q} = req.query;
   if (!userToken||!q) return res.json({results:[]});
   if (!pool) return res.json({results:[]});
@@ -667,7 +695,7 @@ app.get('/api/search/chats', async (req,res) => {
 });
 
 // ─── Prompt Library ───────────────────────────────────────────────────────────
-app.get('/api/prompts/:userToken', async (req,res) => {
+app.get('/api/prompts/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({prompts:[]});
   try {
     const r = await pool.query('SELECT * FROM prompts WHERE user_token=$1 ORDER BY use_count DESC, created_at DESC', [req.params.userToken]);
@@ -698,7 +726,7 @@ app.post('/api/prompts/:id/use', async (req,res) => {
 });
 
 // ─── User Settings (system prompt, BYOK, TTS, search) ────────────────────────
-app.get('/api/settings/:userToken', async (req,res) => {
+app.get('/api/settings/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({settings:{}});
   try {
     const r = await pool.query('SELECT system_prompt,byok_groq,byok_cohere,search_enabled,tts_enabled,tts_voice FROM user_settings WHERE user_token=$1', [req.params.userToken]);
@@ -749,7 +777,7 @@ app.post('/api/usage/track', async (req,res) => {
     res.json({ok:true});
   } catch(e) { res.status(500).json({error:e.message}); }
 });
-app.get('/api/usage/:userToken', async (req,res) => {
+app.get('/api/usage/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({stats:[],totals:{}});
   try {
     const r = await pool.query(
@@ -775,7 +803,7 @@ function calcStreak(dates) {
 }
 
 // ─── Pinned Messages ──────────────────────────────────────────────────────────
-app.get('/api/pinned/:userToken', async (req,res) => {
+app.get('/api/pinned/:userToken', requireUserAccess, async (req,res) => {
   if (!pool) return res.json({pinned:[]});
   try {
     const r = await pool.query('SELECT p.*,c.title as chat_title FROM pinned_messages p JOIN chats c ON p.chat_id=c.chat_id WHERE p.user_token=$1 ORDER BY p.created_at DESC LIMIT 50', [req.params.userToken]);
@@ -801,7 +829,7 @@ app.delete('/api/pinned/:id', async (req,res) => {
 });
 
 // ─── Export Chat ──────────────────────────────────────────────────────────────
-app.get('/api/export/:userToken/:chatId', async (req,res) => {
+app.get('/api/export/:userToken/:chatId', requireUserAccess, async (req,res) => {
   if (!pool) return res.status(503).json({error:'No DB'});
   try {
     const c = await pool.query('SELECT title,provider,model,created_at FROM chats WHERE chat_id=$1 AND user_token=$2', [req.params.chatId,req.params.userToken]);
