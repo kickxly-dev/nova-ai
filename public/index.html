@@ -503,6 +503,16 @@ a{color:var(--acl);text-decoration:none}
 .kbd-desc{font-size:12px;color:var(--tx2)}
 .kbd-keys{display:flex;gap:3px}
 kbd{padding:3px 6px;background:var(--s3);border:1px solid var(--b);border-radius:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--tx2)}
+#labs-view .dash-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+#labs-view .dash-card{position:relative;overflow:hidden;background:linear-gradient(165deg,var(--s1),var(--s2));border-color:var(--b);box-shadow:0 8px 24px rgba(0,0,0,.18);transform:translateY(0) scale(1);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;animation:labsRise .46s cubic-bezier(.22,.88,.32,1) both;animation-delay:var(--labs-delay,0ms)}
+#labs-view .dash-card::before{content:'';position:absolute;inset:-1px;background:linear-gradient(120deg,transparent,rgba(124,58,237,.16),transparent);opacity:0;transition:opacity .25s ease}
+#labs-view .dash-card:hover{transform:translateY(-4px) scale(1.01);border-color:var(--bh);box-shadow:0 16px 34px rgba(0,0,0,.26)}
+#labs-view .dash-card:hover::before{opacity:1}
+#labs-view .dash-card .btn{transition:transform .16s ease,box-shadow .16s ease}
+#labs-view .dash-card .btn:hover{transform:translateY(-1px);box-shadow:0 8px 14px rgba(0,0,0,.18)}
+#labs-view textarea,#labs-view input,#labs-view select{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:9px 10px;color:var(--tx);outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+#labs-view textarea:focus,#labs-view input:focus,#labs-view select:focus{border-color:rgba(124,58,237,.45);box-shadow:0 0 0 3px var(--acg)}
+@keyframes labsRise{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:640px){.kbd-grid{grid-template-columns:1fr}.dash-grid{grid-template-columns:1fr 1fr}}
 
 </style>
@@ -2654,6 +2664,18 @@ function refreshLabsView(){
   renderTrustStatus();
   renderTeamRooms();
   renderAutoPilot();
+  animateLabsEntrance();
+}
+
+function animateLabsEntrance(){
+  const cards=Array.from(document.querySelectorAll('#labs-view .dash-card'));
+  cards.forEach((card,idx)=>{
+    card.style.setProperty('--labs-delay',`${Math.min(idx,16)*34}ms`);
+    card.style.animation='none';
+  });
+  requestAnimationFrame(()=>{
+    cards.forEach(card=>{card.style.animation='labsRise .46s cubic-bezier(.22,.88,.32,1) both';});
+  });
 }
 
 const CMD_ACTIONS = [
